@@ -1,0 +1,2104 @@
+{
+  "version": 1,
+  "source": "ng/seed/seed.sql",
+  "settings_defaults": {
+    "enabled": "1",
+    "gong_enabled": "1",
+    "doha_enabled": "1",
+    "relay_enabled": "0",
+    "gong_track": "ting",
+    "gong_volume": "90",
+    "gong_gap_seconds": "4",
+    "doha_time": "06:37",
+    "doha_volume": "75",
+    "doha_strategy": "legacy_modular",
+    "no_course_doha": "random",
+    "active_course_id": ""
+  },
+  "course_types": [
+    {
+      "id": 1,
+      "name": "10 Day",
+      "total_days": 11,
+      "anapana_days": 3
+    },
+    {
+      "id": 2,
+      "name": "20 Day",
+      "total_days": 21,
+      "anapana_days": 7
+    },
+    {
+      "id": 3,
+      "name": "30 Day",
+      "total_days": 31,
+      "anapana_days": 10
+    },
+    {
+      "id": 4,
+      "name": "45 Day (10A)",
+      "total_days": 46,
+      "anapana_days": 10
+    },
+    {
+      "id": 5,
+      "name": "STP",
+      "total_days": 8,
+      "anapana_days": 2
+    },
+    {
+      "id": 6,
+      "name": "3 Day",
+      "total_days": 3,
+      "anapana_days": 1
+    },
+    {
+      "id": 7,
+      "name": "2 Day",
+      "total_days": 2,
+      "anapana_days": 1
+    },
+    {
+      "id": 8,
+      "name": "1 Day",
+      "total_days": 0,
+      "anapana_days": 0
+    },
+    {
+      "id": 9,
+      "name": "STP (D9 Ending)",
+      "total_days": 9,
+      "anapana_days": 3
+    },
+    {
+      "id": 10,
+      "name": "45 Day (15A)",
+      "total_days": 46,
+      "anapana_days": 15
+    },
+    {
+      "id": 11,
+      "name": "Teen",
+      "total_days": 8,
+      "anapana_days": 2
+    },
+    {
+      "id": 12,
+      "name": "Gratitude",
+      "total_days": 15,
+      "anapana_days": 5
+    }
+  ],
+  "schedule_events": [
+    {
+      "course_type_id": 1,
+      "day_no": 0,
+      "time_local": "04:00",
+      "repeats": 16
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 0,
+      "time_local": "04:20",
+      "repeats": 12
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 0,
+      "time_local": "06:32",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 0,
+      "time_local": "07:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 0,
+      "time_local": "11:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 0,
+      "time_local": "17:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 0,
+      "time_local": "18:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 0,
+      "time_local": "21:00",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 1,
+      "time_local": "04:00",
+      "repeats": 16
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 1,
+      "time_local": "04:20",
+      "repeats": 12
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 1,
+      "time_local": "06:32",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 1,
+      "time_local": "07:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 1,
+      "time_local": "11:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 1,
+      "time_local": "12:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 1,
+      "time_local": "13:40",
+      "repeats": 1
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 1,
+      "time_local": "13:50",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 1,
+      "time_local": "17:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 1,
+      "time_local": "17:50",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 1,
+      "time_local": "21:00",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 4,
+      "time_local": "04:00",
+      "repeats": 16
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 4,
+      "time_local": "04:20",
+      "repeats": 12
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 4,
+      "time_local": "06:32",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 4,
+      "time_local": "07:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 4,
+      "time_local": "11:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 4,
+      "time_local": "12:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 4,
+      "time_local": "13:40",
+      "repeats": 1
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 4,
+      "time_local": "13:50",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 4,
+      "time_local": "17:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 4,
+      "time_local": "17:50",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 4,
+      "time_local": "21:00",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 10,
+      "time_local": "04:00",
+      "repeats": 16
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 10,
+      "time_local": "04:20",
+      "repeats": 12
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 10,
+      "time_local": "06:32",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 10,
+      "time_local": "07:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 10,
+      "time_local": "11:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 10,
+      "time_local": "12:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 10,
+      "time_local": "14:20",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 10,
+      "time_local": "17:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 10,
+      "time_local": "17:50",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 1,
+      "day_no": 10,
+      "time_local": "21:00",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 1,
+      "day_no": null,
+      "time_local": "04:00",
+      "repeats": 16
+    },
+    {
+      "course_type_id": 1,
+      "day_no": null,
+      "time_local": "04:20",
+      "repeats": 12
+    },
+    {
+      "course_type_id": 1,
+      "day_no": null,
+      "time_local": "06:32",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 1,
+      "day_no": null,
+      "time_local": "07:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 1,
+      "day_no": null,
+      "time_local": "11:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 1,
+      "day_no": null,
+      "time_local": "12:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 1,
+      "day_no": null,
+      "time_local": "14:10",
+      "repeats": 1
+    },
+    {
+      "course_type_id": 1,
+      "day_no": null,
+      "time_local": "14:20",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 1,
+      "day_no": null,
+      "time_local": "17:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 1,
+      "day_no": null,
+      "time_local": "17:50",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 1,
+      "day_no": null,
+      "time_local": "21:00",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 2,
+      "day_no": 0,
+      "time_local": "04:00",
+      "repeats": 16
+    },
+    {
+      "course_type_id": 2,
+      "day_no": 0,
+      "time_local": "04:20",
+      "repeats": 12
+    },
+    {
+      "course_type_id": 2,
+      "day_no": 0,
+      "time_local": "06:32",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 2,
+      "day_no": 0,
+      "time_local": "07:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 2,
+      "day_no": 0,
+      "time_local": "11:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 2,
+      "day_no": 0,
+      "time_local": "17:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 2,
+      "day_no": 0,
+      "time_local": "18:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 2,
+      "day_no": 0,
+      "time_local": "21:00",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 2,
+      "day_no": 21,
+      "time_local": "04:00",
+      "repeats": 16
+    },
+    {
+      "course_type_id": 2,
+      "day_no": 21,
+      "time_local": "04:20",
+      "repeats": 12
+    },
+    {
+      "course_type_id": 2,
+      "day_no": 21,
+      "time_local": "06:32",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 2,
+      "day_no": 21,
+      "time_local": "07:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 2,
+      "day_no": 21,
+      "time_local": "11:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 2,
+      "day_no": 21,
+      "time_local": "12:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 2,
+      "day_no": 21,
+      "time_local": "14:20",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 2,
+      "day_no": 21,
+      "time_local": "17:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 2,
+      "day_no": 21,
+      "time_local": "17:50",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 2,
+      "day_no": 21,
+      "time_local": "21:00",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 2,
+      "day_no": null,
+      "time_local": "04:00",
+      "repeats": 16
+    },
+    {
+      "course_type_id": 2,
+      "day_no": null,
+      "time_local": "04:20",
+      "repeats": 12
+    },
+    {
+      "course_type_id": 2,
+      "day_no": null,
+      "time_local": "06:32",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 2,
+      "day_no": null,
+      "time_local": "07:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 2,
+      "day_no": null,
+      "time_local": "09:00",
+      "repeats": 4
+    },
+    {
+      "course_type_id": 2,
+      "day_no": null,
+      "time_local": "11:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 2,
+      "day_no": null,
+      "time_local": "12:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 2,
+      "day_no": null,
+      "time_local": "14:20",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 2,
+      "day_no": null,
+      "time_local": "15:30",
+      "repeats": 4
+    },
+    {
+      "course_type_id": 2,
+      "day_no": null,
+      "time_local": "17:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 2,
+      "day_no": null,
+      "time_local": "17:50",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 2,
+      "day_no": null,
+      "time_local": "20:00",
+      "repeats": 4
+    },
+    {
+      "course_type_id": 2,
+      "day_no": null,
+      "time_local": "21:00",
+      "repeats": 4
+    },
+    {
+      "course_type_id": 3,
+      "day_no": 0,
+      "time_local": "04:00",
+      "repeats": 16
+    },
+    {
+      "course_type_id": 3,
+      "day_no": 0,
+      "time_local": "04:20",
+      "repeats": 12
+    },
+    {
+      "course_type_id": 3,
+      "day_no": 0,
+      "time_local": "06:32",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 3,
+      "day_no": 0,
+      "time_local": "07:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 3,
+      "day_no": 0,
+      "time_local": "11:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 3,
+      "day_no": 0,
+      "time_local": "17:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 3,
+      "day_no": 0,
+      "time_local": "18:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 3,
+      "day_no": 0,
+      "time_local": "21:00",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 3,
+      "day_no": null,
+      "time_local": "04:00",
+      "repeats": 16
+    },
+    {
+      "course_type_id": 3,
+      "day_no": null,
+      "time_local": "04:20",
+      "repeats": 12
+    },
+    {
+      "course_type_id": 3,
+      "day_no": null,
+      "time_local": "06:32",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 3,
+      "day_no": null,
+      "time_local": "07:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 3,
+      "day_no": null,
+      "time_local": "09:00",
+      "repeats": 4
+    },
+    {
+      "course_type_id": 3,
+      "day_no": null,
+      "time_local": "11:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 3,
+      "day_no": null,
+      "time_local": "12:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 3,
+      "day_no": null,
+      "time_local": "14:20",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 3,
+      "day_no": null,
+      "time_local": "15:30",
+      "repeats": 4
+    },
+    {
+      "course_type_id": 3,
+      "day_no": null,
+      "time_local": "17:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 3,
+      "day_no": null,
+      "time_local": "17:50",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 3,
+      "day_no": null,
+      "time_local": "20:00",
+      "repeats": 4
+    },
+    {
+      "course_type_id": 3,
+      "day_no": null,
+      "time_local": "21:00",
+      "repeats": 4
+    },
+    {
+      "course_type_id": 4,
+      "day_no": 0,
+      "time_local": "04:00",
+      "repeats": 16
+    },
+    {
+      "course_type_id": 4,
+      "day_no": 0,
+      "time_local": "04:20",
+      "repeats": 12
+    },
+    {
+      "course_type_id": 4,
+      "day_no": 0,
+      "time_local": "06:32",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 4,
+      "day_no": 0,
+      "time_local": "07:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 4,
+      "day_no": 0,
+      "time_local": "11:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 4,
+      "day_no": 0,
+      "time_local": "17:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 4,
+      "day_no": 0,
+      "time_local": "18:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 4,
+      "day_no": 0,
+      "time_local": "21:00",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 4,
+      "day_no": null,
+      "time_local": "04:00",
+      "repeats": 16
+    },
+    {
+      "course_type_id": 4,
+      "day_no": null,
+      "time_local": "04:20",
+      "repeats": 12
+    },
+    {
+      "course_type_id": 4,
+      "day_no": null,
+      "time_local": "06:32",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 4,
+      "day_no": null,
+      "time_local": "07:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 4,
+      "day_no": null,
+      "time_local": "09:00",
+      "repeats": 4
+    },
+    {
+      "course_type_id": 4,
+      "day_no": null,
+      "time_local": "11:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 4,
+      "day_no": null,
+      "time_local": "12:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 4,
+      "day_no": null,
+      "time_local": "14:20",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 4,
+      "day_no": null,
+      "time_local": "15:30",
+      "repeats": 4
+    },
+    {
+      "course_type_id": 4,
+      "day_no": null,
+      "time_local": "17:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 4,
+      "day_no": null,
+      "time_local": "17:50",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 4,
+      "day_no": null,
+      "time_local": "20:00",
+      "repeats": 4
+    },
+    {
+      "course_type_id": 4,
+      "day_no": null,
+      "time_local": "21:00",
+      "repeats": 4
+    },
+    {
+      "course_type_id": 5,
+      "day_no": 0,
+      "time_local": "04:00",
+      "repeats": 16
+    },
+    {
+      "course_type_id": 5,
+      "day_no": 0,
+      "time_local": "04:20",
+      "repeats": 12
+    },
+    {
+      "course_type_id": 5,
+      "day_no": 0,
+      "time_local": "06:32",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 5,
+      "day_no": 0,
+      "time_local": "07:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 5,
+      "day_no": 0,
+      "time_local": "11:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 5,
+      "day_no": 0,
+      "time_local": "17:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 5,
+      "day_no": 0,
+      "time_local": "18:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 5,
+      "day_no": 0,
+      "time_local": "21:00",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 5,
+      "day_no": 8,
+      "time_local": "04:00",
+      "repeats": 16
+    },
+    {
+      "course_type_id": 5,
+      "day_no": 8,
+      "time_local": "04:20",
+      "repeats": 12
+    },
+    {
+      "course_type_id": 5,
+      "day_no": 8,
+      "time_local": "06:32",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 5,
+      "day_no": 8,
+      "time_local": "07:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 5,
+      "day_no": 8,
+      "time_local": "11:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 5,
+      "day_no": 8,
+      "time_local": "14:20",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 5,
+      "day_no": 8,
+      "time_local": "17:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 5,
+      "day_no": 8,
+      "time_local": "17:50",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 5,
+      "day_no": 8,
+      "time_local": "21:00",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 5,
+      "day_no": null,
+      "time_local": "04:00",
+      "repeats": 16
+    },
+    {
+      "course_type_id": 5,
+      "day_no": null,
+      "time_local": "04:20",
+      "repeats": 12
+    },
+    {
+      "course_type_id": 5,
+      "day_no": null,
+      "time_local": "06:32",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 5,
+      "day_no": null,
+      "time_local": "07:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 5,
+      "day_no": null,
+      "time_local": "11:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 5,
+      "day_no": null,
+      "time_local": "12:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 5,
+      "day_no": null,
+      "time_local": "14:10",
+      "repeats": 1
+    },
+    {
+      "course_type_id": 5,
+      "day_no": null,
+      "time_local": "14:20",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 5,
+      "day_no": null,
+      "time_local": "17:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 5,
+      "day_no": null,
+      "time_local": "17:50",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 5,
+      "day_no": null,
+      "time_local": "21:00",
+      "repeats": 4
+    },
+    {
+      "course_type_id": 6,
+      "day_no": 0,
+      "time_local": "04:00",
+      "repeats": 16
+    },
+    {
+      "course_type_id": 6,
+      "day_no": 0,
+      "time_local": "04:20",
+      "repeats": 12
+    },
+    {
+      "course_type_id": 6,
+      "day_no": 0,
+      "time_local": "06:32",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 6,
+      "day_no": 0,
+      "time_local": "07:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 6,
+      "day_no": 0,
+      "time_local": "11:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 6,
+      "day_no": 0,
+      "time_local": "17:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 6,
+      "day_no": 0,
+      "time_local": "18:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 6,
+      "day_no": 0,
+      "time_local": "21:00",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 6,
+      "day_no": 1,
+      "time_local": "04:00",
+      "repeats": 16
+    },
+    {
+      "course_type_id": 6,
+      "day_no": 1,
+      "time_local": "04:20",
+      "repeats": 12
+    },
+    {
+      "course_type_id": 6,
+      "day_no": 1,
+      "time_local": "06:32",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 6,
+      "day_no": 1,
+      "time_local": "07:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 6,
+      "day_no": 1,
+      "time_local": "11:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 6,
+      "day_no": 1,
+      "time_local": "12:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 6,
+      "day_no": 1,
+      "time_local": "14:10",
+      "repeats": 1
+    },
+    {
+      "course_type_id": 6,
+      "day_no": 1,
+      "time_local": "14:20",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 6,
+      "day_no": 1,
+      "time_local": "17:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 6,
+      "day_no": 1,
+      "time_local": "17:50",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 6,
+      "day_no": 1,
+      "time_local": "21:00",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 6,
+      "day_no": 3,
+      "time_local": "04:00",
+      "repeats": 16
+    },
+    {
+      "course_type_id": 6,
+      "day_no": 3,
+      "time_local": "04:20",
+      "repeats": 12
+    },
+    {
+      "course_type_id": 6,
+      "day_no": 3,
+      "time_local": "06:32",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 6,
+      "day_no": 3,
+      "time_local": "07:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 6,
+      "day_no": 3,
+      "time_local": "11:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 6,
+      "day_no": 3,
+      "time_local": "13:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 6,
+      "day_no": 3,
+      "time_local": "17:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 6,
+      "day_no": 3,
+      "time_local": "17:50",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 6,
+      "day_no": 3,
+      "time_local": "21:00",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 6,
+      "day_no": null,
+      "time_local": "04:00",
+      "repeats": 16
+    },
+    {
+      "course_type_id": 6,
+      "day_no": null,
+      "time_local": "04:20",
+      "repeats": 12
+    },
+    {
+      "course_type_id": 6,
+      "day_no": null,
+      "time_local": "06:32",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 6,
+      "day_no": null,
+      "time_local": "07:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 6,
+      "day_no": null,
+      "time_local": "11:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 6,
+      "day_no": null,
+      "time_local": "12:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 6,
+      "day_no": null,
+      "time_local": "14:10",
+      "repeats": 1
+    },
+    {
+      "course_type_id": 6,
+      "day_no": null,
+      "time_local": "14:20",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 6,
+      "day_no": null,
+      "time_local": "17:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 6,
+      "day_no": null,
+      "time_local": "17:50",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 6,
+      "day_no": null,
+      "time_local": "21:00",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 7,
+      "day_no": 0,
+      "time_local": "04:00",
+      "repeats": 16
+    },
+    {
+      "course_type_id": 7,
+      "day_no": 0,
+      "time_local": "04:20",
+      "repeats": 12
+    },
+    {
+      "course_type_id": 7,
+      "day_no": 0,
+      "time_local": "06:32",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 7,
+      "day_no": 0,
+      "time_local": "07:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 7,
+      "day_no": 0,
+      "time_local": "11:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 7,
+      "day_no": 0,
+      "time_local": "17:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 7,
+      "day_no": 0,
+      "time_local": "18:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 7,
+      "day_no": 0,
+      "time_local": "21:00",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 7,
+      "day_no": 1,
+      "time_local": "04:00",
+      "repeats": 16
+    },
+    {
+      "course_type_id": 7,
+      "day_no": 1,
+      "time_local": "04:20",
+      "repeats": 12
+    },
+    {
+      "course_type_id": 7,
+      "day_no": 1,
+      "time_local": "06:32",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 7,
+      "day_no": 1,
+      "time_local": "07:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 7,
+      "day_no": 1,
+      "time_local": "11:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 7,
+      "day_no": 1,
+      "time_local": "12:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 7,
+      "day_no": 1,
+      "time_local": "13:40",
+      "repeats": 1
+    },
+    {
+      "course_type_id": 7,
+      "day_no": 1,
+      "time_local": "13:50",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 7,
+      "day_no": 1,
+      "time_local": "17:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 7,
+      "day_no": 1,
+      "time_local": "17:50",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 7,
+      "day_no": 1,
+      "time_local": "21:00",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 7,
+      "day_no": null,
+      "time_local": "04:00",
+      "repeats": 16
+    },
+    {
+      "course_type_id": 7,
+      "day_no": null,
+      "time_local": "04:20",
+      "repeats": 12
+    },
+    {
+      "course_type_id": 7,
+      "day_no": null,
+      "time_local": "06:32",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 7,
+      "day_no": null,
+      "time_local": "07:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 7,
+      "day_no": null,
+      "time_local": "11:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 7,
+      "day_no": null,
+      "time_local": "12:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 7,
+      "day_no": null,
+      "time_local": "17:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 7,
+      "day_no": null,
+      "time_local": "17:50",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 7,
+      "day_no": null,
+      "time_local": "21:00",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 8,
+      "day_no": 0,
+      "time_local": "04:00",
+      "repeats": 16
+    },
+    {
+      "course_type_id": 8,
+      "day_no": 0,
+      "time_local": "04:20",
+      "repeats": 12
+    },
+    {
+      "course_type_id": 8,
+      "day_no": 0,
+      "time_local": "06:32",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 8,
+      "day_no": 0,
+      "time_local": "08:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 8,
+      "day_no": 0,
+      "time_local": "11:05",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 8,
+      "day_no": 0,
+      "time_local": "12:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 8,
+      "day_no": 0,
+      "time_local": "17:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 8,
+      "day_no": 0,
+      "time_local": "17:50",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 8,
+      "day_no": 0,
+      "time_local": "21:00",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 9,
+      "day_no": 0,
+      "time_local": "04:00",
+      "repeats": 16
+    },
+    {
+      "course_type_id": 9,
+      "day_no": 0,
+      "time_local": "04:20",
+      "repeats": 12
+    },
+    {
+      "course_type_id": 9,
+      "day_no": 0,
+      "time_local": "06:32",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 9,
+      "day_no": 0,
+      "time_local": "07:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 9,
+      "day_no": 0,
+      "time_local": "11:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 9,
+      "day_no": 0,
+      "time_local": "17:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 9,
+      "day_no": 0,
+      "time_local": "18:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 9,
+      "day_no": 0,
+      "time_local": "21:00",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 9,
+      "day_no": 8,
+      "time_local": "04:00",
+      "repeats": 16
+    },
+    {
+      "course_type_id": 9,
+      "day_no": 8,
+      "time_local": "04:20",
+      "repeats": 12
+    },
+    {
+      "course_type_id": 9,
+      "day_no": 8,
+      "time_local": "06:32",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 9,
+      "day_no": 8,
+      "time_local": "07:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 9,
+      "day_no": 8,
+      "time_local": "11:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 9,
+      "day_no": 8,
+      "time_local": "14:20",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 9,
+      "day_no": 8,
+      "time_local": "17:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 9,
+      "day_no": 8,
+      "time_local": "17:50",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 9,
+      "day_no": 8,
+      "time_local": "21:00",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 9,
+      "day_no": null,
+      "time_local": "04:00",
+      "repeats": 16
+    },
+    {
+      "course_type_id": 9,
+      "day_no": null,
+      "time_local": "04:20",
+      "repeats": 12
+    },
+    {
+      "course_type_id": 9,
+      "day_no": null,
+      "time_local": "06:32",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 9,
+      "day_no": null,
+      "time_local": "07:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 9,
+      "day_no": null,
+      "time_local": "11:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 9,
+      "day_no": null,
+      "time_local": "12:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 9,
+      "day_no": null,
+      "time_local": "14:10",
+      "repeats": 1
+    },
+    {
+      "course_type_id": 9,
+      "day_no": null,
+      "time_local": "14:20",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 9,
+      "day_no": null,
+      "time_local": "17:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 9,
+      "day_no": null,
+      "time_local": "17:50",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 9,
+      "day_no": null,
+      "time_local": "21:00",
+      "repeats": 4
+    },
+    {
+      "course_type_id": 10,
+      "day_no": 0,
+      "time_local": "04:00",
+      "repeats": 16
+    },
+    {
+      "course_type_id": 10,
+      "day_no": 0,
+      "time_local": "04:20",
+      "repeats": 12
+    },
+    {
+      "course_type_id": 10,
+      "day_no": 0,
+      "time_local": "06:32",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 10,
+      "day_no": 0,
+      "time_local": "07:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 10,
+      "day_no": 0,
+      "time_local": "11:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 10,
+      "day_no": 0,
+      "time_local": "17:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 10,
+      "day_no": 0,
+      "time_local": "18:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 10,
+      "day_no": 0,
+      "time_local": "21:00",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 10,
+      "day_no": null,
+      "time_local": "04:00",
+      "repeats": 16
+    },
+    {
+      "course_type_id": 10,
+      "day_no": null,
+      "time_local": "04:20",
+      "repeats": 12
+    },
+    {
+      "course_type_id": 10,
+      "day_no": null,
+      "time_local": "06:32",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 10,
+      "day_no": null,
+      "time_local": "07:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 10,
+      "day_no": null,
+      "time_local": "09:00",
+      "repeats": 4
+    },
+    {
+      "course_type_id": 10,
+      "day_no": null,
+      "time_local": "11:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 10,
+      "day_no": null,
+      "time_local": "12:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 10,
+      "day_no": null,
+      "time_local": "14:20",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 10,
+      "day_no": null,
+      "time_local": "15:30",
+      "repeats": 4
+    },
+    {
+      "course_type_id": 10,
+      "day_no": null,
+      "time_local": "17:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 10,
+      "day_no": null,
+      "time_local": "17:50",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 10,
+      "day_no": null,
+      "time_local": "20:00",
+      "repeats": 4
+    },
+    {
+      "course_type_id": 10,
+      "day_no": null,
+      "time_local": "21:00",
+      "repeats": 4
+    },
+    {
+      "course_type_id": 11,
+      "day_no": 0,
+      "time_local": "04:00",
+      "repeats": 16
+    },
+    {
+      "course_type_id": 11,
+      "day_no": 0,
+      "time_local": "04:20",
+      "repeats": 12
+    },
+    {
+      "course_type_id": 11,
+      "day_no": 0,
+      "time_local": "06:30",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 11,
+      "day_no": 0,
+      "time_local": "07:50",
+      "repeats": 5
+    },
+    {
+      "course_type_id": 11,
+      "day_no": 0,
+      "time_local": "11:00",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 11,
+      "day_no": 0,
+      "time_local": "17:00",
+      "repeats": 5
+    },
+    {
+      "course_type_id": 11,
+      "day_no": 0,
+      "time_local": "19:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 11,
+      "day_no": 0,
+      "time_local": "21:00",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 11,
+      "day_no": null,
+      "time_local": "05:00",
+      "repeats": 16
+    },
+    {
+      "course_type_id": 11,
+      "day_no": null,
+      "time_local": "05:20",
+      "repeats": 12
+    },
+    {
+      "course_type_id": 11,
+      "day_no": null,
+      "time_local": "07:50",
+      "repeats": 5
+    },
+    {
+      "course_type_id": 11,
+      "day_no": null,
+      "time_local": "11:45",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 11,
+      "day_no": null,
+      "time_local": "13:35",
+      "repeats": 5
+    },
+    {
+      "course_type_id": 11,
+      "day_no": null,
+      "time_local": "14:20",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 11,
+      "day_no": null,
+      "time_local": "16:30",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 11,
+      "day_no": null,
+      "time_local": "17:50",
+      "repeats": 5
+    },
+    {
+      "course_type_id": 11,
+      "day_no": null,
+      "time_local": "21:00",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 12,
+      "day_no": 0,
+      "time_local": "04:00",
+      "repeats": 16
+    },
+    {
+      "course_type_id": 12,
+      "day_no": 0,
+      "time_local": "04:20",
+      "repeats": 12
+    },
+    {
+      "course_type_id": 12,
+      "day_no": 0,
+      "time_local": "06:32",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 12,
+      "day_no": 0,
+      "time_local": "07:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 12,
+      "day_no": 0,
+      "time_local": "11:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 12,
+      "day_no": 0,
+      "time_local": "17:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 12,
+      "day_no": 0,
+      "time_local": "18:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 12,
+      "day_no": 0,
+      "time_local": "21:00",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 12,
+      "day_no": 15,
+      "time_local": "04:00",
+      "repeats": 16
+    },
+    {
+      "course_type_id": 12,
+      "day_no": 15,
+      "time_local": "04:20",
+      "repeats": 12
+    },
+    {
+      "course_type_id": 12,
+      "day_no": 15,
+      "time_local": "06:32",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 12,
+      "day_no": 15,
+      "time_local": "07:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 12,
+      "day_no": 15,
+      "time_local": "11:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 12,
+      "day_no": 15,
+      "time_local": "12:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 12,
+      "day_no": 15,
+      "time_local": "14:20",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 12,
+      "day_no": 15,
+      "time_local": "17:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 12,
+      "day_no": 15,
+      "time_local": "17:50",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 12,
+      "day_no": 15,
+      "time_local": "21:00",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 12,
+      "day_no": null,
+      "time_local": "04:00",
+      "repeats": 16
+    },
+    {
+      "course_type_id": 12,
+      "day_no": null,
+      "time_local": "04:20",
+      "repeats": 12
+    },
+    {
+      "course_type_id": 12,
+      "day_no": null,
+      "time_local": "06:32",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 12,
+      "day_no": null,
+      "time_local": "07:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 12,
+      "day_no": null,
+      "time_local": "09:00",
+      "repeats": 4
+    },
+    {
+      "course_type_id": 12,
+      "day_no": null,
+      "time_local": "11:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 12,
+      "day_no": null,
+      "time_local": "12:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": 12,
+      "day_no": null,
+      "time_local": "14:20",
+      "repeats": 3
+    },
+    {
+      "course_type_id": 12,
+      "day_no": null,
+      "time_local": "15:30",
+      "repeats": 4
+    },
+    {
+      "course_type_id": 12,
+      "day_no": null,
+      "time_local": "17:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 12,
+      "day_no": null,
+      "time_local": "17:50",
+      "repeats": 6
+    },
+    {
+      "course_type_id": 12,
+      "day_no": null,
+      "time_local": "20:00",
+      "repeats": 4
+    },
+    {
+      "course_type_id": 12,
+      "day_no": null,
+      "time_local": "21:00",
+      "repeats": 4
+    },
+    {
+      "course_type_id": null,
+      "day_no": null,
+      "time_local": "04:00",
+      "repeats": 16
+    },
+    {
+      "course_type_id": null,
+      "day_no": null,
+      "time_local": "04:20",
+      "repeats": 12
+    },
+    {
+      "course_type_id": null,
+      "day_no": null,
+      "time_local": "06:32",
+      "repeats": 3
+    },
+    {
+      "course_type_id": null,
+      "day_no": null,
+      "time_local": "07:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": null,
+      "day_no": null,
+      "time_local": "11:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": null,
+      "day_no": null,
+      "time_local": "12:50",
+      "repeats": 8
+    },
+    {
+      "course_type_id": null,
+      "day_no": null,
+      "time_local": "14:20",
+      "repeats": 3
+    },
+    {
+      "course_type_id": null,
+      "day_no": null,
+      "time_local": "17:00",
+      "repeats": 6
+    },
+    {
+      "course_type_id": null,
+      "day_no": null,
+      "time_local": "17:50",
+      "repeats": 6
+    },
+    {
+      "course_type_id": null,
+      "day_no": null,
+      "time_local": "21:00",
+      "repeats": 3
+    }
+  ]
+}

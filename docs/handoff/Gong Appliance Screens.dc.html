@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/nocturne-e3d2e2aa-ed29-420d-8e06-f75ee1167700/styles.css">
+<script src="_ds/nocturne-e3d2e2aa-ed29-420d-8e06-f75ee1167700/_ds_bundle.js"></script>
+<style>
+body{margin:0;background:#0d0e17}
+.mono{font-family:ui-monospace,"SF Mono",Menlo,monospace}
+.navitem{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:var(--radius-sm);font-size:14px;cursor:pointer;color:var(--color-neutral-400);border:1px solid transparent}
+.navitem:hover{background:color-mix(in srgb,#968ae0 10%,transparent);color:var(--color-text)}
+.navitem[data-on="1"]{background:color-mix(in srgb,#968ae0 16%,transparent);border-color:var(--color-accent-700);color:var(--color-text)}
+.cell{height:44px;display:flex;align-items:center;justify-content:center;font-size:12.5px;cursor:pointer;border-right:1px solid color-mix(in srgb,#e9e9ed 7%,transparent);border-bottom:1px solid color-mix(in srgb,#e9e9ed 7%,transparent);color:var(--color-neutral-700);transition:background .12s}
+.cell:hover{background:color-mix(in srgb,#e9e9ed 7%,transparent)}
+.cell[data-fill="1"]{color:var(--color-accent-200);background:color-mix(in srgb,#968ae0 14%,transparent)}
+.cell[data-sel="1"]{box-shadow:inset 0 0 0 2px var(--color-accent);color:var(--color-text)}
+.chk{width:20px;height:20px;border-radius:4px;border:1px solid var(--color-neutral-700);display:flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer;color:transparent}
+.chk[data-on="1"]{background:color-mix(in srgb,#968ae0 26%,transparent);border-color:var(--color-accent);color:var(--color-accent-100)}
+.sel{appearance:none;background:var(--color-surface);color:var(--color-text);border:1px solid var(--color-neutral-800);border-radius:var(--radius-sm);padding:0 30px 0 11px;height:38px;font-size:13.5px;font-family:var(--font-body);cursor:pointer}
+.sel:hover{border-color:var(--color-accent-700)}
+.inp{background:var(--color-surface);color:var(--color-text);border:1px solid var(--color-neutral-800);border-radius:var(--radius-sm);padding:0 11px;height:38px;font-size:13.5px;font-family:ui-monospace,Menlo,monospace}
+.inp::placeholder{color:var(--color-neutral-700)}
+.rowdel{width:30px;height:30px;border-radius:var(--radius-sm);border:1px solid color-mix(in srgb,#e08a8a 34%,transparent);background:color-mix(in srgb,#e08a8a 12%,transparent);color:#e08a8a;font-size:13px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.rowdel:hover{background:color-mix(in srgb,#e08a8a 22%,transparent)}
+@keyframes strike{0%{transform:scale(1);opacity:.9}100%{transform:scale(2.3);opacity:0}}
+.ring{position:absolute;inset:0;border-radius:50%;border:2px solid var(--color-accent);animation:strike 1s ease-out forwards}
+@keyframes toastin{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+</style>
+</helmet>
+<div style="min-height:100vh;padding:44px;display:flex;flex-direction:column;align-items:center;gap:14px;font-family:var(--font-body)">
+
+<div style="width:1360px;display:flex;align-items:baseline;gap:12px">
+  <span class="tag tag-outline mono" style="font-size:10.5px">10&Prime; WALL TABLET · 1280×800</span>
+  <span style="font-size:12px;color:var(--color-neutral-500)">Input schemes ported from the NG admin UI — course types, nullable gap/track, master toggles, UTC play history</span>
+</div>
+
+<div style="width:1360px;padding:16px;border-radius:22px;background:linear-gradient(150deg,#2b2d3a,#191a24);box-shadow:var(--shadow-lg)">
+<div style="width:1328px;height:848px;border-radius:10px;overflow:hidden;background:var(--color-bg);display:flex;flex-direction:column;position:relative">
+
+  <div style="height:26px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 14px;background:#101120;font-size:11px;color:var(--color-neutral-500)">
+    <span class="mono">DhammaGong</span>
+    <div style="display:flex;gap:12px;align-items:center"><span class="mono">{{ clock }}</span><span>⏰</span><span>▮</span></div>
+  </div>
+
+  <sc-for list="{{ toast }}" as="t" hint-placeholder-count="0">
+    <div style="position:absolute;top:38px;left:50%;transform:translateX(-50%);z-index:9;padding:10px 18px;border-radius:var(--radius-md);background:color-mix(in srgb,#e0c07a 16%,#232532);border:1px solid color-mix(in srgb,#e0c07a 44%,transparent);color:#e0c07a;font-size:13.5px;animation:toastin .18s ease-out;box-shadow:var(--shadow-md)">{{ t.text }}</div>
+  </sc-for>
+
+  <div style="flex:1;display:flex;min-height:0">
+
+    <nav style="width:186px;flex:none;padding:14px 11px;border-right:1px solid var(--color-divider);display:flex;flex-direction:column;gap:3px;background:#13141f">
+      <div style="padding:4px 14px 12px;display:flex;flex-direction:column;gap:2px">
+        <div style="font-size:15px;letter-spacing:-.01em">Gong</div>
+        <div class="mono" style="font-size:10px;color:var(--color-neutral-600)">DHAMMA SUDHA</div>
+      </div>
+      <sc-for list="{{ nav }}" as="n" hint-placeholder-count="4">
+        <div class="navitem" data-on="{{ n.on }}" onClick="{{ n.go }}"><span style="font-size:15px;width:18px;text-align:center">{{ n.icon }}</span>{{ n.label }}</div>
+      </sc-for>
+      <div style="flex:1"></div>
+      <sc-for list="{{ locked }}" as="n" hint-placeholder-count="4">
+        <div class="navitem" style="opacity:.42;cursor:default"><span style="font-size:15px;width:18px;text-align:center">{{ n.icon }}</span>{{ n.label }}<span style="margin-left:auto;font-size:11px">🔒</span></div>
+      </sc-for>
+    </nav>
+
+    <main style="flex:1;min-width:0;display:flex;flex-direction:column">
+
+      <sc-if value="{{ isDash }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:1;display:flex;flex-direction:column;padding:26px 32px 20px;gap:22px;min-height:0">
+
+        <div style="display:flex;gap:32px;align-items:flex-start">
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+              <span style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-neutral-500)">Next gong</span>
+              <span class="tag tag-accent" style="font-size:10.5px">{{ nextName }}</span>
+            </div>
+            <div class="mono" style="font-size:98px;line-height:.92;letter-spacing:-.03em">{{ nextTime }}</div>
+            <div style="height:3px;width:214px;margin:14px 0 11px;background:var(--color-accent);border-radius:2px"></div>
+            <div style="display:flex;gap:24px;align-items:baseline">
+              <div class="mono" style="font-size:19px;color:var(--color-accent-300)">in {{ countdown }}</div>
+              <div style="font-size:13.5px;color:var(--color-neutral-500)">{{ nextDetail }}</div>
+            </div>
+          </div>
+
+          <div style="width:394px;flex:none;display:flex;flex-direction:column;gap:10px">
+            <div style="border-radius:var(--radius-md);padding:15px 17px;background:var(--color-surface);box-shadow:var(--shadow-sm)">
+              <div style="display:flex;align-items:baseline;justify-content:space-between">
+                <span style="font-size:17px">{{ courseType }} course — <span class="mono" style="font-size:27px;letter-spacing:-.02em">Day {{ day }}</span></span>
+                <span style="font-size:12px;color:var(--color-neutral-500)">of {{ totalDays }}</span>
+              </div>
+              <div style="font-size:12.5px;color:var(--color-neutral-400);margin-top:2px">zero day {{ startDate }} · Asia/Kolkata</div>
+              <div style="display:flex;gap:3px;margin-top:9px">
+                <sc-for list="{{ dayDots }}" as="d" hint-placeholder-count="11">
+                  <div style="height:5px;flex:1;border-radius:2px;background:{{ d.bg }}"></div>
+                </sc-for>
+              </div>
+              <div style="display:flex;align-items:center;gap:16px;margin-top:14px;padding-top:12px;border-top:1px solid color-mix(in srgb,#e9e9ed 8%,transparent)">
+                <sc-for list="{{ toggles }}" as="t" hint-placeholder-count="4">
+                  <div style="display:flex;align-items:center;gap:7px;cursor:pointer;opacity:{{ t.op }}" onClick="{{ t.go }}">
+                    <span class="chk" data-on="{{ t.on }}">✓</span>
+                    <span style="font-size:13px;color:var(--color-neutral-300)">{{ t.label }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="border-radius:var(--radius-md);padding:3px 17px;background:var(--color-surface);box-shadow:var(--shadow-sm)">
+              <sc-for list="{{ health }}" as="h" hint-placeholder-count="3">
+                <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid color-mix(in srgb,#e9e9ed 7%,transparent)">
+                  <span style="width:7px;height:7px;border-radius:50%;background:{{ h.dot }};flex:none"></span>
+                  <span style="font-size:12.5px;color:var(--color-neutral-500);width:100px;flex:none">{{ h.label }}</span>
+                  <span style="font-size:12.5px">{{ h.value }}</span>
+                </div>
+              </sc-for>
+              <div style="display:flex;align-items:center;gap:8px;padding:9px 0">
+                <span class="tag" style="font-size:10.5px;background:color-mix(in srgb,#e0c07a 16%,transparent);color:#e0c07a;border:1px solid color-mix(in srgb,#e0c07a 40%,transparent)">GONGS ONLY</span>
+                <span style="font-size:11.5px;color:var(--color-neutral-500)">0 / 11 doha slots mapped</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:32px;flex:1;min-height:0">
+          <div style="flex:1;min-width:0;min-height:0;display:flex;flex-direction:column">
+            <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-neutral-500);margin-bottom:6px">Next events</div>
+            <div style="display:flex;gap:24px;flex:1;min-height:0">
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;border-top:1px solid var(--color-divider);overflow-y:auto">
+                <sc-for list="{{ upcomingA }}" as="u" hint-placeholder-count="6">
+                  <div style="display:flex;align-items:center;gap:10px;padding:7px 2px;border-bottom:1px solid color-mix(in srgb,#e9e9ed 7%,transparent);opacity:{{ u.dim }}">
+                    <span style="font-size:12px;width:14px">{{ u.icon }}</span>
+                    <span class="mono" style="font-size:15px;width:52px;color:{{ u.color }}">{{ u.time }}</span>
+                    <span class="mono" style="font-size:11px;color:var(--color-neutral-600);width:76px">{{ u.date }}</span>
+                    <span style="font-size:12.5px;flex:1;color:var(--color-neutral-400);overflow:hidden;white-space:nowrap;text-overflow:ellipsis">{{ u.name }}</span>
+                    <span class="mono" style="font-size:12px;color:var(--color-neutral-500)">{{ u.strikes }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;border-top:1px solid var(--color-divider);overflow-y:auto">
+                <sc-for list="{{ upcomingB }}" as="u" hint-placeholder-count="6">
+                  <div style="display:flex;align-items:center;gap:10px;padding:7px 2px;border-bottom:1px solid color-mix(in srgb,#e9e9ed 7%,transparent);opacity:{{ u.dim }}">
+                    <span style="font-size:12px;width:14px">{{ u.icon }}</span>
+                    <span class="mono" style="font-size:15px;width:52px;color:{{ u.color }}">{{ u.time }}</span>
+                    <span class="mono" style="font-size:11px;color:var(--color-neutral-600);width:76px">{{ u.date }}</span>
+                    <span style="font-size:12.5px;flex:1;color:var(--color-neutral-400);overflow:hidden;white-space:nowrap;text-overflow:ellipsis">{{ u.name }}</span>
+                    <span class="mono" style="font-size:12px;color:var(--color-neutral-500)">{{ u.strikes }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+          <div style="width:394px;flex:none;display:flex;flex-direction:column;gap:12px;justify-content:flex-end">
+            <div style="display:flex;align-items:center;gap:16px">
+              <div style="position:relative;width:78px;height:78px;flex:none;border-radius:50%;border:1px solid var(--color-neutral-800);display:flex;align-items:center;justify-content:center">
+                <sc-for list="{{ rings }}" as="r" hint-placeholder-count="0"><span class="ring"></span></sc-for>
+                <span style="font-size:24px">🔔</span>
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+                <button class="btn btn-primary btn-block" style="height:50px;font-size:15px" onClick="{{ testGong }}">{{ gongBtn }}</button>
+                <div style="display:flex;gap:8px">
+                  <button class="btn btn-secondary" style="flex:1;height:42px;opacity:.45" onClick="{{ testDoha }}">Test doha</button>
+                  <button class="btn btn-ghost" style="flex:1;height:42px" onClick="{{ stopAll }}">■ Stop</button>
+                </div>
+              </div>
+            </div>
+            <div class="mono" style="font-size:11px;color:var(--color-neutral-600);line-height:1.6">Storage free 64,214 MB · last play: {{ lastPlay }}</div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ isCourses }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1;display:flex;flex-direction:column;padding:26px 32px 20px;min-height:0">
+        <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:14px">
+          <h3 style="margin:0;font-size:23px">Courses</h3>
+          <span style="font-size:12.5px;color:var(--color-neutral-500)">start date is zero day — arrival. The active course is the window that contains today.</span>
+        </div>
+
+        <div style="display:flex;gap:10px;align-items:center;padding:14px 16px;border-radius:var(--radius-md);background:var(--color-surface);box-shadow:var(--shadow-sm);margin-bottom:16px">
+          <select class="sel" style="width:190px" value="{{ newType }}" onChange="{{ setNewType }}">
+            <sc-for list="{{ typeOptions }}" as="t" hint-placeholder-count="13"><option value="{{ t.value }}">{{ t.label }}</option></sc-for>
+          </select>
+          <input class="inp" style="width:150px" type="date" value="{{ newDate }}" onChange="{{ setNewDate }}">
+          <input class="inp" style="flex:1;font-family:var(--font-body)" placeholder="note (optional)" value="{{ newNote }}" onChange="{{ setNewNote }}">
+          <button class="btn btn-primary" style="height:38px;padding:0 18px" onClick="{{ addCourse }}">Add course</button>
+        </div>
+
+        <div style="flex:1;overflow-y:auto;border-top:1px solid var(--color-divider)">
+          <div style="display:grid;grid-template-columns:150px 170px 1fr 92px 44px;padding:8px 4px;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-500);border-bottom:1px solid var(--color-divider);position:sticky;top:0;background:var(--color-bg)">
+            <span>Start (zero day)</span><span>Type</span><span>Note</span><span>Status</span><span></span>
+          </div>
+          <sc-for list="{{ courses }}" as="c" hint-placeholder-count="10">
+            <div style="display:grid;grid-template-columns:150px 170px 1fr 92px 44px;align-items:center;padding:7px 4px;border-bottom:1px solid color-mix(in srgb,#e9e9ed 7%,transparent);background:{{ c.bg }}">
+              <span class="mono" style="font-size:13.5px;color:{{ c.dateColor }}">{{ c.start }}</span>
+              <span style="font-size:13px;color:var(--color-neutral-300)">{{ c.type }}</span>
+              <span style="font-size:12.5px;color:var(--color-neutral-500)">{{ c.note }}</span>
+              <span style="font-size:11px;color:{{ c.statusColor }}">{{ c.status }}</span>
+              <span class="rowdel" onClick="{{ c.del }}">✕</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ isSched }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1;display:flex;min-height:0">
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;padding:24px 0 16px 32px">
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:4px">
+            <h3 style="margin:0;font-size:23px">Schedule</h3>
+            <select class="sel" style="width:190px;height:34px" value="{{ schedType }}" onChange="{{ setSchedType }}">
+              <sc-for list="{{ typeOptions }}" as="t" hint-placeholder-count="13"><option value="{{ t.value }}">{{ t.label }}</option></sc-for>
+            </select>
+          </div>
+          <div style="font-size:11.5px;color:var(--color-neutral-600);margin-bottom:12px">Days across, wall-clock times down. <span class="mono">DEF</span> is the mid-course default pattern used when a day has no rows of its own. Gap and track blank means &ldquo;use the setting&rdquo;.</div>
+
+          <div style="flex:1;overflow:auto;padding-right:18px;min-height:0">
+            <div style="display:grid;grid-template-columns:{{ gridCols }};border-top:1px solid var(--color-divider);border-left:1px solid color-mix(in srgb,#e9e9ed 7%,transparent)">
+              <div style="height:36px;border-right:1px solid color-mix(in srgb,#e9e9ed 7%,transparent);border-bottom:1px solid var(--color-divider)"></div>
+              <sc-for list="{{ cols }}" as="c" hint-placeholder-count="13">
+                <div class="mono" style="height:36px;display:flex;align-items:center;justify-content:center;font-size:11px;border-right:1px solid color-mix(in srgb,#e9e9ed 7%,transparent);border-bottom:1px solid var(--color-divider);color:{{ c.color }};background:{{ c.bg }}">{{ c.label }}</div>
+              </sc-for>
+              <sc-for list="{{ rows }}" as="r" hint-placeholder-count="12">
+                <div class="mono" style="height:44px;display:flex;align-items:center;padding-left:4px;font-size:12.5px;color:var(--color-neutral-300);border-right:1px solid var(--color-divider);border-bottom:1px solid color-mix(in srgb,#e9e9ed 7%,transparent)">{{ r.time }}</div>
+                <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="13">
+                  <div class="cell" data-fill="{{ c.fill }}" data-sel="{{ c.sel }}" onClick="{{ c.go }}">{{ c.text }}</div>
+                </sc-for>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px;align-items:center;margin-top:12px;padding-right:18px">
+            <input class="inp" style="width:104px" type="time" value="{{ addTime }}" onChange="{{ setAddTime }}">
+            <input class="inp" style="width:70px" type="number" value="{{ addRepeats }}" onChange="{{ setAddRepeats }}">
+            <input class="inp" style="width:88px" type="number" placeholder="gap s" value="{{ addGap }}" onChange="{{ setAddGap }}">
+            <select class="sel" style="width:140px" value="{{ addTrack }}" onChange="{{ setAddTrack }}">
+              <option value="">default track</option><option value="ting">ting</option><option value="drum">drum</option>
+            </select>
+            <button class="btn btn-primary" style="height:38px;padding:0 20px" onClick="{{ addRow }}">Add</button>
+            <span style="font-size:11.5px;color:var(--color-neutral-600);margin-left:4px">adds to <span class="mono">{{ addTargetLabel }}</span></span>
+          </div>
+        </div>
+
+        <aside style="width:272px;flex:none;border-left:1px solid var(--color-divider);padding:24px 20px;display:flex;flex-direction:column;gap:14px;background:#13141f">
+          <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ true }}">
+            <div>
+              <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-neutral-500);margin-bottom:5px">Event</div>
+              <div class="mono" style="font-size:30px;letter-spacing:-.02em">{{ selTime }}</div>
+              <div style="font-size:12.5px;color:var(--color-neutral-400);margin-top:2px">{{ selWhere }}</div>
+            </div>
+            <div style="height:1px;background:var(--color-divider)"></div>
+            <div>
+              <label style="font-size:12px;color:var(--color-neutral-400)">Strikes</label>
+              <div style="display:flex;gap:6px;align-items:center;margin-top:6px">
+                <button class="btn btn-secondary" style="width:40px;height:40px;font-size:19px" onClick="{{ dec }}">−</button>
+                <div class="mono" style="flex:1;text-align:center;font-size:25px">{{ selRepeats }}</div>
+                <button class="btn btn-secondary" style="width:40px;height:40px;font-size:19px" onClick="{{ inc }}">+</button>
+              </div>
+            </div>
+            <div>
+              <label style="font-size:12px;color:var(--color-neutral-400)">Gap between strikes</label>
+              <div style="display:flex;gap:5px;margin-top:6px">
+                <sc-for list="{{ gaps }}" as="g" hint-placeholder-count="5">
+                  <button class="btn" style="flex:1;height:38px;font-size:12px;padding:0;border:1px solid {{ g.border }};background:{{ g.bg }};color:{{ g.color }}" onClick="{{ g.go }}">{{ g.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+            <div>
+              <label style="font-size:12px;color:var(--color-neutral-400)">Track</label>
+              <div style="display:flex;gap:5px;margin-top:6px">
+                <sc-for list="{{ tracks }}" as="t" hint-placeholder-count="3">
+                  <button class="btn" style="flex:1;height:38px;font-size:12px;padding:0;border:1px solid {{ t.border }};background:{{ t.bg }};color:{{ t.color }}" onClick="{{ t.go }}">{{ t.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+            <div style="font-size:11.5px;color:var(--color-neutral-600);line-height:1.55">Burst ≈ <span class="mono">{{ selDuration }}</span>. A blank gap or track falls back to <span class="mono">settings.gong_gap_seconds</span> / <span class="mono">gong_track</span>.</div>
+            <div style="flex:1"></div>
+            <button class="btn btn-ghost btn-block" style="height:42px;color:#e08a8a;border-color:color-mix(in srgb,#e08a8a 40%,transparent)" onClick="{{ clearCell }}">Remove event</button>
+          </sc-if>
+          <sc-if value="{{ noSel }}" hint-placeholder-val="{{ false }}">
+            <div style="margin:auto;text-align:center;max-width:24ch;font-size:13px;color:var(--color-neutral-600);line-height:1.6">Select a cell to edit its burst, or use the row below the grid to add a time.</div>
+          </sc-if>
+        </aside>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ isLogs }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1;display:flex;flex-direction:column;padding:26px 32px 20px;min-height:0">
+        <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:12px">
+          <h3 style="margin:0;font-size:23px">Play history</h3>
+          <span style="font-size:12.5px;color:var(--color-neutral-500)">play_log · timestamps UTC · read-only, no PIN</span>
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:12px">
+          <sc-for list="{{ filters }}" as="f" hint-placeholder-count="5">
+            <button class="btn" style="height:32px;padding:0 14px;font-size:12px;border:1px solid {{ f.border }};background:{{ f.bg }};color:{{ f.color }}" onClick="{{ f.go }}">{{ f.label }}</button>
+          </sc-for>
+        </div>
+        <div style="flex:1;overflow-y:auto;border-top:1px solid var(--color-divider)">
+          <div style="display:grid;grid-template-columns:124px 96px 104px 46px 96px 1fr;padding:8px 4px;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-500);border-bottom:1px solid var(--color-divider);position:sticky;top:0;background:var(--color-bg)">
+            <span>When (UTC)</span><span>What</span><span>File</span><span>×</span><span>Result</span><span>Detail</span>
+          </div>
+          <sc-for list="{{ logs }}" as="l" hint-placeholder-count="12">
+            <div style="display:grid;grid-template-columns:124px 96px 104px 46px 96px 1fr;align-items:center;padding:7px 4px;border-bottom:1px solid color-mix(in srgb,#e9e9ed 7%,transparent)">
+              <span class="mono" style="font-size:12.5px;color:var(--color-neutral-400)">{{ l.ts }}</span>
+              <span class="mono" style="font-size:12.5px;color:{{ l.color }}">{{ l.kind }}</span>
+              <span class="mono" style="font-size:12.5px;color:var(--color-neutral-500)">{{ l.file }}</span>
+              <span class="mono" style="font-size:12.5px;color:var(--color-neutral-500)">{{ l.repeats }}</span>
+              <span class="mono" style="font-size:12.5px;color:{{ l.color }}">{{ l.result }}</span>
+              <span class="mono" style="font-size:11.5px;color:var(--color-neutral-600)">{{ l.detail }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      </sc-if>
+
+    </main>
+  </div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:990}}">
+const TYPES = [
+  {id:"nc",  name:"No course", total:0},
+  {id:"10",  name:"10 Day", total:11},
+  {id:"20",  name:"20 Day", total:21},
+  {id:"30",  name:"30 Day", total:31},
+  {id:"45a", name:"45 Day (10A)", total:46},
+  {id:"stp", name:"STP", total:9},
+  {id:"3",   name:"3 Day", total:4},
+  {id:"2",   name:"2 Day", total:3},
+  {id:"1",   name:"1 Day", total:2},
+  {id:"stp9",name:"STP (D9 Ending)", total:10},
+  {id:"45b", name:"45 Day (15A)", total:46},
+  {id:"teen",name:"Teen", total:8},
+  {id:"grat",name:"Gratitude", total:2},
+];
+const ROWS = ["04:00","04:20","06:32","07:50","11:00","12:50","14:10","14:20","17:00","17:50","21:00"];
+const NAMES = {"04:00":"Wake-up","04:20":"Meditate in the hall","06:32":"Breakfast","07:50":"Group sitting","11:00":"Lunch","12:50":"Meditate","14:10":"Interviews","14:20":"Group sitting","17:00":"Tea break","17:50":"Group sitting","21:00":"Lights out"};
+const DEF = {"04:00":16,"04:20":12,"06:32":3,"07:50":8,"11:00":6,"12:50":8,"14:10":1,"14:20":3,"17:00":6,"17:50":6,"21:00":3};
+const COURSES = [
+  ["2027-12-15","10"],["2027-12-01","10"],["2027-11-17","10"],["2027-11-03","10"],["2027-10-20","stp"],
+  ["2027-10-06","10"],["2027-09-15","10"],["2027-09-01","10"],["2027-08-18","10"],["2027-08-04","10"],
+  ["2027-07-21","10"],["2027-07-07","10"],["2027-07-01","3"],["2027-06-16","10"],["2027-06-02","10"],["2027-05-19","10"],
+];
+
+class Component extends DCLogic {
+  constructor(p){
+    super(p);
+    const cells = {};
+    for (const [t,n] of Object.entries(DEF)) cells["10|def|"+t] = { repeats:n, gap:null, track:null };
+    for (const t of ["17:00","17:50","21:00"]) cells["10|0|"+t] = { repeats:DEF[t], gap:null, track:null };
+    cells["10|11|04:00"] = { repeats:16, gap:null, track:null };
+    cells["10|11|06:32"] = { repeats:3, gap:6, track:"drum" };
+    for (const t of ["04:00","06:32","11:00","17:00","21:00"]) cells["nc|def|"+t] = { repeats:2, gap:null, track:null };
+    this.state = {
+      tab:"dash", now:new Date(), sel:null, cells, rings:[], playing:false, toast:null,
+      schedType:"10", newType:"10", newDate:"", newNote:"",
+      addTime:"", addRepeats:6, addGap:"", addTrack:"",
+      logFilter:"all", enabled:{master:true,gong:true,doha:true,relay:false},
+      courses: (()=>{ const d0=new Date(), off=n=>new Date(d0.getTime()+n*86400000).toISOString().slice(0,10);
+        return [[off(28),"10",""],[off(14),"3","weekend Satipatthana"],[off(-3),"10","serving: 12"],[off(-31),"stp",""],[off(-59),"10",""]]
+          .map(([s,t,n])=>({start:s,type:t,note:n}))
+          .concat(COURSES.map(([s,t])=>({start:s,type:t,note:""})))
+          .sort((a,b)=>b.start.localeCompare(a.start)); })(),
+    };
+  }
+  componentDidMount(){ this.t = setInterval(()=>this.setState({now:new Date()}), 1000); }
+  componentWillUnmount(){ clearInterval(this.t); clearInterval(this.burst); clearTimeout(this.tt); }
+  pad(n){ return String(n).padStart(2,"0"); }
+  say(text){ clearTimeout(this.tt); this.setState({toast:text}); this.tt = setTimeout(()=>this.setState({toast:null}), 2600); }
+  fire(){
+    if (this.state.playing) return;
+    this.say("Test gong queued");
+    let i = 0; const n = 4;
+    this.setState({playing:true, rings:[Date.now()]});
+    this.burst = setInterval(()=>{
+      i++;
+      if (i >= n){ clearInterval(this.burst); this.setState({playing:false, rings:[]}); return; }
+      this.setState({rings:[Date.now()+i]});
+    }, 900);
+  }
+  stop(){ clearInterval(this.burst); this.setState({playing:false, rings:[]}); this.say("Stopped"); }
+  colsFor(typeId){
+    const t = TYPES.find(x=>x.id===typeId);
+    if (typeId === "nc") return [{key:"def", label:"N/C"}];
+    const out = [];
+    for (let d=0; d<=t.total; d++) out.push({key:String(d), label:String(d)});
+    out.push({key:"def", label:"DEF"});
+    return out;
+  }
+  cellsForDay(typeId, day){
+    const s = this.state;
+    const own = ROWS.filter(t=>s.cells[typeId+"|"+day+"|"+t]);
+    return own.length ? {src:String(day), times:own} : {src:"def", times:ROWS.filter(t=>s.cells[typeId+"|def|"+t])};
+  }
+
+  renderVals(){
+    const s = this.state, now = s.now, tab = s.tab;
+    const day = 3, typeId = "10", ct = TYPES.find(t=>t.id===typeId);
+    const start = new Date(now.getTime() - day*86400000);
+    const startDate = start.toISOString().slice(0,10);
+    const mins = now.getHours()*60 + now.getMinutes();
+    const { src, times } = this.cellsForDay(typeId, day);
+
+    const dstr = d => d.toISOString().slice(0,10);
+    const today = dstr(now), tomorrow = dstr(new Date(now.getTime()+86400000));
+    const seq = [];
+    for (const t of times){ const [h,m]=t.split(":").map(Number); seq.push({time:t,date:today,past:h*60+m<=mins,mins:h*60+m}); }
+    seq.push({time:"06:37",date:today,past:397<=mins,mins:397,doha:true});
+    seq.sort((a,b)=>a.mins-b.mins);
+    const future = seq.filter(x=>!x.past);
+    const nextEv = future[0] || {time:times[0],date:tomorrow,mins:0};
+    const upcoming = seq.concat(future.length<6 ? seq.filter(x=>x.past).map(x=>({...x,date:tomorrow,past:false})) : []).slice(0,12).map(x=>{
+      const c = s.cells[typeId+"|"+src+"|"+x.time];
+      return { time:x.time, date:x.date, icon: x.doha ? "♪" : "🔔",
+        name: x.doha ? "doha · slot 3" : (NAMES[x.time]||"Gong"),
+        strikes: x.doha ? "" : "×"+(c?c.repeats:"—"),
+        dim: x.past ? "0.38" : "1",
+        color: (x===nextEv) ? "var(--color-accent-300)" : "var(--color-text)" };
+    });
+
+    const [nh,nm] = nextEv.time.split(":").map(Number);
+    let rem = (nh*60+nm)*60 - (mins*60 + now.getSeconds());
+    if (rem < 0) rem += 86400;
+    const ch = Math.floor(rem/3600), cm = Math.floor((rem%3600)/60), cs = rem%60;
+    const countdown = ch>0 ? ch+"h "+this.pad(cm)+"m" : cm>0 ? cm+"m "+this.pad(cs)+"s" : cs+"s";
+    const nextCell = s.cells[typeId+"|"+src+"|"+nextEv.time];
+
+    const nav = [
+      {key:"dash",label:"Dashboard",icon:"◉"},{key:"courses",label:"Courses",icon:"▤"},
+      {key:"sched",label:"Schedule",icon:"▦"},{key:"logs",label:"Logs",icon:"≡"},
+    ].map(n=>({...n, on: tab===n.key?"1":"0", go: ()=>this.setState({tab:n.key})}));
+
+    const st = s.schedType;
+    const cols = this.colsFor(st);
+    const selParts = s.sel ? s.sel.split("|") : null;
+    const sel = s.sel ? s.cells[s.sel] : null;
+    const setF = (k,v) => this.setState(x=>({cells:{...x.cells,[x.sel]:{...x.cells[x.sel],[k]:v}}}));
+    const chip = on => ({ border: on?"var(--color-accent)":"var(--color-neutral-800)", bg: on?"color-mix(in srgb,#968ae0 18%,transparent)":"transparent", color: on?"var(--color-accent-200)":"var(--color-neutral-500)" });
+    const addTarget = selParts ? selParts[1] : "def";
+
+    const allLogs = [
+      ["08-08 14:16","test_gong","ting.mp3","3","ok","test gong (ting ×3)"],
+      ["08-08 12:20","gong","ting.mp3","6","ok","10 Day, day 3, 17:50 ×6"],
+      ["08-08 11:30","gong","ting.mp3","6","ok","10 Day, day 3, 17:00 ×6"],
+      ["08-08 08:50","gong","ting.mp3","3","ok","10 Day, day 3, 14:20 ×3"],
+      ["08-08 07:20","gong","ting.mp3","8","ok","10 Day, day 3, 12:50 ×8"],
+      ["08-08 05:30","gong","ting.mp3","6","ok","10 Day, day 3, 11:00 ×6"],
+      ["08-08 01:07","doha","—","1","error","slot 3 not mapped"],
+      ["08-08 01:02","gong","ting.mp3","3","ok","10 Day, day 3, 06:32 ×3"],
+      ["08-07 22:50","gong","ting.mp3","12","ok","10 Day, day 2, 04:20 ×12"],
+      ["08-07 22:30","gong","ting.mp3","16","ok","fired +0.4 s · 04:00 ×16"],
+      ["08-07 16:11","gong","—","6","missed","scheduled 2026-08-07T17:50:00+05:30"],
+      ["08-07 16:11","gong","—","6","missed","scheduled 2026-08-07T17:00:00+05:30"],
+      ["08-07 12:30","gong","ting.mp3","8","stopped","staff pressed Stop"],
+      ["08-06 23:41","gong","—","16","skipped_clock","clock untrusted · last_good 2026-08-06T22:10"],
+    ].map(l=>({ts:l[0],kind:l[1],file:l[2],repeats:l[3],result:l[4],detail:l[5],
+      color: l[4]==="ok" ? "var(--color-neutral-300)" : (l[4]==="missed"||l[4]==="error") ? "#e08a8a" : "#e0c07a"}));
+    const logs = s.logFilter==="all" ? allLogs : allLogs.filter(l=>l.result===s.logFilter || l.kind===s.logFilter);
+
+    const activeStart = startDate;
+
+    return {
+      clock: this.pad(now.getHours())+":"+this.pad(now.getMinutes()),
+      isDash: tab==="dash", isCourses: tab==="courses", isSched: tab==="sched", isLogs: tab==="logs",
+      nav,
+      locked: [{label:"Sounds",icon:"♪"},{label:"Audio out",icon:"⊳"},{label:"Time",icon:"◷"},{label:"Network",icon:"⌁"}],
+      toast: s.toast ? [{text:s.toast}] : [],
+      nextTime: nextEv.time, nextName: nextEv.doha ? "doha" : (NAMES[nextEv.time]||"Gong"), countdown,
+      nextDetail: (nextCell ? nextCell.repeats+" strikes · gap "+(nextCell.gap===null ? "4 s (default)" : nextCell.gap+" s")+" · "+(nextCell.track ?? "ting (default)") : "doha · slot 3")+" · Speaker",
+      courseType: ct.name, day, totalDays: ct.total, startDate,
+      dayDots: Array.from({length:ct.total+1},(_,i)=>({bg: i<day?"var(--color-accent-700)":i===day?"var(--color-accent)":"var(--color-neutral-800)"})),
+      toggles: [
+        {key:"master",label:"Master"},{key:"gong",label:"Gong"},{key:"doha",label:"Doha"},{key:"relay",label:"Relay"},
+      ].map(t=>({label:t.label, on: s.enabled[t.key]?"1":"0", op: t.key==="relay"?".5":"1",
+        go: ()=>{ this.setState(x=>({enabled:{...x.enabled,[t.key]:!x.enabled[t.key]}})); this.say("Settings saved"); }})),
+      health: [
+        {label:"Scheduler", value:"Running · armed for "+nextEv.time, dot:"#7fd6a8"},
+        {label:"Audio route", value:"Built-in speaker", dot:"#7fd6a8"},
+        {label:"Clock", value:"Trusted · Asia/Kolkata", dot:"#7fd6a8"},
+      ],
+      upcomingA: upcoming.slice(0,6), upcomingB: upcoming.slice(6),
+      rings: s.rings, gongBtn: s.playing ? "Ringing…" : "Test gong",
+      testGong: ()=>this.fire(), stopAll: ()=>this.stop(),
+      testDoha: ()=>this.say("No doha slots mapped — add files to /sdcard/DhammaGong/doha"),
+      lastPlay: "gong missed at 16:11 UTC",
+
+      typeOptions: TYPES.map(t=>({value:t.id, label:t.name})),
+      newType: s.newType, newDate: s.newDate, newNote: s.newNote,
+      setNewType: e=>this.setState({newType:e.target.value}),
+      setNewDate: e=>this.setState({newDate:e.target.value}),
+      setNewNote: e=>this.setState({newNote:e.target.value}),
+      addCourse: ()=>{ if(!s.newDate){ this.say("Pick a start date"); return; }
+        this.setState(x=>({courses:[{start:x.newDate,type:x.newType,note:x.newNote}].concat(x.courses).sort((a,b)=>b.start.localeCompare(a.start)), newDate:"", newNote:""}));
+        this.say("Course added"); },
+      courses: s.courses.map((c,i)=>{
+        const active = c.start === activeStart;
+        return { start:c.start, type:(TYPES.find(t=>t.id===c.type)||{}).name, note:c.note || "—",
+          status: active ? "ACTIVE" : (c.start > today ? "upcoming" : "past"),
+          statusColor: active ? "var(--color-accent-200)" : "var(--color-neutral-600)",
+          dateColor: active ? "var(--color-accent-200)" : "var(--color-neutral-300)",
+          bg: active ? "color-mix(in srgb,#968ae0 12%,transparent)" : "transparent",
+          del: ()=>this.setState(x=>({courses:x.courses.filter((_,j)=>j!==i)})) };
+      }),
+
+      schedType: st, setSchedType: e=>this.setState({schedType:e.target.value, sel:null}),
+      gridCols: "60px repeat("+cols.length+", minmax(46px, 1fr))",
+      cols: cols.map(c=>({label:c.label,
+        color: c.key==="def" ? "var(--color-neutral-500)" : "var(--color-neutral-400)",
+        bg: c.key==="def" ? "color-mix(in srgb,#e9e9ed 5%,transparent)" : "transparent"})),
+      rows: ROWS.map(t=>({ time:t, cells: cols.map(c=>{
+        const k = st+"|"+c.key+"|"+t, cell = s.cells[k];
+        return { fill: cell?"1":"0", sel: s.sel===k?"1":"0", text: cell ? "×"+cell.repeats : "·",
+          go: ()=>this.setState(x=>({sel:k, cells: x.cells[k] ? x.cells : {...x.cells,[k]:{repeats:6,gap:null,track:null}}})) };
+      })})),
+      addTime: s.addTime, addRepeats: s.addRepeats, addGap: s.addGap, addTrack: s.addTrack,
+      setAddTime: e=>this.setState({addTime:e.target.value}),
+      setAddRepeats: e=>this.setState({addRepeats:e.target.value}),
+      setAddGap: e=>this.setState({addGap:e.target.value}),
+      setAddTrack: e=>this.setState({addTrack:e.target.value}),
+      addTargetLabel: addTarget==="def" ? (st==="nc"?"no-course":"default pattern") : "day "+addTarget,
+      addRow: ()=>{ if(!s.addTime){ this.say("Pick a time first"); return; }
+        const k = st+"|"+addTarget+"|"+s.addTime;
+        this.setState(x=>({cells:{...x.cells,[k]:{repeats:Number(x.addRepeats)||6, gap: x.addGap===""?null:Number(x.addGap), track: x.addTrack||null}}, sel:k, addTime:""}));
+        this.say("Event added"); },
+
+      hasSel: !!sel, noSel: !sel,
+      selTime: selParts ? selParts[2] : "",
+      selWhere: !selParts ? "" : (TYPES.find(t=>t.id===selParts[0])||{}).name + " · " + (selParts[1]==="def" ? (selParts[0]==="nc"?"no-course schedule":"default pattern") : "day "+selParts[1]),
+      selRepeats: sel ? sel.repeats : 0,
+      selDuration: sel ? ((sel.repeats-1)*(sel.gap??4) + sel.repeats*2)+" s" : "",
+      inc: ()=>setF("repeats", Math.min(32, sel.repeats+1)),
+      dec: ()=>setF("repeats", Math.max(1, sel.repeats-1)),
+      gaps: [null,2,4,6,8].map(g=>({ label: g===null?"—":g+"s", ...chip(sel && sel.gap===g), go: ()=>setF("gap", g) })),
+      tracks: [null,"ting","drum"].map(t=>({ label: t===null?"—":t, ...chip(sel && sel.track===t), go: ()=>setF("track", t) })),
+      clearCell: ()=>this.setState(x=>{ const c={...x.cells}; delete c[x.sel]; return {cells:c, sel:null}; }),
+
+      filters: ["all","gong","doha","missed","error"].map(f=>({ label:f, ...chip(s.logFilter===f), go: ()=>this.setState({logFilter:f}) })),
+      logs,
+    };
+  }
+}
+</script>
+</body>
+</html>
