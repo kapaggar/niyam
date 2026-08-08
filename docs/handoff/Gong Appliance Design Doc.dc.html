@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/nocturne-e3d2e2aa-ed29-420d-8e06-f75ee1167700/styles.css">
+<script src="_ds/nocturne-e3d2e2aa-ed29-420d-8e06-f75ee1167700/_ds_bundle.js"></script>
+<style>
+body{margin:0;background:var(--color-bg)}
+.doc{--w:920px}
+.doc h2{font-size:26px;margin:0 0 4px}
+.doc h3{font-size:17px;margin:26px 0 6px;letter-spacing:0}
+.doc p,.doc li{font-size:14.5px;line-height:1.62;color:color-mix(in srgb,var(--color-text) 82%,transparent)}
+.doc li{margin-bottom:4px}
+.doc ul{margin:0 0 10px;padding-left:18px}
+.doc table{width:100%;border-collapse:collapse;margin:8px 0 14px;font-size:13.5px}
+.doc th{text-align:left;font-weight:500;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-500);padding:0 12px 6px 0;border-bottom:1px solid var(--color-divider);vertical-align:bottom}
+.doc td{padding:8px 12px 8px 0;border-bottom:1px solid color-mix(in srgb,var(--color-text) 7%,transparent);vertical-align:top;color:color-mix(in srgb,var(--color-text) 82%,transparent)}
+.doc td:first-child{color:var(--color-text)}
+.doc code,.mono{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:.92em}
+.doc code{color:var(--color-accent-300)}
+.sec{scroll-margin-top:20px}
+</style>
+</helmet>
+<div class="doc" style="min-height:100vh;padding:0 0 120px">
+
+<header style="max-width:var(--w);margin:0 auto;padding:76px 40px 0">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+    <span class="tag tag-outline" style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px">DRAFT · v0.1</span>
+    <span class="text-muted" style="font-size:12px">2026-08-08 · aligned to Gong-NG M1+M2</span>
+  </div>
+  <h1 style="font-size:52px;max-width:14ch;line-height:1.04;margin:0 0 14px">Gong appliance for Android</h1>
+  <p style="font-size:17px;max-width:62ch;color:color-mix(in srgb,var(--color-text) 70%,transparent);line-height:1.5">A phone or tablet, plugged in at the centre, rings the course gong and the morning doha on the correct wall-clock time for the correct course day — without internet — while staff manage schedule, audio route and Wi-Fi on its own screen.</p>
+  <div style="height:1px;margin:34px 0 0;background:linear-gradient(to right,transparent,var(--color-divider) 48px,var(--color-divider) calc(100% - 48px),transparent)"></div>
+</header>
+
+<div style="max-width:var(--w);margin:0 auto;padding:30px 40px 0;display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--color-divider);border:1px solid var(--color-divider);border-radius:var(--radius-md);overflow:hidden">
+  <div style="background:var(--color-bg);padding:14px 16px"><div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-500);margin-bottom:5px">Form factor</div><div style="font-size:14px">10&Prime; wall tablet, landscape</div></div>
+  <div style="background:var(--color-bg);padding:14px 16px"><div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-500);margin-bottom:5px">Admin surface</div><div style="font-size:14px">On-device only (v1)</div></div>
+  <div style="background:var(--color-bg);padding:14px 16px"><div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-500);margin-bottom:5px">Min / target SDK</div><div style="font-size:14px" class="mono">29 / 35</div></div>
+  <div style="background:var(--color-bg);padding:14px 16px"><div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-500);margin-bottom:5px">Shipped media</div><div style="font-size:14px">Gongs only; doha sideloaded</div></div>
+</div>
+
+<main style="max-width:var(--w);margin:0 auto;padding:0 40px">
+
+<section class="sec" id="goals" style="margin-top:52px">
+<h6 style="color:var(--color-accent-400);margin-bottom:10px">01 — Goals &amp; non-goals</h6>
+<h2>What v1 must be true about</h2>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:34px;margin-top:18px">
+<div>
+<h3 style="margin-top:0">Goals</h3>
+<ul>
+<li>Correct gong at the correct wall-clock time for the correct course day, offline, with the screen off.</li>
+<li>Never fire early. Never fire twice. Never blast a missed 04:00 at 04:10.</li>
+<li>Silence beats a wrong gong — an untrusted clock suppresses automatic plays.</li>
+<li>A non-technical server can answer "what day, what's next, is it healthy" from across the office.</li>
+<li>Behavioural parity with Gong-NG, verified by porting its tests — not a line-for-line Python port.</li>
+</ul>
+</div>
+<div>
+<h3 style="margin-top:0">Non-goals (v1)</h3>
+<ul>
+<li>Deshna media server / <code>fetch.php</code> — future module, must not block v1.</li>
+<li>Cloud accounts, fleet management, analytics SDKs, any PII.</li>
+<li>LAN second-device admin. The engine is written behind an interface so an embedded HTTP layer is additive later; nothing is exposed in v1.</li>
+<li>GPIO relay amp power. Amp is assumed always-on or BT-powered.</li>
+<li>Migration from a live Pi database. Fresh install + seed + manual course entry.</li>
+</ul>
+</div>
+</div>
+</section>
+
+<section class="sec" id="personas" style="margin-top:56px">
+<h6 style="color:var(--color-accent-400);margin-bottom:10px">02 — Personas</h6>
+<h2>Three people touch this device</h2>
+<table>
+<tr><th style="width:22%">Who</th><th style="width:34%">Does</th><th>Design consequence</th></tr>
+<tr><td>Course server (daily)</td><td>Glances at the dashboard, tests a gong, sometimes silences one sitting</td><td>Dashboard readable at 2 m; test + stop reachable without the PIN; master toggles behind the PIN</td></tr>
+<tr><td>Assistant teacher</td><td>Asks for a schedule shift on a specific day; expects it to hold</td><td>Schedule editor shows the whole course matrix so a day-3 change is visibly a day-3 change</td></tr>
+<tr><td>Tech volunteer (once per install)</td><td>First-run setup, permissions, audio route, doha folder, backups</td><td>A setup checklist that refuses to declare "ready" until every blocker is green</td></tr>
+</table>
+</section>
+
+<section class="sec" id="arch" style="margin-top:56px">
+<h6 style="color:var(--color-accent-400);margin-bottom:10px">03 — Runtime architecture</h6>
+<h2>One process, one source of truth</h2>
+<p style="max-width:64ch">The Pi's <code>gongd</code> maps to a single foreground service that owns the scheduler and the player. The UI is a client of it, never a peer — closing the activity changes nothing.</p>
+
+<div style="margin:22px 0 8px;border:1px solid var(--color-divider);border-radius:var(--radius-md);padding:26px 24px;background:linear-gradient(160deg,var(--color-neutral-900),var(--color-bg))">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px 30px">
+    <div style="grid-column:1 / -1;border:1px dashed color-mix(in srgb,var(--color-accent) 40%,transparent);border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;color:var(--color-accent-300)" class="mono">GongService · foreground, type=mediaPlayback · START_STICKY · boot receiver</div>
+    <div style="background:var(--color-surface);border-radius:var(--radius-sm);padding:14px 16px;box-shadow:var(--shadow-sm)">
+      <div style="font-size:13px;font-weight:500;margin-bottom:4px">SchedulerEngine</div>
+      <div style="font-size:12px;line-height:1.5;color:var(--color-neutral-400)">Day resolution · materialization · fired-guard · grace/missed · clock trust</div>
+    </div>
+    <div style="background:var(--color-surface);border-radius:var(--radius-sm);padding:14px 16px;box-shadow:var(--shadow-sm)">
+      <div style="font-size:13px;font-weight:500;margin-bottom:4px">PlayerEngine</div>
+      <div style="font-size:12px;line-height:1.5;color:var(--color-neutral-400)">Single-slot job queue · burst timing · route warm-up · Media3 ExoPlayer</div>
+    </div>
+    <div style="background:var(--color-surface);border-radius:var(--radius-sm);padding:14px 16px;box-shadow:var(--shadow-sm)">
+      <div style="font-size:13px;font-weight:500;margin-bottom:4px">Wake sources</div>
+      <div style="font-size:12px;line-height:1.5;color:var(--color-neutral-400)"><code>setAlarmClock</code> for the next occurrence · 30 s in-service heartbeat · <code>TIME_SET</code>/<code>TIMEZONE_CHANGED</code>/<code>DATE_CHANGED</code> receivers · WorkManager 15-min liveness re-arm</div>
+    </div>
+    <div style="background:var(--color-surface);border-radius:var(--radius-sm);padding:14px 16px;box-shadow:var(--shadow-sm)">
+      <div style="font-size:13px;font-weight:500;margin-bottom:4px">Store</div>
+      <div style="font-size:12px;line-height:1.5;color:var(--color-neutral-400)">Room over SQLite (WAL) · settings/state KV · play_log · seeded from bundled <code>seed.sql</code></div>
+    </div>
+    <div style="grid-column:1 / -1;border-top:1px solid var(--color-divider);padding-top:14px;font-size:12px;color:var(--color-neutral-400)">Compose UI (activity) &mdash; observes engine state flows, issues commands. <span style="color:var(--color-neutral-500)">Interface-identical to the NG JSON API, so an embedded HTTP admin can be added later without touching the engine.</span></div>
+  </div>
+</div>
+
+<h3>Decisions</h3>
+<table>
+<tr><th style="width:30%">Decision</th><th style="width:26%">Choice</th><th>Why</th></tr>
+<tr><td>Min SDK</td><td class="mono">29 (Android 10)</td><td>Scoped storage + SAF are uniform; <code>LocalOnlyHotspot</code> is dependable; covers recycled centre hardware. Target 35.</td></tr>
+<tr><td>Wake mechanism</td><td><code>setAlarmClock</code></td><td>Exempt from Doze and, unlike <code>setExactAndAllowWhileIdle</code>, not throttled to one per 9 min. Cost: it surfaces a system alarm icon — acceptable on an appliance.</td></tr>
+<tr><td>Exact-alarm permission</td><td>Request <code>USE_EXACT_ALARM</code></td><td>The app's core function is an alarm clock, which is a permitted Play use of the non-revocable permission. Fallback if refused in review: <code>SCHEDULE_EXACT_ALARM</code> + first-run grant, plus the heartbeat.</td></tr>
+<tr><td>Belt and braces</td><td>Heartbeat, always</td><td>The service holds a 30 s loop even when alarms are armed; alarms are an optimisation, not the only path. This is how OEM killers get survived.</td></tr>
+<tr><td>UI toolkit</td><td>Compose, single activity</td><td>No webview of a Flask clone — the brief allows native, and a webview adds a second failure surface on the critical path.</td></tr>
+<tr><td>DB</td><td>Room, no cloud</td><td>Field-repairable: the file is a plain SQLite DB an admin can pull over USB.</td></tr>
+</table>
+</section>
+
+<section class="sec" id="data" style="margin-top:56px">
+<h6 style="color:var(--color-accent-400);margin-bottom:10px">04 — Data model</h6>
+<h2>1:1 with Gong-NG, three deltas</h2>
+<p style="max-width:64ch">Entities <code>course_types</code>, <code>courses</code>, <code>schedule_events</code>, <code>settings</code>, <code>state</code>, <code>play_log</code> carry the NG semantics unchanged, including seed IDs. Room entities, same column names, so a pulled DB is readable by NG tooling.</p>
+<table>
+<tr><th style="width:26%">Delta</th><th>What and why</th></tr>
+<tr><td>+ <code>media_slots</code></td><td><code>(slot INTEGER PK 1..11, uri TEXT, filename TEXT, source TEXT, verified_at)</code>. The Pi's <code>manifest.json</code> becomes a table because Android holds SAF document URIs, not paths, and staff need per-slot override. The manifest file remains the import/export format.</td></tr>
+<tr><td><code>relay_enabled</code> retained, inert</td><td>Kept in settings for parity and forward use (smart plug / USB accessory). Hidden in UI, always <code>0</code>.</td></tr>
+<tr><td>+ <code>state.route_last_ok</code></td><td>Records the last audio route that successfully rendered a fire, so a missing route at fire time is a diagnosable event rather than silence.</td></tr>
+</table>
+<p style="max-width:64ch"><strong style="font-weight:500">Unchanged and non-negotiable:</strong> <code>start_date</code> is day 0 (arrival); <code>current_day</code> is a calendar-date difference, never <code>/86400</code>; active course is the window match <code>start_date &le; today &le; start_date + total_days</code>, so a course that began while the device was off is still found.</p>
+</section>
+
+<section class="sec" id="sm" style="margin-top:56px">
+<h6 style="color:var(--color-accent-400);margin-bottom:10px">05 — Scheduler state machine</h6>
+<h2>Six states, one guarded transition</h2>
+<div style="display:flex;gap:10px;flex-wrap:wrap;margin:18px 0 20px">
+  <div style="flex:1 1 150px;background:var(--color-surface);border-radius:var(--radius-sm);padding:12px 14px;box-shadow:var(--shadow-sm)"><div class="mono" style="font-size:12px;color:var(--color-accent-300);margin-bottom:4px">BOOT</div><div style="font-size:12px;color:var(--color-neutral-400)">Load state, compare <code>now</code> to <code>last_good_time</code></div></div>
+  <div style="flex:1 1 150px;background:var(--color-surface);border-radius:var(--radius-sm);padding:12px 14px;box-shadow:var(--shadow-sm)"><div class="mono" style="font-size:12px;color:var(--color-accent-300);margin-bottom:4px">RESOLVE</div><div style="font-size:12px;color:var(--color-neutral-400)">Active course, current_day</div></div>
+  <div style="flex:1 1 150px;background:var(--color-surface);border-radius:var(--radius-sm);padding:12px 14px;box-shadow:var(--shadow-sm)"><div class="mono" style="font-size:12px;color:var(--color-accent-300);margin-bottom:4px">MATERIALIZE</div><div style="font-size:12px;color:var(--color-neutral-400)">Rows for date D + synthetic doha</div></div>
+  <div style="flex:1 1 150px;background:var(--color-surface);border-radius:var(--radius-sm);padding:12px 14px;box-shadow:var(--shadow-sm)"><div class="mono" style="font-size:12px;color:var(--color-accent-300);margin-bottom:4px">ARMED</div><div style="font-size:12px;color:var(--color-neutral-400)">Alarm set for next; heartbeat running</div></div>
+  <div style="flex:1 1 150px;background:var(--color-surface);border-radius:var(--radius-sm);padding:12px 14px;box-shadow:0 0 0 1px var(--color-accent-700)"><div class="mono" style="font-size:12px;color:var(--color-accent-300);margin-bottom:4px">FIRING</div><div style="font-size:12px;color:var(--color-neutral-400)">Guard written, job enqueued</div></div>
+  <div style="flex:1 1 150px;background:var(--color-surface);border-radius:var(--radius-sm);padding:12px 14px;box-shadow:var(--shadow-sm)"><div class="mono" style="font-size:12px;color:#e0c07a;margin-bottom:4px">CLOCK_UNTRUSTED</div><div style="font-size:12px;color:var(--color-neutral-400)">Automatic plays suppressed, tests allowed</div></div>
+</div>
+<table>
+<tr><th style="width:34%">Rule</th><th>Behaviour</th></tr>
+<tr><td>Fire window</td><td><code>fire_at &le; now &le; fire_at + 120 s</code>. Outside it and unfired, log <code>missed</code> and move on.</td></tr>
+<tr><td>Double-fire guard</td><td><code>state["fired:&lt;key&gt;:&lt;date&gt;"]</code> is committed <em>before</em> the job is enqueued, in the same transaction that reads it.</td></tr>
+<tr><td>Re-materialize on</td><td>Boot · local midnight · course or settings change · <code>TIME_SET</code>/<code>TIMEZONE_CHANGED</code> · any heartbeat that observes a &gt;120 s clock jump.</td></tr>
+<tr><td>Clock trust</td><td><code>last_good_time</code> written every 60 s. If <code>now &lt; last_good_time &minus; 10 min</code> on start &rarr; untrusted; automatic fires log <code>skipped_clock</code>; cleared by a forward NTP step or an explicit staff confirmation.</td></tr>
+<tr><td>DST</td><td>Day math on <code>LocalDate</code>. Spring-forward gap &rarr; first valid instant after. Fall-back ambiguity &rarr; the first occurrence only.</td></tr>
+<tr><td>Doha slot</td><td><code>legacy_modular</code> ported verbatim (slots 1&ndash;11, metta and homage overrides last). Outside a course, <code>no_course_doha</code> = <code>random</code> | <code>off</code> | <code>slot:n</code>. Missing slot &rarr; skip + error log, never a crash.</td></tr>
+</table>
+</section>
+
+<section class="sec" id="audio" style="margin-top:56px">
+<h6 style="color:var(--color-accent-400);margin-bottom:10px">06 — Audio</h6>
+<h2>One route abstraction, four implementations</h2>
+<table>
+<tr><th style="width:26%">Concern</th><th>Decision</th></tr>
+<tr><td>Route model</td><td><code>AudioRoute { Speaker, Bluetooth(deviceId), UsbDac(deviceId), WiredAmp }</code> resolved against <code>AudioDeviceInfo</code> at fire time. Adding the wired amp in v1.1 is a new case, not a rewrite.</td></tr>
+<tr><td>Attributes</td><td><code>USAGE_MEDIA</code> + <code>CONTENT_TYPE_SONIFICATION</code>, not <code>USAGE_ALARM</code> — alarm usage is routed to the speaker on many OEMs even when BT is connected, which is exactly the failure we cannot have.</td></tr>
+<tr><td>Volume</td><td>Two app-level gains (<code>gong_volume</code>, <code>doha_volume</code>) applied as ExoPlayer volume; system media volume is pinned to max on first run with a note that it is a multiplier, not a substitute.</td></tr>
+<tr><td>Burst timing</td><td>Player prepared and route warmed 15 s before <code>fire_at</code>. Strikes scheduled on <code>elapsedRealtime</code> deadlines, not <code>sleep()</code>. Over A2DP the codec adds a constant 120&ndash;250 ms offset — constant, so the <em>rhythm</em> survives; the burst simply starts late. Documented, not fought.</td></tr>
+<tr><td>Queue</td><td>New gong aborts the running burst. Doha waits for a running gong — never preempts. Stop aborts the current job only.</td></tr>
+<tr><td>Route missing at fire</td><td>Play on the fallback route (speaker) <em>and</em> log <code>error</code> with the intended route. A gong from the wrong speaker beats no gong; a silent failure is the one thing we refuse.</td></tr>
+</table>
+</section>
+
+<section class="sec" id="media" style="margin-top:56px">
+<h6 style="color:var(--color-accent-400);margin-bottom:10px">07 — Media &amp; distribution</h6>
+<h2>The APK ships gongs. Doha arrives by hand.</h2>
+<ul style="max-width:66ch">
+<li>Play build bundles only the gong stems (<code>ting</code>, <code>drum</code>, …) in <code>res/raw</code>. No doha masters in the store artifact, so VRI rights are never a distribution question.</li>
+<li>First run asks staff to grant a SAF tree on a folder — recommended <code>/sdcard/DhammaGong/doha</code>, shown as a literal path in the UI. The app persists the tree URI and watches it.</li>
+<li>Files auto-map by <code>D01</code>…<code>D11</code> filename prefix into <code>media_slots</code>; a mapping table shows <span class="mono" style="font-size:12px">slot &rarr; file</span> with a per-slot override and a play button. Unmatched files are listed as "unassigned", never guessed at.</li>
+<li>Doha with 0 slots filled is not an error state — the dashboard carries an amber <strong style="font-weight:500">gongs only</strong> chip and the gong schedule runs untouched.</li>
+<li>Optional signed <em>centre edition</em> APK, same code, media pack pre-seeded, for centres that cannot use Play.</li>
+</ul>
+</section>
+
+<section class="sec" id="ia" style="margin-top:56px">
+<h6 style="color:var(--color-accent-400);margin-bottom:10px">08 — Screen IA</h6>
+<h2>Nine screens, one always visible</h2>
+<table>
+<tr><th style="width:20%">Screen</th><th style="width:14%">PIN</th><th>Answers</th></tr>
+<tr><td>Dashboard</td><td class="text-muted">no</td><td>Clock, course day, next fires, health, test/stop. The default and permanent view.</td></tr>
+<tr><td>Schedule</td><td>yes</td><td>Day-column grid: days across, times down, the whole course-type matrix at once.</td></tr>
+<tr><td>Courses</td><td>yes</td><td>Add/delete, active indicator, "simulate start date" for training.</td></tr>
+<tr><td>Sounds</td><td>yes</td><td>Track, volumes, gap, doha time, no-course mode, doha slot mapping.</td></tr>
+<tr><td>Audio out</td><td>yes</td><td>Route picker + test per route, last-known-good indicator.</td></tr>
+<tr><td>Time</td><td>yes</td><td>Clock, timezone, trust state, confirm-trust action.</td></tr>
+<tr><td>Network</td><td>yes</td><td>Hotspot vs centre Wi-Fi, SSID, IP. Informational in v1 — nothing depends on it.</td></tr>
+<tr><td>Logs</td><td class="text-muted">no</td><td><code>play_log</code>, filterable by result. Read-only, so no PIN.</td></tr>
+<tr><td>Setup</td><td>first run</td><td>Permission checklist; re-enterable, shows red until every blocker is cleared.</td></tr>
+</table>
+</section>
+
+<section class="sec" id="perms" style="margin-top:56px">
+<h6 style="color:var(--color-accent-400);margin-bottom:10px">09 — Permissions</h6>
+<h2>Six, each justified in the Play listing</h2>
+<table>
+<tr><th style="width:30%">Permission</th><th style="width:16%">When</th><th>Justification / risk</th></tr>
+<tr><td><code>USE_EXACT_ALARM</code></td><td>Manifest</td><td>Alarm-clock function. Non-revocable but policy-reviewed — the listing must state the app <em>is</em> a scheduled alarm device. Risk: rejection; fallback is the revocable variant.</td></tr>
+<tr><td><code>FOREGROUND_SERVICE_MEDIA_PLAYBACK</code></td><td>Manifest</td><td>Scheduled audio playback with the screen off. <code>specialUse</code> avoided — it draws more scrutiny than mediaPlayback here.</td></tr>
+<tr><td><code>POST_NOTIFICATIONS</code></td><td>First run</td><td>The persistent status notification is the appliance's health indicator. Denied &rarr; service still runs, health is visible only in-app.</td></tr>
+<tr><td><code>RECEIVE_BOOT_COMPLETED</code></td><td>Manifest</td><td>Power loss recovery.</td></tr>
+<tr><td><code>BLUETOOTH_CONNECT</code></td><td>On route pick</td><td>Only when the user chooses a BT route.</td></tr>
+<tr><td>Battery optimisation exempt</td><td>First run</td><td>Not a permission — an intent. OEM variance is high; the checklist links per-OEM instructions and verifies by observing a heartbeat over 20 min.</td></tr>
+</table>
+</section>
+
+<section class="sec" id="matrix" style="margin-top:56px">
+<h6 style="color:var(--color-accent-400);margin-bottom:10px">10 — Failure matrix</h6>
+<h2>What happens when</h2>
+<table>
+<tr><th style="width:34%">Event</th><th>Behaviour</th></tr>
+<tr><td>Power cut, restored 03:59:50</td><td>Boot receiver &rarr; RESOLVE &rarr; 04:00 fires normally inside grace.</td></tr>
+<tr><td>Power cut, restored 04:10</td><td><code>missed</code> logged, nothing plays, dashboard shows the miss until acknowledged.</td></tr>
+<tr><td>Process killed mid-burst</td><td>Guard already written &rarr; no repeat on restart. <code>play_log</code> result stays <code>stopped</code>.</td></tr>
+<tr><td>Clock jumps backwards 6 h</td><td>Untrusted &rarr; automatic plays log <code>skipped_clock</code>, amber banner, tests still work.</td></tr>
+<tr><td>Clock corrected forward by NTP</td><td>Trust restored, re-materialize; anything now outside grace is <code>missed</code>, not fired.</td></tr>
+<tr><td>Airplane mode, no network, forever</td><td>Fully operational. Network is used for nothing on the critical path.</td></tr>
+<tr><td>BT amp not connected at fire</td><td>Speaker fallback + <code>error</code> log + dashboard route warning.</td></tr>
+<tr><td>Two overlapping course windows</td><td>Most recent <code>start_date</code> wins, dashboard warns and offers the override.</td></tr>
+<tr><td>Device unplugged, battery dies</td><td>Nothing fires. On restore, boot path applies; the dashboard shows the outage span.</td></tr>
+</table>
+</section>
+
+<section class="sec" id="roadmap" style="margin-top:56px">
+<h6 style="color:var(--color-accent-400);margin-bottom:10px">11 — Roadmap</h6>
+<h2>M0 &rarr; M4</h2>
+<table>
+<tr><th style="width:12%">Milestone</th><th style="width:30%">Ships</th><th>Done when</th></tr>
+<tr><td class="mono">M0</td><td>Engine, headless</td><td>Ported NG tests pass on JVM: day math, materialization, grace/missed, doha slots.</td></tr>
+<tr><td class="mono">M1</td><td>Service + player + speaker</td><td>Overnight run on a real tablet fires within grace; force-stop and reboot produce no doubles.</td></tr>
+<tr><td class="mono">M2</td><td>Dashboard + Schedule + PIN</td><td>MVP acceptance criteria 1&ndash;9 pass with a staff member who has not seen the app.</td></tr>
+<tr><td class="mono">M3</td><td>Routes, doha folder, backup</td><td>Criterion 10 passes; export &rarr; wipe &rarr; restore is lossless.</td></tr>
+<tr><td class="mono">M4</td><td>Play release + centre APK</td><td>Policy review cleared for exact alarms and FGS; a centre installs unattended from the listing.</td></tr>
+</table>
+</section>
+
+<section class="sec" id="test" style="margin-top:56px">
+<h6 style="color:var(--color-accent-400);margin-bottom:10px">12 — Test plan</h6>
+<h2>No hall required until M4</h2>
+<ul style="max-width:66ch">
+<li><strong style="font-weight:500">Unit (JVM).</strong> NG's <code>test_scheduler</code>, <code>test_doha</code>, <code>test_player</code> ported as the oracle. Every legacy bug from §3.1 gets a named regression test — the day-2 fallback, the <code>0 =&gt; 0</code> doha index, the <code>/86400</code> DST break.</li>
+<li><strong style="font-weight:500">Virtual clock.</strong> The engine takes an injected <code>Clock</code>; a 400-day run over every course type executes in seconds and asserts an exact fire ledger.</li>
+<li><strong style="font-weight:500">Instrumented.</strong> Doze forced via <code>adb</code>, alarm-permission denial, force-stop mid-burst, timezone flip, DST boundary dates, BT disconnect at fire time.</li>
+<li><strong style="font-weight:500">Field.</strong> A compressed-time mode (1 course day per 20 min) so a full 10-day course is observable in a single afternoon on a desk.</li>
+</ul>
+</section>
+
+<section class="sec" id="risks" style="margin-top:56px">
+<h6 style="color:var(--color-accent-400);margin-bottom:10px">13 — Risks</h6>
+<h2>Ranked, with the mitigation we actually ship</h2>
+<table>
+<tr><th style="width:32%">Risk</th><th style="width:12%">Severity</th><th>Mitigation</th></tr>
+<tr><td>OEM battery killer stops the service silently</td><td style="color:#e08a8a">High</td><td>Setup checklist verifies a 20-min heartbeat before declaring ready; status notification; a daily self-check writes a liveness row so an outage is visible in logs.</td></tr>
+<tr><td>Play rejects exact alarms or the FGS type</td><td style="color:#e08a8a">High</td><td>Listing frames the app as an alarm clock; revocable-permission fallback path built from M1; centre-edition APK is the escape hatch.</td></tr>
+<tr><td>BT latency ruins burst rhythm</td><td style="color:#e0c07a">Medium</td><td>Constant offset, pre-warmed route; USB DAC recommended in the install guide for halls that care.</td></tr>
+<tr><td>Doha files misnamed by staff</td><td style="color:#e0c07a">Medium</td><td>Mapping table is explicit and overridable; unassigned files listed rather than guessed; slot preview plays.</td></tr>
+<tr><td>Device clock wrong with no network</td><td style="color:#e0c07a">Medium</td><td>Trust model suppresses automatic plays; staff confirm-trust action; setup asks for a timezone explicitly rather than inferring.</td></tr>
+<tr><td>Staff change the schedule for the wrong day</td><td class="text-muted">Low</td><td>The day-column grid makes the whole matrix visible, so a day-3 edit reads as a day-3 edit.</td></tr>
+</table>
+</section>
+
+<section class="sec" id="open" style="margin-top:56px">
+<h6 style="color:var(--color-accent-400);margin-bottom:10px">14 — Unresolved</h6>
+<h2>Six questions, ranked</h2>
+<ol style="max-width:66ch;padding-left:20px">
+<li>Which tablet model(s) will centres actually buy? OEM battery behaviour is the top risk and it is model-specific.</li>
+<li>Is the system alarm icon from <code>setAlarmClock</code> acceptable on a wall tablet, or does it need the throttled path?</li>
+<li>Does any centre need two schedules on one device (two halls)? Assumed no; it changes the data model if yes.</li>
+<li>Who signs and hosts the centre-edition APK, and how do centres verify it?</li>
+<li>Is kiosk / screen-pinning first-class in v1, or a documented device-owner setup step?</li>
+<li>Hindi at launch or after? It is cheap now and expensive to retrofit into a grid layout later.</li>
+</ol>
+</section>
+
+<section class="sec" id="ready" style="margin-top:56px">
+<h6 style="color:var(--color-accent-400);margin-bottom:10px">15 — Ready for implementation?</h6>
+<h2>Area by area</h2>
+<table>
+<tr><th style="width:26%">Area</th><th style="width:12%">Ready</th><th>Blocker</th></tr>
+<tr><td>Scheduler semantics</td><td style="color:var(--color-accent-300)">Yes</td><td class="text-muted">NG is the spec; tests are the oracle.</td></tr>
+<tr><td>Data model</td><td style="color:var(--color-accent-300)">Yes</td><td class="text-muted">Three deltas above, all additive.</td></tr>
+<tr><td>Service &amp; wake strategy</td><td style="color:var(--color-accent-300)">Yes</td><td class="text-muted">Belt-and-braces design does not depend on any one API surviving.</td></tr>
+<tr><td>Audio routing</td><td style="color:#e0c07a">Mostly</td><td>Needs one real BT amp and one USB DAC on the bench to pin latency numbers.</td></tr>
+<tr><td>Media packaging</td><td style="color:var(--color-accent-300)">Yes</td><td class="text-muted">Gongs in-APK, doha sideloaded, decided.</td></tr>
+<tr><td>Hardware target</td><td style="color:#e08a8a">No</td><td>Open question 1 — pick a model before M1 field testing.</td></tr>
+<tr><td>Play compliance</td><td style="color:#e0c07a">Mostly</td><td>Draft listing copy for exact-alarm justification needs a pre-review.</td></tr>
+<tr><td>Network / hotspot</td><td style="color:var(--color-accent-300)">Yes</td><td class="text-muted">Informational only in v1; nothing on the critical path.</td></tr>
+</table>
+</section>
+
+</main>
+</div>
+</x-dc>
+</body>
+</html>
