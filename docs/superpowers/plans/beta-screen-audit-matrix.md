@@ -2,8 +2,16 @@
 
 Companion to `2026-08-09-beta-screen-review-assignment.md`.
 
-**STATUS: INCOMPLETE — Wave 2 interrupted by API session limit (resets 05:50 PT).**
-Resume instructions in the last section. Branch `beta/screen-review`, checkpoint commit `a5b0526`.
+**STATUS: COMPLETE.** All six Wave 1 audits, all seven Wave 2 implementations,
+Wave 3 screenshots and Wave 4 integration landed on branch `beta/screen-review`.
+Shipped `0.2.0-beta1`; 130 unit tests green; screenshots in `docs/screenshots/`
+(`1*-beta-*.png`); human checklist at `docs/BETA-QA-CHECKLIST.md`.
+
+Wave 2 ran in two passes — the first was killed mid-flight by an API session
+limit, and the Courses and Shell agents additionally tripped a content filter
+when they tried to emit whole-file rewrites. Relaunching them with
+incremental-edit-only instructions cleared it. The "Wave 2 status" section
+below is kept as the historical record of that.
 
 ## Baseline & current state
 

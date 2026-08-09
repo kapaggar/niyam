@@ -2,9 +2,10 @@
 
 Standalone repo **`kapaggar/niyam`** (branch `main`), extracted with history from the gongserver monorepo's `android/` tree.
 
-Last updated: 2026-08-09, post-review improvements **B6** (first-run exact
-alarms + battery + notifications on health card) and **B9** (persist resolved
-`active_course_id`). Prior: M0–M4, B1–B5/B7/B8/B13, app-open PIN, standalone scrub.
+Last updated: 2026-08-09, **beta screen review** — all six shipped screens
+polished for tablet field use, PIN session now expires, Time and Setup screens
+added, version bumped to **`0.2.0-beta1`** (`versionCode` 2) for human tablet
+testing. Prior: M0–M4, B1–B9/B13/B14, app-open PIN, standalone scrub.
 
 ---
 
@@ -20,8 +21,9 @@ cd /Users/wizops/DIPI/niyam
 Environment used: JDK 20, AGP 8.7.2, Kotlin 2.0.21, Gradle 8.9, compileSdk 35
 (auto-downloaded on first build), minSdk 29.
 
-**Next milestone: M5 rest — the five undesigned screens (Sounds / Audio / Time / Network / Setup).**
-PIN gate already shipped. See "What's next" below.
+**Next milestone: human tablet beta.** Hand `app-debug.apk` (`0.2.0-beta1`) to a
+tester with `docs/BETA-QA-CHECKLIST.md`. Time and Setup shipped in the beta
+review; Sounds / Audio out / Network remain locked and still need design.
 
 ---
 
@@ -165,13 +167,40 @@ Not yet designed (draw as locked nav entries at 42 % opacity with a 🔒):
 Sounds, Audio out, Time, Network, Setup checklist, PIN lock.
 
 ### M5 — the five undesigned screens + PIN
-Sounds, Audio out, Time, Network, Setup checklist are nav entries only. They
-need visual design first (design doc §08 says what each must answer). The PIN
-gate shipped 2026-08-08 as an **app-open** gate (stricter than the per-tab
-design): `domain/PinCode.kt` (salted PBKDF2 into `admin_pin_hash`),
+**Time** and **Setup** shipped 2026-08-09 in the beta screen review
+(`ui/TimeScreen.kt`, `ui/SetupScreen.kt`): Time shows the appliance zone against
+the device zone, sets `timezone` from a common list or a validated IANA id, and
+confirms an untrusted clock; Setup binds a permission checklist to the real
+`AppliancePermissions.status` and shows live scheduler state. Sounds, Audio out
+and Network are still nav entries only and need visual design first (design doc
+§08 says what each must answer); their locked cards now state what the screen
+will do and that the schedule runs without it.
+
+The PIN gate shipped 2026-08-08 as an **app-open** gate (stricter than the
+per-tab design): `domain/PinCode.kt` (salted PBKDF2 into `admin_pin_hash`),
 `ui/PinScreens.kt` (lock keypad + the PIN tab to set/change/remove it),
 gate in `GongApp`. `Tab.requiresPin` is now moot — the whole app is behind
-the PIN when one is set.
+the PIN when one is set. As of the beta review the unlocked session is
+released once the UI has been backgrounded past a 60 s grace window; before
+that it was never reset, so on an appliance whose foreground service keeps the
+process alive a single unlock persisted indefinitely.
+
+### Beta screen review (2026-08-09, `0.2.0-beta1`)
+Six parallel audits, then implementation per screen. Full findings and the
+triage rulings are in `docs/superpowers/plans/beta-screen-audit-matrix.md`.
+
+Behavioural fix worth calling out: on **Schedule**, a day with no explicit rows
+inherits the whole DEF pattern, but painted as empty — so one tap wrote a single
+row and silently replaced that day's entire inherited schedule, under an "Event
+saved" toast. Inherited rows now render dimmed and the first override takes two
+taps. This reveals existing semantics; it does not change them, and selecting
+"—" still writes SQL NULL for gap and track.
+
+Also: adaptive layout so Stop / Add are never clipped on narrow landscape;
+44 dp hit targets across all screens (painted sizes unchanged); `onNewIntent`
+so `EXTRA_TAB` deep links work on a warm start; dark platform theme, removing
+the grey status bar and white cold-start flash; window-inset handling for
+targetSdk 35; masked PIN entry; scrollable keypad and nav rail.
 
 ### M6 — backup, audio route picker, doha SAF folder, first-run wizard
 Doha files auto-map by `D01`…`D11` prefix into `media_slots`; unmatched files
