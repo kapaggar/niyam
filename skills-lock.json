@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "skills": {
+    "adaptive": {
+      "source": "android/skills",
+      "sourceType": "github",
+      "skillPath": "jetpack-compose/adaptive/SKILL.md",
+      "computedHash": "ebcbe59ef56961d9dc7efc329928555b3eb17a7e37e6a682f542c7eb782a1e4a"
+    },
+    "android-cli": {
+      "source": "android/skills",
+      "sourceType": "github",
+      "skillPath": "devtools/android-cli/SKILL.md",
+      "computedHash": "593bf793123af51c94c080b10ea1d10da38895fe3c8b335daa139bdde43289bb"
+    },
+    "android-data-layer": {
+      "source": "new-silvermoon/awesome-android-agent-skills",
+      "sourceType": "github",
+      "skillPath": ".github/skills/architecture/android-data-layer/SKILL.md",
+      "computedHash": "fd7efba5e76d983f7d28b959530c47ea5914d92881c73c69bbe787de040328c3"
+    },
+    "android-jetpack-compose": {
+      "source": "thebushidocollective/han",
+      "sourceType": "github",
+      "skillPath": "plugins/specialized/android/skills/jetpack-compose/SKILL.md",
+      "computedHash": "7c17e8d8ecfc7159fa18a4359cc0e53868134b6bfd28e825b5c5473d52987853"
+    },
+    "testing-setup": {
+      "source": "android/skills",
+      "sourceType": "github",
+      "skillPath": "testing/testing-setup/SKILL.md",
+      "computedHash": "567cf2c44d72abd7d418a254b2ee09d84d0d010b5e2ed9cbccd1e715b4d7aa55"
+    }
+  }
+}

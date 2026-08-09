@@ -21,6 +21,19 @@ Historical parent: Gong-NG / GongDohaServer Raspberry Pi daemon (behavioural ref
 | 5 | `docs/ANDROID-APP-IMPLEMENTATION-PROMPT.md` | M0–M7 plan |
 | 6 | `docs/handoff/` | Product UX (open HTML in a browser) |
 | 7 | `SECURITY.md`, `PRIVACY.md`, `LICENSE`, `LICENSE-NOTES.md` | Compliance and threat model |
+| 8 | `docs/SKILLS.md` + project skills under `skills/` | Installed Android agent skills (Compose, Room, tests, AVD) |
+
+### Installed agent skills (load when relevant)
+
+| Skill | Use for |
+|-------|---------|
+| `android-cli` | Emulator, install, screenshots, SDK |
+| `adaptive` | Tablet / landscape / nav-rail layouts |
+| `testing-setup` | Test harness and strategy |
+| `android-data-layer` | Room, repository, offline data |
+| `android-jetpack-compose` | Compose UI patterns |
+
+Paths: `skills/`, `.claude/skills/`, `.grok/skills/` (see `docs/SKILLS.md`).
 
 **Do not invent schedule semantics.** If Gong-NG and a design note conflict on fire rules, prefer domain tests + `SchedulerCore` / `FireRules` / `ActiveCourse` / `DohaSlots`. Add a failing unit test before changing behaviour.
 
