@@ -2,7 +2,7 @@
 
 Working branch: **`android-app`** (off `gong-ng`). Everything lives in `android/`.
 
-Last updated: 2026-08-08, end of M3.
+Last updated: 2026-08-08, end of **M4**.
 
 ---
 
@@ -18,7 +18,8 @@ cd /Users/wizops/gongserver/android
 Environment used: JDK 20, AGP 8.7.2, Kotlin 2.0.21, Gradle 8.9, compileSdk 35
 (auto-downloaded on first build), minSdk 29.
 
-**Next milestone: M4 — Compose UI.** See "What's next" below.
+**Next milestone: M5 — schedule-editor writes + the five undesigned screens.**
+See "What's next" below.
 
 ---
 
@@ -72,6 +73,15 @@ so the rules are testable without an audio device; `ExoAudioSink` is Media3 with
 speaker and records `state.route_last_ok`. `GongService` is the foreground
 `mediaPlayback` service that owns everything.
 
+### M4 — Compose UI (`ui/`)
+Nav rail + Dashboard / Courses / Schedule grid / Logs, recreated natively from
+`docs/handoff/`. `AppViewModel` reads Room and the service's flows only. The
+five screens the handoff did not design are drawn inert with a lock glyph.
+Two layout traps found by running it, worth remembering: `weight()` and a
+nested `verticalScroll` are unbounded inside a scrolling column (runtime
+crash), and the 98 sp hero wraps below the 1280x800 target width, so it steps
+down and the pane scrolls.
+
 ### M3 — scheduler loop (`schedule/`)
 `SchedulerEngine.tick()` + `AlarmScheduler`. `setAlarmClock` for the next
 occurrence **and** a 30 s heartbeat. Guard committed before dispatch. Prune +
@@ -94,7 +104,8 @@ log-trim on day rollover. Route warm-up 15 s ahead.
 | Untrusted clock silences auto plays | yes | **yes** | `ClockTrustTest`, `SchedulerEngineTest` |
 | Toggle silences without retro-firing | yes | **yes** | `SchedulerEngineTest` |
 | Backup DB | yes | **no** | M6 |
-| Schedule editor | yes (web UI) | **no** | M5 |
+| Schedule editor | yes (web UI) | **yes** | M4 grid + inspector |
+| Nullable gap/track = inherit | yes | **yes** | `SeedAndRepositoryTest`, inspector |
 
 ---
 
@@ -125,7 +136,7 @@ Two test-harness facts worth keeping:
 
 ## What's next
 
-### M4 — Compose UI (per `android/docs/handoff/README.md`)
+### (M4 is done — kept here for the parts still outstanding)
 Target: 1280×800 logical px, 10" tablet, **landscape only**, readable at 2 m.
 Nocturne tokens are already transcribed in `ui/Theme.kt`.
 
@@ -147,9 +158,11 @@ Nocturne tokens are already transcribed in `ui/Theme.kt`.
 Not yet designed (draw as locked nav entries at 42 % opacity with a 🔒):
 Sounds, Audio out, Time, Network, Setup checklist, PIN lock.
 
-### M5 — schedule editor writes
-Grid cell tap creates a default event (×6, inherit gap, inherit track);
-every write must call `GongService.pokeScheduler(...)`.
+### M5 — the five undesigned screens + PIN
+Sounds, Audio out, Time, Network, Setup checklist are nav entries only. They
+need visual design first (design doc §08 says what each must answer). The PIN
+gate is specified but not implemented — `admin_pin_hash` exists in settings and
+is unused; `Tab.requiresPin` is declared and not yet enforced.
 
 ### M6 — backup, audio route picker, doha SAF folder, first-run wizard
 Doha files auto-map by `D01`…`D11` prefix into `media_slots`; unmatched files
@@ -165,9 +178,20 @@ strings, media-pack install docs.
 
 ## Known gaps / decisions still open
 
-- **Nothing has run on a real device or emulator.** Every result above is
-  `testDebugUnitTest` (JVM + Robolectric) plus `assembleDebug`. The
-  overnight-on-a-tablet run in design doc M1 has not happened.
+- **Ran on an emulator, never on real hardware.** The end-to-end fire was
+  verified on the `cca34` AVD (API 34): seed loaded, a 10 Day course starting
+  today showed Day 0, an event ~75 s ahead was picked up by the heartbeat,
+  `setAlarmClock` woke the service at `19:13:00.006`, the burst fired, and
+  `play_log` recorded `gong|ting.mp3|3|ok`. Earlier events that day logged
+  `missed` rather than blasting late.
+  The overnight-on-a-tablet run from design doc M1 has **not** happened, and
+  OEM battery behaviour (risk #1) is untested by definition.
+- Emulator note: the `Android31`, `dhamma` and `dhammaplay` AVDs have broken
+  `image.sysdir` paths — only `cca34` boots, because android-34 is the one
+  system image installed.
+- The UI was exercised on a **phone-shaped** emulator, not a 1280x800 tablet.
+  It degrades correctly there, but the design's fixed 394 dp columns have not
+  been seen at their intended size.
 - Release builds ship **no doha audio at all** — `media_slots` is empty until
   staff sideload a pack, and the dashboard is expected to show `GONGS ONLY`.
 - `relay_enabled` is retained in settings for NG parity and is inert.
