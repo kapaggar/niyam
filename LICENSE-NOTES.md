@@ -1,24 +1,27 @@
-# Licensing notes for this Android tree
+# Licensing notes — Niyam
 
-## Code and configuration
+## Software and documentation
 
-Scaffold Kotlin/Gradle code, seed JSON/SQL derived from the Pi appliance's conversion scripts,
-and documentation under `docs/` follow the same intent as the parent Gongserver
-project (MIT for software/docs unless noted otherwise in the parent LICENSE).
+Unless noted below, source code, Gradle project files, seed **structure** (JSON/SQL
+schedules), and documentation (including `README.md`, `PRIVACY.md`, `SECURITY.md`,
+`AGENTS.md`, `CLAUDE.md`, and `docs/`) are licensed under the **MIT License** —
+see [LICENSE](LICENSE).
 
-## Audio
+## Audio media (not MIT)
 
-- `media/gongs/ting.mp3`, `drum.mp3` (and `gong-*.mp3` copies) originate from the
-  Gongserver appliance media tree.
+- Files under `media/gongs/` (e.g. `ting.mp3`, `drum.mp3`) and matching app assets
+  originate from the traditional Gongserver media tree.
 - **These recordings are not MIT-licensed.** They remain the property of their
-  rights holders (Vipassana Research Institute / the course tradition).
-- Do **not** assume you may redistribute them on Google Play or other public stores
-  without explicit permission.
-- Full doha library (D01–D11) is **not** bundled here (large + same rights). Use
+  rights holders (including Vipassana Research Institute / the course tradition
+  where applicable).
+- Do **not** assume you may redistribute them on Google Play or other public
+  stores without explicit permission from the rights holders.
+- A full doha library (D01–D11) is **not** required in git. Use
   `seed/doha-manifest.json` / `media/doha/manifest.json` as the filename contract
-  when centres install a licensed media pack separately.
+  when a centre installs a licensed pack on the device.
 
-## Recommendation for a public repo / Play build
+## Recommendation for public / Play builds
 
-Ship **synthetic placeholder tones** generated for CI, and load real gong/doha via
-a private centre media pack on the device.
+Prefer **synthetic placeholder tones** for CI and public demo builds. Load real
+gong/doha audio via a **private centre media pack** on the device. Keep that pack
+out of the public git history unless rights are cleared in writing.

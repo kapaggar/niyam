@@ -5,6 +5,7 @@
 .DS_Store
 /build/
 /app/build/
+**/build/
 /captures/
 .externalNativeBuild/
 .cxx/
@@ -17,3 +18,9 @@ bin/
 gen/
 out/
 .kotlin/
+*.jks
+*.keystore
+secrets/
+.DS_Store
+*.swp
+*~
