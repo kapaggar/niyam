@@ -3,6 +3,8 @@
 **Date:** 2026-08-09
 **Milestone:** new (the `relay_enabled` setting has existed inert since M1)
 **Status:** approved design, not yet implemented
+**Amended 2026-08-09** — major review fixes (back-to-back OFF suppression, miss
+handling, network prerequisites, rising-edge ON)
 
 ## Problem
 
@@ -55,6 +57,14 @@ screen to configure and test it.
 4. **Clock untrusted → no relay.** Automatic plays are suppressed, so automatic
    relay switching is suppressed with them. Manual override from the screen
    still works.
+5. **Never switch OFF while the amp is still needed.** No OFF may be issued if a
+   play is in progress, or if `nextDeadline` is within the same
+   `heartbeat + lead` window used to pre-arm ON. A gong followed by doha a
+   minute later must not power the amp down in between and re-warm it cold.
+6. **ON is rising-edge only.** ON is issued when the desired state transitions
+   off→on, not re-sent every 30 s heartbeat. Re-sending would spam the device and
+   silently refresh `toggle_after`, which would defeat the watchdog by pushing
+   its deadline forward forever.
 
 ## Trigger rule
 
@@ -79,16 +89,45 @@ strike — which defeats the point).
 ## Architecture
 
 ```
-domain/RelayPlan.kt        pure: given nextDeadline / play state → Desired(on|off, toggleAfter)
+domain/RelayPlan.kt        pure: (now, nextDeadline, playing, armedFor, …) → Desired
 relay/ShellyClient.kt      Gen2+ JSON-RPC over HTTP, digest auth, timeouts
-relay/RelayController.kt   owns reachability + last result; serialises calls
-schedule/SchedulerEngine   calls RelayController on tick (fire-and-forget)
-player/PlayerEngine        emits play end → RelayController.offAfterLag()
+relay/RelayController.kt   holds armedForDeadline + reachability; serialises calls
+schedule/SchedulerEngine   tick → RelayController: pre-arm ON *and* OFF on miss/cancel
+player/PlayerEngine        emits play end → RelayController (lag-off, subject to rule 5)
 ui/RelayScreen.kt          config, test, manual override, status
 ```
 
+The tick path owns **both** edges. Play-end alone is not enough: a **missed**
+occurrence never reaches `PlayerEngine`, so if the tick only ever armed ON, a
+missed gong would leave the amp on until `toggle_after` expired. That is the
+crash backstop, not the normal path.
+
+**Sticky arm.** `RelayController` remembers `armedForDeadline`. On each tick, if
+we armed for deadline *D*, and *D* is no longer the live `nextDeadline` (fired,
+missed, or superseded), and we are not playing, and no new deadline is inside the
+pre-arm window → issue an explicit **OFF** and clear the arm.
+
+`RelayPlan` inputs: `now`, `nextDeadline`, `playing`, `armedForDeadline`,
+`relayEnabled`, `clockTrusted`, `leadSeconds`, `lagSeconds`, `heartbeat`,
+`lastPlayEndedAt`. Output: `Desired.On(toggleAfter)`, `Desired.Off`, or
+`Desired.NoChange` — `NoChange` is what makes ON rising-edge rather than chatty.
+
 `domain/RelayPlan.kt` has **no Android imports** and is unit-tested on the JVM,
 matching `FireRules` / `ClockTrust`.
+
+### Implementation prerequisites (blocking)
+
+The manifest today has no `INTERNET` permission and no network security config.
+Both are required before any of this works on device:
+
+1. **`android.permission.INTERNET`** in `AndroidManifest.xml`.
+2. **Cleartext HTTP to the relay host.** Gen2+ RPC is plain HTTP on the LAN, and
+   modern Android blocks cleartext by default. Add a network security config
+   permitting cleartext to private LAN ranges (or the configured relay host).
+   This is centre-local WiFi only — the app never exposes the relay API publicly
+   and never talks to Shelly Cloud.
+3. **mDNS convenience** may need multicast handling. It must stay non-blocking;
+   manual IP remains the primary path (Gen4 mDNS is unreliable).
 
 ### `toggle_after` computation
 
@@ -158,7 +197,8 @@ its own table.
 | 401 | Screen says authentication required; play unaffected |
 | Tablet dies mid-play | `toggle_after` switches the amp off device-side |
 | Clock untrusted | No automatic switching (rule 4) |
-| Relay on, gong then missed | Explicit off still issued; `toggle_after` backstops |
+| Relay on, gong then missed | Tick path issues an explicit OFF once the armed deadline goes stale; `toggle_after` backstops only if the process died |
+| Gong then doha inside the pre-arm window | No OFF between them (rule 5); the amp stays warm |
 
 ## Testing
 
@@ -169,7 +209,15 @@ JVM unit tests on `domain/RelayPlan.kt`:
 - untrusted clock → never on automatically
 - `toggle_after` always exceeds lead + play + lag
 - play end → off after exactly the lag
-- a missed occurrence does not leave a desired-on state
+- **rising edge: a second tick while already armed returns `NoChange`, not a
+  repeated ON — `toggle_after` is never silently refreshed**
+- **back-to-back occurrences: after the first play ends with the next deadline
+  still inside the pre-arm window, the plan stays ON — no spurious OFF between a
+  gong and a doha a minute later**
+- **OFF is suppressed while `playing` is true**
+- **missed occurrence: armed for *D*, *D* is no longer the live deadline, not
+  playing, nothing new in the window → explicit `Desired.Off` while the process
+  is alive, rather than waiting on `toggle_after`**
 
 `ShellyClient` is tested against a local fake HTTP server (request shape, digest
 challenge/response, timeout). No real device in unit tests. Real hardware is a
@@ -183,5 +231,10 @@ QA-checklist item.
    reports unreachable.
 3. Killing the app mid-play leaves the amp off within the `toggle_after` window.
 4. Test connection reports model and MAC for a correct host, and a clear error
-   for a wrong one.
-5. `./gradlew :app:testDebugUnitTest` green, including new `RelayPlan` tests.
+   for a wrong one — **succeeding against `http://<ip>` on a cleartext-restricted
+   Android version, which requires the manifest and network-config work above.**
+5. A gong followed by a doha inside the pre-arm window does not power the amp
+   down in between.
+6. A missed occurrence powers the amp off from the tick path while the app is
+   still running, without waiting for `toggle_after`.
+7. `./gradlew :app:testDebugUnitTest` green, including new `RelayPlan` tests.
