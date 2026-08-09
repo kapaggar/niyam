@@ -158,6 +158,16 @@ class SchedulerEngine(
             today,
             snapshot.setting("active_course_id").takeIf { it.isNotBlank() },
         )
+        // Pi parity (FABLE-REVIEW B9): write the resolved course id so a later
+        // process restart, pin read, and UI row stay on the same course even if
+        // another overlapping window would otherwise re-pick by most-recent start.
+        // Only rewrite when the value actually changes — avoid a settings poke
+        // storm every heartbeat.
+        val resolvedId = course?.courseId?.toString().orEmpty()
+        val storedId = snapshot.setting("active_course_id")
+        if (resolvedId != storedId) {
+            repo.putSetting("active_course_id", resolvedId)
+        }
         _state.value = _state.value.copy(
             clockTrusted = trusted,
             course = course,

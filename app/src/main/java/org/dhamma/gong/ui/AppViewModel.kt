@@ -28,6 +28,7 @@ import org.dhamma.gong.domain.Course
 import org.dhamma.gong.domain.PinCode
 import org.dhamma.gong.domain.SettingsDefaults
 import org.dhamma.gong.schedule.SchedulerEngine
+import org.dhamma.gong.service.AppliancePermissions
 import org.dhamma.gong.service.GongService
 import java.time.LocalDate
 import java.time.ZoneId
@@ -138,12 +139,35 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         .map { rows -> rows.any { it.status == CourseRow.Status.OVERLAP } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
+    // ------------------------------------------------------------ appliance permissions (B6)
+
+    private val _permissionStatus = MutableStateFlow(
+        AppliancePermissions.Status(
+            notificationsGranted = true,
+            exactAlarmsAllowed = true,
+            batteryUnrestricted = true,
+        ),
+    )
+    val permissionStatus: StateFlow<AppliancePermissions.Status> = _permissionStatus.asStateFlow()
+
+    fun updatePermissionStatus(status: AppliancePermissions.Status) {
+        _permissionStatus.value = status
+    }
+
+    fun refreshPermissionStatus() {
+        _permissionStatus.value = AppliancePermissions.status(getApplication())
+    }
+
     // ------------------------------------------------------------ pin gate
 
     /**
      * The stored `admin_pin_hash` row. Null until the first DB emission, so
      * the gate can render *nothing* instead of flashing the dashboard while
      * it does not yet know whether a PIN exists.
+     *
+     * After the first Room emission the value is always a non-null String
+     * (empty when no PIN is set). Mapping a missing row to `""` (not null)
+     * is intentional — only the [stateIn] initial value means "still loading".
      */
     val pinHash: StateFlow<String?> = db.settings().observeAll()
         .map { rows -> rows.firstOrNull { it.key == "admin_pin_hash" }?.value.orEmpty() }
