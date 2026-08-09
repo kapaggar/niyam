@@ -41,6 +41,14 @@ class PlayerEngine(
     private val router: AudioRouter,
     private val sink: AudioSink,
     private val scope: CoroutineScope,
+    /**
+     * Called when a play finishes, so the amplifier relay can time its lag-out
+     * from the real end of the burst.
+     *
+     * Fire-and-forget by contract: it must return immediately and must never
+     * be something playback waits on.
+     */
+    private val onPlayEnded: () -> Unit = {},
 ) {
 
     data class Status(
@@ -256,6 +264,10 @@ class PlayerEngine(
             playing = false, strike = 0, ofStrikes = 0, label = "",
             lastResult = result, lastFile = media.displayName,
         )
+        // Relay lag-out starts here, not at the scheduled time. Never allowed
+        // to throw into the play path.
+        runCatching { onPlayEnded() }
+            .onFailure { Log.w(TAG, "play-end hook failed", it) }
     }
 
     private class BurstPreempted : CancellationException("preempted")

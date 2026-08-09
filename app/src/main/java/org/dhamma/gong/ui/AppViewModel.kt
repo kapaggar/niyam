@@ -1,7 +1,10 @@
 package org.dhamma.gong.ui
 
 import android.app.Application
+import android.content.Intent
+import android.net.Uri
 import android.os.SystemClock
+import android.provider.DocumentsContract
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -18,6 +21,8 @@ import kotlinx.coroutines.launch
 import org.dhamma.gong.data.CourseTypeEntity
 import org.dhamma.gong.data.GongDatabase
 import org.dhamma.gong.data.GongRepository
+import org.dhamma.gong.data.MediaSlotEntity
+import org.dhamma.gong.data.MediaSlotSource
 import org.dhamma.gong.data.PlayLogEntity
 import org.dhamma.gong.data.ScheduleEventEntity
 import org.dhamma.gong.data.toDomain
@@ -26,13 +31,16 @@ import kotlinx.coroutines.withContext
 import org.dhamma.gong.domain.ActiveCourse
 import org.dhamma.gong.domain.ApplianceZone
 import org.dhamma.gong.domain.Course
+import org.dhamma.gong.domain.DohaPackMapper
 import org.dhamma.gong.domain.PinCode
 import org.dhamma.gong.domain.SettingsDefaults
 import org.dhamma.gong.schedule.SchedulerEngine
 import org.dhamma.gong.service.AppliancePermissions
 import org.dhamma.gong.service.GongService
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 
 /**
  * The UI's view of the appliance.
@@ -88,9 +96,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val logs: StateFlow<List<PlayLogEntity>> = db.playLog().observeRecent(300)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    val mediaSlots: StateFlow<List<MediaSlotEntity>> = db.mediaSlots().observeAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     val mappedDohaSlots: StateFlow<List<Int>> = db.mediaSlots().observeAll()
         .map { rows -> rows.map { it.slot } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** The persisted SAF tree, or "" when no pack folder has been picked. */
+    val dohaTreeUri: StateFlow<String> = settings
+        .map { it["doha_tree_uri"].orEmpty() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
 
     /** Courses joined with their type and their status for the courses table. */
     data class CourseRow(
@@ -256,6 +272,253 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
     }
+
+    // ------------------------------------------------------------ doha media pack
+
+    /**
+     * What the last scan of the pack folder found. UI-only state — the mapping
+     * itself lives in `media_slots`; this is the report staff read beside it.
+     */
+    data class DohaPack(
+        val folderLabel: String = "",
+        val viaDohaChild: Boolean = false,
+        val scanning: Boolean = false,
+        val scannedOnce: Boolean = false,
+        /** Set when the folder is unreadable or a re-pick was refused. */
+        val banner: String? = null,
+        val files: List<DohaPackMapper.ScannedFile> = emptyList(),
+        val skipped: List<DohaPackMapper.Skipped> = emptyList(),
+        val conflicts: List<DohaPackMapper.Conflict> = emptyList(),
+        val unassigned: List<DohaPackMapper.ScannedFile> = emptyList(),
+        /** Mapped slots whose URI could not be opened at the last check. */
+        val unreadable: Set<Int> = emptySet(),
+    )
+
+    private val _dohaPack = MutableStateFlow(DohaPack())
+    val dohaPack: StateFlow<DohaPack> = _dohaPack.asStateFlow()
+
+    private val resolver get() = getApplication<Application>().contentResolver
+
+    /**
+     * A folder came back from `OpenDocumentTree`.
+     *
+     * Order is the whole point (design doc "Permission lifecycle on re-pick"):
+     * take the new grant **first**, and only on success release the old one,
+     * persist, and remap. A take that throws changes nothing at all — a failed
+     * re-pick must leave a working appliance working.
+     */
+    fun onDohaFolderPicked(uri: Uri?) {
+        if (uri == null) return
+        viewModelScope.launch {
+            val took = runCatching {
+                resolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                )
+            }
+            if (took.isFailure) {
+                _dohaPack.value = _dohaPack.value.copy(
+                    banner = "Android refused lasting access to that folder. " +
+                        "Nothing changed — the previous folder and mapping are intact.",
+                )
+                return@launch
+            }
+
+            val previous = repo.setting("doha_tree_uri")
+            if (previous.isNotBlank() && previous != uri.toString()) {
+                // Persisted grants are a limited per-app resource; a season of
+                // re-picks would otherwise leak them.
+                runCatching {
+                    resolver.releasePersistableUriPermission(
+                        Uri.parse(previous),
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                    )
+                }
+            }
+            repo.putSetting("doha_tree_uri", uri.toString())
+            scanDohaTree(uri)
+        }
+    }
+
+    /** Re-read the persisted folder. Safe to call on every screen entry. */
+    fun rescanDohaFolder(announce: Boolean = true) {
+        viewModelScope.launch {
+            val stored = repo.setting("doha_tree_uri")
+            if (stored.isBlank()) {
+                _dohaPack.value = DohaPack()
+                if (announce) toast("Pick a doha folder first")
+                return@launch
+            }
+            scanDohaTree(Uri.parse(stored), announce)
+        }
+    }
+
+    /** Staff assign a scanned file to a slot by hand; this outranks auto-map. */
+    fun assignDohaSlot(slot: Int, file: DohaPackMapper.ScannedFile) {
+        viewModelScope.launch {
+            val stamp = if (openable(file.uri)) nowStamp() else null
+            db.mediaSlots().put(
+                MediaSlotEntity(slot, file.uri, file.name, MediaSlotSource.MANUAL, stamp),
+            )
+            refreshUnreadable()
+            toast("Slot %02d set to %s".format(slot, file.name))
+        }
+    }
+
+    /** Clearing a slot is always an explicit staff action. */
+    fun clearDohaSlot(slot: Int) {
+        viewModelScope.launch {
+            db.mediaSlots().delete(slot)
+            refreshUnreadable()
+            toast("Slot %02d cleared".format(slot))
+        }
+    }
+
+    fun dismissDohaBanner() {
+        _dohaPack.value = _dohaPack.value.copy(banner = null)
+    }
+
+    private suspend fun scanDohaTree(treeUri: Uri, announce: Boolean = true) {
+        _dohaPack.value = _dohaPack.value.copy(scanning = true, banner = null)
+        val root = withContext(Dispatchers.IO) { readTree(treeUri) }
+        if (root == null) {
+            // Keep the last known rows — but stop claiming they are verified.
+            val rows = db.mediaSlots().all()
+            if (rows.isNotEmpty()) db.mediaSlots().putAll(rows.map { it.copy(verifiedAt = null) })
+            _dohaPack.value = _dohaPack.value.copy(
+                scanning = false,
+                folderLabel = folderLabel(treeUri),
+                banner = "That folder is not readable now. The slots below are the " +
+                    "last known mapping and are unverified.",
+                unreadable = rows.map { it.slot }.toSet(),
+            )
+            return
+        }
+
+        val target = DohaPackMapper.resolveScanTarget(root)
+        // Held sources are read *before* the auto rows are cleared, so manual
+        // and bundled slots stay protected across the rescan.
+        val held = db.mediaSlots().all().associate { it.slot to it.source }
+        val mapping = DohaPackMapper.classify(target.files, held)
+
+        db.mediaSlots().deleteBySource(MediaSlotSource.AUTO)
+        val stamp = nowStamp()
+        val rows = withContext(Dispatchers.IO) {
+            mapping.assigned.map { (slot, f) ->
+                MediaSlotEntity(
+                    slot = slot,
+                    uri = f.uri,
+                    filename = f.name,
+                    source = MediaSlotSource.AUTO,
+                    verifiedAt = if (openable(f.uri)) stamp else null,
+                )
+            }
+        }
+        if (rows.isNotEmpty()) db.mediaSlots().putAll(rows)
+
+        _dohaPack.value = DohaPack(
+            folderLabel = folderLabel(treeUri),
+            viaDohaChild = target.viaDohaChild,
+            scannedOnce = true,
+            files = target.files,
+            skipped = mapping.skipped,
+            conflicts = mapping.conflicts,
+            unassigned = mapping.unassigned,
+        )
+        refreshUnreadable()
+        service.value?.pokeScheduler("doha pack rescanned")
+        if (announce) {
+            toast(
+                if (target.files.isEmpty()) "No D01…D11 files found in that folder"
+                else "Mapped ${mapping.assigned.size} of 11 slots",
+            )
+        }
+    }
+
+    /** Re-check every mapped slot. "Mapped" is not the same claim as "will play". */
+    private suspend fun refreshUnreadable() {
+        val rows = db.mediaSlots().all()
+        val bad = withContext(Dispatchers.IO) {
+            rows.filterNot { openable(it.uri) }.map { it.slot }.toSet()
+        }
+        _dohaPack.value = _dohaPack.value.copy(scanning = false, unreadable = bad)
+    }
+
+    private fun nowStamp(): String =
+        Instant.now().truncatedTo(ChronoUnit.SECONDS).toString()
+
+    private fun folderLabel(treeUri: Uri): String =
+        runCatching { Uri.decode(treeUri.lastPathSegment).orEmpty() }
+            .getOrDefault(treeUri.toString())
+            .ifBlank { treeUri.toString() }
+
+    private fun openable(uri: String): Boolean = runCatching {
+        val assetPath = uri.removePrefix("asset:///")
+        if (assetPath != uri) {
+            getApplication<Application>().assets.open(assetPath).close()
+        } else {
+            resolver.openInputStream(Uri.parse(uri))?.close()
+                ?: return false
+        }
+        true
+    }.getOrDefault(false)
+
+    /**
+     * One level of SAF listing, plus the immediate children of a `doha/` child.
+     * Nothing deeper is read — [DohaPackMapper.resolveScanTarget] decides which
+     * of the two the pack actually is.
+     *
+     * @return null when the tree cannot be read at all.
+     */
+    private fun readTree(treeUri: Uri): DohaPackMapper.DirNode? {
+        val rootId = runCatching { DocumentsContract.getTreeDocumentId(treeUri) }
+            .getOrNull() ?: return null
+        val root = listChildren(treeUri, rootId) ?: return null
+        val dirs = root.second.map { (docId, name) ->
+            if (name.equals(DohaPackMapper.DOHA_DIR, ignoreCase = true)) {
+                DohaPackMapper.DirNode(name, listChildren(treeUri, docId)?.first.orEmpty())
+            } else {
+                DohaPackMapper.DirNode(name)
+            }
+        }
+        return DohaPackMapper.DirNode(folderLabel(treeUri), root.first, dirs)
+    }
+
+    /** @return files to (docId, name) of child directories, or null on failure. */
+    private fun listChildren(
+        treeUri: Uri,
+        docId: String,
+    ): Pair<List<DohaPackMapper.ScannedFile>, List<Pair<String, String>>>? = runCatching {
+        val children = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, docId)
+        val files = mutableListOf<DohaPackMapper.ScannedFile>()
+        val dirs = mutableListOf<Pair<String, String>>()
+        resolver.query(
+            children,
+            arrayOf(
+                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                DocumentsContract.Document.COLUMN_MIME_TYPE,
+            ),
+            null,
+            null,
+            null,
+        )?.use { c ->
+            while (c.moveToNext()) {
+                val id = c.getString(0) ?: continue
+                val name = c.getString(1) ?: continue
+                val mime = c.getString(2).orEmpty()
+                if (mime == DocumentsContract.Document.MIME_TYPE_DIR) {
+                    dirs += id to name
+                } else {
+                    files += DohaPackMapper.ScannedFile(
+                        name,
+                        DocumentsContract.buildDocumentUriUsingTree(treeUri, id).toString(),
+                    )
+                }
+            }
+        } ?: return null
+        files to dirs
+    }.getOrNull()
 
     // ------------------------------------------------------------ toasts
 
