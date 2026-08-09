@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -20,7 +19,9 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -29,7 +30,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -42,15 +42,24 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.dhamma.gong.domain.Occurrence
 import org.dhamma.gong.domain.PlayResult
 import org.dhamma.gong.service.AppliancePermissions
 import java.time.Duration
+import java.time.ZoneId
 import java.time.ZonedDateTime
 
 /**
@@ -60,55 +69,79 @@ import java.time.ZonedDateTime
  */
 @Composable
 fun DashboardScreen(vm: AppViewModel) {
-    val state by vm.schedulerState.collectAsState()
-    val player by vm.playerStatus.collectAsState()
-    val settings by vm.settings.collectAsState()
-    val slots by vm.mappedDohaSlots.collectAsState()
-    val overlapping by vm.overlappingCourses.collectAsState()
-    val permissions by vm.permissionStatus.collectAsState()
+    val state by vm.schedulerState.collectAsStateWithLifecycle()
+    val player by vm.playerStatus.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    val slots by vm.mappedDohaSlots.collectAsStateWithLifecycle()
+    val overlapping by vm.overlappingCourses.collectAsStateWithLifecycle()
+    val permissions by vm.permissionStatus.collectAsStateWithLifecycle()
 
     // The clock ticks every second and the countdown is recomputed from
     // seconds — never by borrowing minutes by hand (design handoff). It shows
     // the *appliance's* wall time, which may differ from the device TZ.
-    val zone by vm.applianceZone.collectAsState()
+    //
+    // The tick is bound to STARTED: a wall tablet with the screen off must not
+    // recompose once a second for nobody.
+    val zone by vm.applianceZone.collectAsStateWithLifecycle()
     var now by remember(zone) { mutableStateOf(ZonedDateTime.now(zone)) }
-    LaunchedEffect(zone) {
-        while (true) {
-            now = ZonedDateTime.now(zone)
-            delay(1_000)
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(zone, lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                now = ZonedDateTime.now(zone)
+                delay(1_000)
+            }
         }
     }
 
-    // The design targets 1280×800 landscape, where this all fits. On anything
-    // smaller the pane scrolls rather than clipping the test buttons — losing
-    // "Stop" off the bottom edge is not an acceptable failure mode.
-    Column(
-        Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(start = 32.dp, end = 32.dp, top = 26.dp, bottom = 26.dp),
-        verticalArrangement = Arrangement.spacedBy(22.dp),
-    ) {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(32.dp),
+    // The design targets 1280×800 landscape, where the hero and its 394 dp
+    // asides sit side by side. Narrower landscape (and any phone) cannot hold
+    // that Row: the fixed asides would push the test panel — and with it
+    // "Stop" — off the right edge, which the vertical scroll cannot rescue.
+    // Below ~900 dp everything stacks full width instead.
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val wide = maxWidth >= 900.dp
+        Column(
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(start = 32.dp, end = 32.dp, top = 26.dp, bottom = 26.dp),
+            verticalArrangement = Arrangement.spacedBy(22.dp),
         ) {
-            NextGongHero(state.next, now, settings, player.route, Modifier.weight(1f))
-            Column(
-                Modifier.width(394.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                CourseCard(vm, state, settings, overlapping)
-                HealthCard(vm, state, player, slots.size, permissions)
-            }
-        }
+            if (wide) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(32.dp),
+                ) {
+                    NextGongHero(state.next, now, settings, player.route, Modifier.weight(1f))
+                    Column(
+                        Modifier.width(394.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        CourseCard(vm, state, zone, settings, overlapping)
+                        HealthCard(vm, state, player, slots.size, permissions)
+                    }
+                }
 
-        Row(
-            Modifier.fillMaxWidth().heightIn(min = 260.dp),
-            horizontalArrangement = Arrangement.spacedBy(32.dp),
-        ) {
-            NextEvents(state.upcoming, now, Modifier.weight(1f))
-            TestPanel(vm, player, Modifier.width(394.dp))
+                Row(
+                    Modifier.fillMaxWidth().heightIn(min = 260.dp),
+                    horizontalArrangement = Arrangement.spacedBy(32.dp),
+                ) {
+                    NextEvents(state.upcoming, now, Modifier.weight(1f))
+                    TestPanel(vm, player, Modifier.width(394.dp))
+                }
+            } else {
+                NextGongHero(state.next, now, settings, player.route, Modifier.fillMaxWidth())
+                Column(
+                    Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    CourseCard(vm, state, zone, settings, overlapping)
+                    HealthCard(vm, state, player, slots.size, permissions)
+                }
+                NextEvents(state.upcoming, now, Modifier.fillMaxWidth())
+                TestPanel(vm, player, Modifier.fillMaxWidth())
+            }
         }
     }
 }
@@ -159,8 +192,10 @@ private fun NextGongHero(
         )
         Spacer(Modifier.height(14.dp))
         Box(
+            // 214 dp at the design width; never wider than the pane it sits in.
             Modifier
-                .width(214.dp)
+                .widthIn(max = 214.dp)
+                .fillMaxWidth(0.6f)
                 .height(3.dp)
                 .clip(RoundedCornerShape(2.dp))
                 .background(Nocturne.Accent),
@@ -218,6 +253,7 @@ private fun detailLine(
 private fun CourseCard(
     vm: AppViewModel,
     state: org.dhamma.gong.schedule.SchedulerEngine.State,
+    zone: ZoneId,
     settings: Map<String, String>,
     overlapping: Boolean,
 ) {
@@ -241,11 +277,10 @@ private fun CourseCard(
         }
         Spacer(Modifier.height(4.dp))
         Text(
-            ctx?.let {
-                "zero day ${it.startDate} · " +
-                    org.dhamma.gong.domain.ApplianceZone.resolve(settings["timezone"])
-            }
-                ?: "add a course to start the schedule",
+            // The appliance zone belongs on this line whether or not a course
+            // is running — staff need it to read "today" before adding one.
+            ctx?.let { "zero day ${it.startDate} · ${zone.id}" }
+                ?: "add a course to start the schedule · ${zone.id}",
             fontSize = 12.5.sp,
             color = Nocturne.Neutral400,
         )
@@ -296,8 +331,19 @@ private fun DayProgress(day: Int, total: Int) {
 
 @Composable
 private fun Toggle(label: String, checked: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
+    // The painted box stays 20 dp as designed; only the hit slop grows to the
+    // 44 dp minimum, so a wall tablet tap does not miss.
     Row(
-        Modifier.clickable(enabled = enabled, onClick = onClick),
+        Modifier
+            .heightIn(min = Nocturne.MIN_TOUCH_DP.dp)
+            .clip(RoundedCornerShape(6.dp))
+            .toggleable(
+                value = checked,
+                enabled = enabled,
+                role = Role.Checkbox,
+                onValueChange = { onClick() },
+            )
+            .padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
@@ -313,7 +359,14 @@ private fun Toggle(label: String, checked: Boolean, enabled: Boolean = true, onC
                 ),
             contentAlignment = Alignment.Center,
         ) {
-            if (checked) Text("✓", fontSize = 12.sp, color = Nocturne.Accent100)
+            if (checked) {
+                Text(
+                    "✓",
+                    fontSize = 12.sp,
+                    color = Nocturne.Accent100,
+                    modifier = Modifier.clearAndSetSemantics {},
+                )
+            }
         }
         Text(label, fontSize = 12.5.sp, color = Nocturne.Neutral300)
     }
@@ -399,20 +452,27 @@ private fun HealthRow(
     dot: Color,
     onClick: (() -> Unit)? = null,
 ) {
+    // Tappable rows are the B6/B14 permission grants — they must clear the
+    // 44 dp minimum. Inert rows stay compact so the card keeps its rhythm.
     val rowMod = if (onClick != null) {
         Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .heightIn(min = Nocturne.MIN_TOUCH_DP.dp)
+            .clip(RoundedCornerShape(6.dp))
+            .clickable(role = Role.Button, onClick = onClick)
+            .semantics { contentDescription = "$label: $value" }
             .padding(vertical = 2.dp)
     } else {
-        Modifier.fillMaxWidth()
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 24.dp)
     }
     Row(
         rowMod,
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Dot(dot)
+        Box(Modifier.clearAndSetSemantics {}) { Dot(dot) }
         Text(label, fontSize = 12.5.sp, color = Nocturne.Neutral500, modifier = Modifier.width(100.dp))
         Text(value, fontSize = 12.5.sp, fontFamily = Nocturne.Mono, color = Nocturne.Text)
     }
@@ -429,19 +489,35 @@ private fun NextEvents(
     Column(modifier) {
         Eyebrow("Next events")
         Spacer(Modifier.height(10.dp))
+        if (upcoming.isEmpty()) {
+            Text(
+                "nothing scheduled in the next 2 days",
+                fontSize = 12.5.sp,
+                color = Nocturne.Neutral500,
+            )
+            return@Column
+        }
+        // The accent paint marks the *one* next occurrence. Both columns start
+        // at index 0, so identity — not position — decides which row gets it.
+        val next = upcoming.firstOrNull { it.fireAt.toInstant() > now.toInstant() }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
             val left = upcoming.take(6)
             val right = upcoming.drop(6).take(6)
-            EventColumn(left, now, Modifier.weight(1f))
-            EventColumn(right, now, Modifier.weight(1f))
+            EventColumn(left, now, next, Modifier.weight(1f))
+            EventColumn(right, now, next, Modifier.weight(1f))
         }
     }
 }
 
 @Composable
-private fun EventColumn(items: List<Occurrence>, now: ZonedDateTime, modifier: Modifier = Modifier) {
+private fun EventColumn(
+    items: List<Occurrence>,
+    now: ZonedDateTime,
+    next: Occurrence?,
+    modifier: Modifier = Modifier,
+) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        items.forEachIndexed { index, occ ->
+        items.forEach { occ ->
             val past = occ.fireAt.toInstant() <= now.toInstant()
             Row(
                 Modifier.fillMaxWidth().alpha(if (past) 0.38f else 1f),
@@ -451,12 +527,13 @@ private fun EventColumn(items: List<Occurrence>, now: ZonedDateTime, modifier: M
                 Text(
                     if (occ.kind == Occurrence.Kind.GONG) "🔔" else "♪",
                     fontSize = 13.sp,
+                    modifier = Modifier.clearAndSetSemantics {},
                 )
                 Text(
                     "%02d:%02d".format(occ.fireAt.hour, occ.fireAt.minute),
                     fontSize = 15.sp,
                     fontFamily = Nocturne.Mono,
-                    color = if (index == 0 && !past) Nocturne.Accent300 else Nocturne.Text,
+                    color = if (occ == next) Nocturne.Accent300 else Nocturne.Text,
                 )
                 Text(
                     occ.localDate.toString(),
@@ -501,10 +578,13 @@ private fun TestPanel(
 
     Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            BellButton(rings.lastOrNull(), player.playing) { vm.testGong() }
+            // Re-entry guard: a second tap while a burst is ringing would
+            // preempt it and log a `stopped`. The button stays visually
+            // enabled — only the action is inert. Stop remains the way out.
+            BellButton(rings.lastOrNull(), player.playing) { if (!player.playing) vm.testGong() }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
-                    onClick = { vm.testGong() },
+                    onClick = { if (!player.playing) vm.testGong() },
                     modifier = Modifier.fillMaxWidth().height(50.dp),
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.buttonColors(
@@ -516,7 +596,12 @@ private fun TestPanel(
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     SecondaryButton("Test doha", Modifier.weight(1f)) { vm.testDoha() }
-                    SecondaryButton("■ Stop", Modifier.weight(1f), Nocturne.Error) { vm.stop() }
+                    SecondaryButton(
+                        "■ Stop",
+                        Modifier.weight(1f),
+                        Nocturne.Error,
+                        contentDescription = "Stop",
+                    ) { vm.stop() }
                 }
             }
         }
@@ -543,6 +628,7 @@ private fun SecondaryButton(
     label: String,
     modifier: Modifier = Modifier,
     color: Color = Nocturne.Neutral300,
+    contentDescription: String? = null,
     onClick: () -> Unit,
 ) {
     Box(
@@ -550,7 +636,8 @@ private fun SecondaryButton(
             .height(Nocturne.MIN_TOUCH_DP.dp)
             .clip(RoundedCornerShape(8.dp))
             .border(1.dp, Nocturne.Neutral700, RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick),
+            .clickable(role = Role.Button, onClick = onClick)
+            .semantics { if (contentDescription != null) this.contentDescription = contentDescription },
         contentAlignment = Alignment.Center,
     ) {
         Text(label, fontSize = 13.5.sp, color = color)
