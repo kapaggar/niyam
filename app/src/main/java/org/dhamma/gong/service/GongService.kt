@@ -24,13 +24,18 @@ import org.dhamma.gong.R
 import org.dhamma.gong.data.GongDatabase
 import org.dhamma.gong.data.GongRepository
 import org.dhamma.gong.data.SeedLoader
+import org.dhamma.gong.domain.Occurrence
 import org.dhamma.gong.domain.PlayCommand
 import org.dhamma.gong.domain.PlayKind
+import org.dhamma.gong.domain.SystemGongClock
 import org.dhamma.gong.player.AudioRouter
 import org.dhamma.gong.player.ExoAudioSink
 import org.dhamma.gong.player.MediaResolver
 import org.dhamma.gong.player.PlayerEngine
+import org.dhamma.gong.schedule.AlarmScheduler
+import org.dhamma.gong.schedule.SchedulerEngine
 import org.dhamma.gong.ui.MainActivity
+import java.time.ZoneId
 
 /**
  * The appliance process. Maps 1:1 to the Pi's `gongd`: it owns the scheduler
@@ -46,6 +51,7 @@ class GongService : Service() {
 
     private lateinit var repo: GongRepository
     private lateinit var playerEngine: PlayerEngine
+    private lateinit var schedulerEngine: SchedulerEngine
 
     override fun onCreate() {
         super.onCreate()
@@ -58,16 +64,29 @@ class GongService : Service() {
             sink = ExoAudioSink(this),
             scope = scope,
         )
+        val zone = runCatching { ZoneId.systemDefault() }.getOrDefault(ZoneId.of("UTC"))
+        schedulerEngine = SchedulerEngine(
+            repo = repo,
+            clock = SystemGongClock(zone),
+            alarms = AlarmScheduler(this),
+            scope = scope,
+            dispatch = { playerEngine.submit(it) },
+            warmUp = { playerEngine.warmUp() },
+        )
         instance.value = this
 
         createChannel()
         startForegroundCompat(buildNotification("Starting…", ""))
 
         scope.launch {
+            // Seed must land before the first materialize, or the scheduler
+            // would resolve an empty schedule and arm nothing.
             runCatching { SeedLoader.applyFromAssets(this@GongService, db) }
                 .onFailure { Log.e(TAG, "seed failed", it) }
-            observePlayer()
+            schedulerEngine.start()
         }
+        scope.launch { observePlayer() }
+        scope.launch { observeScheduler() }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -75,12 +94,14 @@ class GongService : Service() {
             ACTION_TEST_GONG -> scope.launch { testGong() }
             ACTION_TEST_DOHA -> scope.launch { testDoha(intent.getIntExtra(EXTRA_SLOT, 1)) }
             ACTION_STOP -> scope.launch { playerEngine.stop() }
-            // M3 wires these to a scheduler re-materialize; for now they just
-            // keep the service alive and record why it was woken.
-            ACTION_TIME_CHANGED, ACTION_POKE -> {
-                val reason = intent.getStringExtra(EXTRA_REASON).orEmpty()
-                Log.i(TAG, "poke (${intent.action}) reason=$reason")
+            ACTION_ALARM -> schedulerEngine.poke("alarm")
+            ACTION_TIME_CHANGED -> {
+                // The wall clock moved: every materialized instant is stale.
+                schedulerEngine.poke(intent.getStringExtra(EXTRA_REASON) ?: "time changed")
             }
+            ACTION_POKE -> schedulerEngine.poke(
+                intent.getStringExtra(EXTRA_REASON) ?: "poke",
+            )
         }
         // Restart with a null intent after an OEM kill; onCreate re-arms us.
         return START_STICKY
@@ -98,7 +119,17 @@ class GongService : Service() {
     // ------------------------------------------------------------ commands
 
     val player: PlayerEngine get() = playerEngine
+    val scheduler: SchedulerEngine get() = schedulerEngine
     val repository: GongRepository get() = repo
+
+    /** Any edit that changes what fires next must call this. */
+    fun pokeScheduler(reason: String) = schedulerEngine.poke(reason)
+
+    /** Staff confirmed the wall clock; automatic plays resume. */
+    suspend fun confirmClock() {
+        repo.confirmClock(java.time.ZonedDateTime.now())
+        schedulerEngine.poke("clock confirmed")
+    }
 
     /** A staff-triggered gong. Allowed even when the clock is untrusted. */
     suspend fun testGong() {
@@ -146,12 +177,34 @@ class GongService : Service() {
         }
     }
 
-    /** The scheduler (M3) writes the "next event" line here. */
+    /** The scheduler writes the "next event" line here. */
     private val notificationBody = MutableStateFlow("")
 
-    fun setNotificationBody(text: String) {
-        notificationBody.value = text
-        notify(buildNotification("Gong scheduler running", text))
+    /**
+     * The persistent notification is the appliance's health indicator: from
+     * across the office it must answer "what day, what's next, is it healthy"
+     * (design doc §09).
+     */
+    private suspend fun observeScheduler() {
+        schedulerEngine.state.collect { s ->
+            val course = s.course?.let { "${it.typeName} · Day ${it.day}" } ?: "No course"
+            val next = s.next?.let {
+                val time = "%02d:%02d".format(it.fireAt.hour, it.fireAt.minute)
+                when (it.kind) {
+                    Occurrence.Kind.GONG -> "next $time ×${it.repeats}"
+                    Occurrence.Kind.DOHA -> "next $time doha"
+                }
+            } ?: "nothing scheduled"
+            val warning = when {
+                !s.clockTrusted -> " · CLOCK UNTRUSTED"
+                !s.exactAlarmsAllowed -> " · exact alarms denied"
+                else -> ""
+            }
+            notificationBody.value = "$course · $next$warning"
+            if (playerEngine.status.value.playing.not()) {
+                notify(buildNotification("Gong scheduler running", notificationBody.value))
+            }
+        }
     }
 
     private fun notify(n: Notification) {
@@ -215,6 +268,7 @@ class GongService : Service() {
         const val ACTION_STOP = "org.dhamma.gong.STOP"
         const val ACTION_TIME_CHANGED = "org.dhamma.gong.TIME_CHANGED"
         const val ACTION_POKE = "org.dhamma.gong.POKE"
+        const val ACTION_ALARM = "org.dhamma.gong.ALARM"
         const val EXTRA_SLOT = "slot"
         const val EXTRA_REASON = "reason"
 

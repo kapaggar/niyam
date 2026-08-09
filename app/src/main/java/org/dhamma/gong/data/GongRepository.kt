@@ -46,6 +46,14 @@ class GongRepository(private val db: GongDatabase) {
         db.state().exists(FiredMark(key, date).stateKey) > 0
 
     /**
+     * Every live guard, as one read. Pruning keeps this to ~2 days of keys, so
+     * the whole set is a few dozen strings — cheaper than a point lookup per
+     * occurrence per tick, and it gives [org.dhamma.gong.domain.SchedulerCore]
+     * the plain (non-suspending) predicate it wants.
+     */
+    suspend fun firedKeys(): Set<String> = db.state().firedKeys().toSet()
+
+    /**
      * Persist a tick's decisions. Order is load-bearing (design doc §05):
      * guards first and committed, then the log, and only then does the caller
      * hand [TickOutcome.fired] to the player.
