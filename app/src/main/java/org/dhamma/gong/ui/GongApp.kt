@@ -76,7 +76,7 @@ enum class Tab(
     SECURITY("PIN", "⚿", requiresPin = false),
 
     // Specified in design doc §08 but not yet designed — drawn locked.
-    SOUNDS("Sounds", "♪", requiresPin = true, enabled = false),
+    SOUNDS("Sounds", "♪", requiresPin = true),
     AUDIO_OUT("Audio out", "⊳", requiresPin = true, enabled = false),
     TIME("Time", "◷", requiresPin = true),
     NETWORK("Network", "⌁", requiresPin = true, enabled = false),
@@ -152,6 +152,7 @@ fun GongApp(
                         Tab.DASHBOARD -> DashboardScreen(vm)
                         Tab.COURSES -> CoursesScreen(vm)
                         Tab.SCHEDULE -> ScheduleScreen(vm)
+                        Tab.SOUNDS -> DohaMediaScreen(vm)
                         Tab.LOGS -> LogsScreen(vm)
                         Tab.SECURITY -> SecurityScreen(vm)
                         Tab.TIME -> TimeScreen(vm)

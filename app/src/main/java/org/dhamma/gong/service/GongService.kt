@@ -33,6 +33,7 @@ import org.dhamma.gong.player.AudioRouter
 import org.dhamma.gong.player.ExoAudioSink
 import org.dhamma.gong.player.MediaResolver
 import org.dhamma.gong.player.PlayerEngine
+import org.dhamma.gong.relay.RelayController
 import org.dhamma.gong.schedule.AlarmScheduler
 import org.dhamma.gong.schedule.SchedulerEngine
 import org.dhamma.gong.ui.MainActivity
@@ -52,6 +53,7 @@ class GongService : Service() {
     private lateinit var repo: GongRepository
     private lateinit var playerEngine: PlayerEngine
     private lateinit var schedulerEngine: SchedulerEngine
+    private lateinit var relayController: RelayController
 
     /**
      * The appliance's zone — the `timezone` setting, never the device default
@@ -66,12 +68,19 @@ class GongService : Service() {
         super.onCreate()
         val db = GongDatabase.get(this)
         repo = GongRepository(db)
+        // The relay switches the amplifier as a convenience. Both hooks below
+        // are fire-and-forget: nothing in the play path ever awaits a network
+        // call, so an unreachable Shelly cannot delay or fail a gong.
+        relayController = RelayController(repo = repo, scope = scope)
         playerEngine = PlayerEngine(
             repo = repo,
             resolver = MediaResolver(this, db),
             router = AudioRouter(this),
             sink = ExoAudioSink(this),
             scope = scope,
+            onPlayEnded = {
+                relayController.onPlayEnded(java.time.ZonedDateTime.now(applianceZone))
+            },
         )
         schedulerEngine = SchedulerEngine(
             repo = repo,
@@ -80,6 +89,14 @@ class GongService : Service() {
             scope = scope,
             dispatch = { playerEngine.submit(it) },
             warmUp = { playerEngine.warmUp() },
+            relayTick = { now, deadline, trusted ->
+                relayController.onTick(
+                    now = now,
+                    nextDeadline = deadline,
+                    playing = playerEngine.status.value.playing,
+                    clockTrusted = trusted,
+                )
+            },
         )
         instance.value = this
 
@@ -136,6 +153,9 @@ class GongService : Service() {
     val player: PlayerEngine get() = playerEngine
     val scheduler: SchedulerEngine get() = schedulerEngine
     val repository: GongRepository get() = repo
+
+    /** The Amp power screen observes [RelayController.state] and drives it. */
+    val relay: RelayController get() = relayController
 
     /** Any edit that changes what fires next must call this. */
     fun pokeScheduler(reason: String) {

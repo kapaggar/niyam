@@ -42,6 +42,15 @@ class SchedulerEngine(
     private val scope: CoroutineScope,
     private val dispatch: suspend (PlayCommand) -> Unit,
     private val warmUp: () -> Unit = {},
+    /**
+     * Amplifier relay pre-arm hook: `(now, nextDeadline, clockTrusted)`.
+     *
+     * Fire-and-forget by contract — it must return immediately and must never
+     * make this tick wait on a network call. The relay is a convenience; the
+     * gong is the product. The tick path owns *both* relay edges because a
+     * missed occurrence never reaches the player.
+     */
+    private val relayTick: (ZonedDateTime, ZonedDateTime?, Boolean) -> Unit = { _, _, _ -> },
 ) {
 
     data class State(
@@ -178,6 +187,14 @@ class SchedulerEngine(
         )
 
         val deadline = outcome.nextDeadline
+
+        // Amplifier relay: reads the deadline we just computed and nothing more.
+        // Called on both paths — a null deadline is exactly how a missed or
+        // fired occurrence releases the sticky arm. Wrapped because a relay
+        // fault must never abort a scheduler tick.
+        runCatching { relayTick(now, deadline, trusted) }
+            .onFailure { Log.w(TAG, "relay hook failed (schedule unaffected)", it) }
+
         if (deadline != null) {
             alarms.arm(deadline)
             maybeWarmUp(now, deadline)

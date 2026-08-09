@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Cleartext HTTP exists in this app for exactly one reason: the amplifier relay
+  (Shelly 1 Gen4). The Shelly Gen2+ JSON-RPC API is plain HTTP on the centre's
+  own WiFi, and modern Android blocks cleartext by default, so without this the
+  Test button and every switch would fail.
+
+  Centre-local WiFi only. The app never exposes the relay API publicly, never
+  talks to Shelly Cloud, and has no other network use of any kind.
+
+  Why this is not narrowed to RFC 1918 ranges: Android's network security
+  config matches *hostnames*, not IP ranges — <domain> does not accept CIDR
+  (10.0.0.0/8 and friends are rejected as invalid hostnames), and the relay
+  address is typed by staff at setup time, so it cannot be enumerated here.
+  The narrowing is therefore in code instead: relay/ShellyClient.kt is the only
+  networking in the app, it only ever builds http://<relay_host>/rpc/... from
+  the `relay_host` setting, and nothing else opens a connection.
+
+  If the relay is ever given a fixed address by policy, replace the base-config
+  below with a <domain-config cleartextTrafficPermitted="true"> listing that
+  literal host, and set the base config back to false.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

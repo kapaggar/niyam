@@ -190,6 +190,16 @@ object SettingsDefaults {
         "audio_route" to "speaker",
         "timezone" to ApplianceZone.DEFAULT_ID,
         "doha_tree_uri" to "",
+        // Amplifier relay (Shelly 1 Gen4) — `relay_enabled` lives in `map`
+        // above for Pi parity. Empty host = not configured, relay logic inert.
+        // `relay_auth_pass` is a LAN device password: stored like any other
+        // setting and, like the PIN, never logged.
+        "relay_host" to "",
+        "relay_auth_user" to "admin",
+        "relay_auth_pass" to "",
+        "relay_switch_id" to "0",
+        "relay_lead_seconds" to "5",
+        "relay_lag_seconds" to "5",
     )
 
     val all: Map<String, String> = map + androidExtras
