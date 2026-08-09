@@ -185,6 +185,35 @@ released once the UI has been backgrounded past a 60 s grace window; before
 that it was never reset, so on an appliance whose foreground service keeps the
 process alive a single unlock persisted indefinitely.
 
+### Amplifier relay — Shelly 1 Gen4 (2026-08-09)
+`domain/RelayPlan.kt` (pure), `relay/ShellyClient.kt`, `relay/RelayController.kt`,
+`ui/RelayScreen.kt` on the new **Amp power** tab. Spec:
+`docs/superpowers/specs/2026-08-09-shelly-relay-design.md`.
+
+Switches the amp on ~5 s before a play and off 5 s after, using the
+`nextDeadline` the scheduler already computes on its 30 s heartbeat — **no new
+alarms and no change to the fire path**. Consequence accepted deliberately: the
+amp comes on 5–35 s early rather than exactly 5.
+
+Rules worth not regressing:
+
+- **The relay can never delay or fail a play.** The scheduler and player hooks
+  are non-suspending and wrapped in `runCatching`; every request has a timeout,
+  no retry queue, and a `tryLock` that drops rather than queues.
+- **ON is rising-edge only** — re-sending each heartbeat would keep pushing
+  `toggle_after` forward and defeat the watchdog it exists to be.
+- **No OFF while playing, or while the next deadline is inside the pre-arm
+  window** — otherwise a gong followed by doha powers the amp down and re-warms
+  it cold.
+- **A missed occurrence never reaches the player**, so the tick path holds a
+  sticky armed deadline and switches off explicitly once it goes stale.
+- `toggle_after` is a device-side watchdog and errs long on purpose; too short
+  would de-power the amp mid-chant.
+
+Adds `INTERNET` and a network security config — Gen2+ RPC is cleartext HTTP on
+the LAN and neither existed before. BLE provisioning is explicitly out of scope:
+the Shelly is joined to WiFi with Shelly's own app.
+
 ### Beta screen review (2026-08-09, `0.2.0-beta1`)
 Six parallel audits, then implementation per screen. Full findings and the
 triage rulings are in `docs/superpowers/plans/beta-screen-audit-matrix.md`.
@@ -203,6 +232,22 @@ the grey status bar and white cold-start flash; window-inset handling for
 targetSdk 35; masked PIN entry; scrollable keypad and nav rail.
 
 ### M6 — backup, audio route picker, doha SAF folder, first-run wizard
+**Doha SAF folder shipped 2026-08-09** (`ui/DohaMediaScreen.kt`,
+`domain/DohaPackMapper.kt`, spec in
+`docs/superpowers/specs/2026-08-09-doha-media-folder-design.md`). Staff pick the
+folder that directly holds the `D01`…`D11` files, with one optional descent into
+a lone `doha/` child. Auto-map may only write slots that are empty or already
+`auto`, so bundled debug tones and staff overrides survive a rescan; a file that
+would displace one is reported as skipped. Two files claiming a slot become a
+visible conflict — never a guess. Re-pick takes the new grant before releasing
+the old, and a failed take changes nothing.
+
+This lands on the **Sounds** tab but only implements the doha slot mapping part
+of it — track choice, volumes, burst gap, doha time and no-course mode are still
+unbuilt, so Sounds counts as **partial**, not done.
+
+Still open in M6: backup/restore, audio route picker, first-run wizard.
+
 Doha files auto-map by `D01`…`D11` prefix into `media_slots`; unmatched files
 are listed as "unassigned", never guessed. Debug builds already ship 11
 synthetic tones at `app/src/debug/assets/media/doha-test/`

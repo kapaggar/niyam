@@ -75,9 +75,15 @@ enum class Tab(
     LOGS("Logs", "≡", requiresPin = false),
     SECURITY("PIN", "⚿", requiresPin = false),
 
-    // Specified in design doc §08 but not yet designed — drawn locked.
+    // Design doc §08. Audio out and Network are still undesigned and drawn
+    // locked; the rest have shipped. Sounds currently holds only the doha
+    // slot mapping — volumes, burst gap and doha time are still to come.
     SOUNDS("Sounds", "♪", requiresPin = true),
     AUDIO_OUT("Audio out", "⊳", requiresPin = true, enabled = false),
+    // Mains switching is not "where sound goes", so it gets its own entry
+    // rather than hiding behind Audio out (relay design, "Screen").
+    // U+23FB POWER SYMBOL is not in the platform font and drew as tofu.
+    POWER("Amp power", "⊙", requiresPin = true),
     TIME("Time", "◷", requiresPin = true),
     NETWORK("Network", "⌁", requiresPin = true, enabled = false),
     SETUP("Setup", "✓", requiresPin = true),
@@ -155,6 +161,7 @@ fun GongApp(
                         Tab.SOUNDS -> DohaMediaScreen(vm)
                         Tab.LOGS -> LogsScreen(vm)
                         Tab.SECURITY -> SecurityScreen(vm)
+                        Tab.POWER -> RelayScreen(vm)
                         Tab.TIME -> TimeScreen(vm)
                         Tab.SETUP -> SetupScreen(vm)
                         else -> LockedScreen(tab)
@@ -192,7 +199,7 @@ private fun NavRail(current: Tab, onSelect: (Tab) -> Unit) {
             .width(186.dp)
             .fillMaxHeight()
             .background(Nocturne.NavRail)
-            // Ten 44 dp items plus header is ~537 dp; a landscape phone is
+            // Eleven 44 dp items plus header is ~583 dp; a landscape phone is
             // ~393 dp tall, so the rail must scroll rather than clip.
             .windowInsetsPadding(
                 WindowInsets.safeDrawing.only(
@@ -291,21 +298,14 @@ private fun LockedScreen(tab: Tab) {
         ScreenTitle(tab.label)
         Text(
             when (tab) {
-                Tab.SOUNDS ->
-                    "Will hold track choice, gong and doha volumes, the gap " +
-                        "between bursts, the doha time, no-course mode and the " +
-                        "doha slot mapping."
+                // Only tabs with enabled = false reach here. Sounds, Time,
+                // Setup and Amp power have all shipped and are routed above.
                 Tab.AUDIO_OUT ->
                     "Will hold the output route, a test for each route, and the " +
                         "last known-good route."
-                Tab.TIME ->
-                    "Will hold the appliance clock and timezone, the clock-trust " +
-                        "state, and the action to confirm the time."
                 Tab.NETWORK ->
                     "Will show whether the appliance is on its own hotspot or the " +
                         "centre Wi-Fi, with SSID and IP. Informational only."
-                Tab.SETUP ->
-                    "Will hold the first-run permission checklist."
                 else -> "This screen is not available yet."
             },
             fontSize = 13.5.sp,
