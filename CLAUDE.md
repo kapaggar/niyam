@@ -6,7 +6,9 @@
 
 Repo: https://github.com/kapaggar/niyam  
 
-Also read **`AGENTS.md`** (agent rules), **`PROGRESS.md`** (status), **`docs/FABLE-REVIEW.md`** (review queue).
+Also read **`AGENTS.md`** (agent rules), **`PROGRESS.md`** (status), **`docs/FABLE-REVIEW.md`** (review queue), **`docs/SKILLS.md`** (installed Android skills).
+
+Project skills (auto-discovered under `.claude/skills/`): **android-cli**, **adaptive**, **testing-setup**, **android-data-layer**, **android-jetpack-compose**.
 
 ## Architecture in one paragraph
 

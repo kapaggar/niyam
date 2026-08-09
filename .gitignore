@@ -24,3 +24,6 @@ secrets/
 .DS_Store
 *.swp
 *~
+
+# Agent skill mirrors are committed intentionally (Claude/Grok discovery).
+# Do not re-install with: npx skills add ... -a '*'  (creates dozens of vendor dirs)
