@@ -1,6 +1,7 @@
 package org.dhamma.gong.ui
 
 import android.app.Application
+import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -179,6 +180,38 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      */
     private val _unlocked = MutableStateFlow(false)
     val unlocked: StateFlow<Boolean> = _unlocked.asStateFlow()
+
+    /**
+     * Elapsed-realtime mark of the last time the UI went to the background,
+     * or 0 when it has not been backgrounded since the last unlock.
+     */
+    private var backgroundedAt = 0L
+
+    /** Call from the shell on ON_STOP. */
+    fun onBackgrounded() {
+        backgroundedAt = SystemClock.elapsedRealtime()
+    }
+
+    /**
+     * Call from the shell on ON_START. Re-locks when the UI has been away
+     * for longer than [graceMs].
+     *
+     * The grace window exists because the dashboard health rows launch
+     * system settings to grant permissions, which backgrounds us — an
+     * immediate re-lock would ask staff for the PIN in the middle of a
+     * grant. Anything longer than the window is someone walking away, and
+     * this appliance runs a foreground service, so the process (and this
+     * ViewModel) would otherwise stay unlocked indefinitely.
+     */
+    fun onForegrounded(graceMs: Long = 60_000) {
+        val away = backgroundedAt
+        backgroundedAt = 0L
+        if (_unlocked.value && away != 0L &&
+            SystemClock.elapsedRealtime() - away > graceMs
+        ) {
+            _unlocked.value = false
+        }
+    }
 
     /** @return true and unlocks when [pin] matches the stored hash. */
     suspend fun verifyAndUnlock(pin: String): Boolean {

@@ -2,4 +2,14 @@
 <resources>
     <!-- Deep blue from gong brand art (adaptive icon safe-zone fill). -->
     <color name="ic_launcher_background">#011430</color>
+
+    <!--
+      Platform-side mirrors of the Nocturne tokens in ui/Theme.kt. These exist
+      so the window is already the right colour *before* Compose draws: the
+      light platform theme flashed white on cold start, which is unpleasant on
+      a 04:00 gong check in a dark hall. Keep in sync with Nocturne.Bg /
+      Nocturne.StatusBar.
+    -->
+    <color name="nocturne_bg">#FF161826</color>
+    <color name="nocturne_status_bar">#FF101120</color>
 </resources>

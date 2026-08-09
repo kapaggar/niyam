@@ -1,12 +1,16 @@
 package org.dhamma.gong.ui
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Color as AndroidColor
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
@@ -20,6 +24,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.dhamma.gong.service.AppliancePermissions
 import org.dhamma.gong.service.GongService
 
@@ -28,25 +33,64 @@ import org.dhamma.gong.service.GongService
  * change nothing about scheduling or playback (design doc §03).
  */
 class MainActivity : ComponentActivity() {
+
+    /**
+     * Pending `EXTRA_TAB` deep-link request, consumed and cleared by [GongApp].
+     *
+     * The activity is `singleTask`, so the *second* `am start` does not create a
+     * new instance: it brings this one forward and delivers the intent to
+     * [onNewIntent]. `getIntent()` keeps returning the original launch intent
+     * until `setIntent` is called, so reading the extra in [onCreate] alone made
+     * every screenshot after the first capture the Dashboard.
+     *
+     * A flow (rather than a plain value) so a repeat request for the tab that is
+     * already showing still lands — the consumer nulls it out after applying it.
+     */
+    private val tabRequest = MutableStateFlow<Tab?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Dark scrimless bars: targetSdk 35 forces edge-to-edge anyway, and
+        // opting in explicitly keeps API 29-34 identical to API 35+.
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(AndroidColor.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(AndroidColor.TRANSPARENT),
+        )
         super.onCreate(savedInstanceState)
         GongService.start(this)
-        // Optional deep-link for docs/screenshots: -e tab COURSES|SCHEDULE|LOGS|SECURITY|DASHBOARD
-        val initialTab = intent?.getStringExtra(EXTRA_TAB)
-            ?.let { runCatching { Tab.valueOf(it) }.getOrNull() }
+        val initialTab = parseTab(intent)
         setContent {
             GongTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = Nocturne.Bg) {
                     val vm: AppViewModel = viewModel()
                     RequestAppliancePermissions(vm)
-                    GongApp(vm, initialTab = initialTab)
+                    GongApp(vm, initialTab = initialTab, tabRequest = tabRequest)
                 }
             }
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // Without this, getIntent() would still hand back the launch intent.
+        setIntent(intent)
+        parseTab(intent)?.let { tabRequest.value = it }
+    }
+
     companion object {
         const val EXTRA_TAB = "tab"
+
+        /**
+         * Optional deep-link for docs/screenshots:
+         * `-e tab DASHBOARD|SCHEDULE|COURSES|LOGS|SECURITY`.
+         *
+         * Case-insensitive: `-e tab courses` used to fail [Tab.valueOf] and fall
+         * back to the Dashboard without saying so.
+         */
+        internal fun parseTab(intent: Intent?): Tab? =
+            intent?.getStringExtra(EXTRA_TAB)
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() }
+                ?.let { runCatching { Tab.valueOf(it.uppercase()) }.getOrNull() }
     }
 }
 
