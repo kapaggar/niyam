@@ -3,6 +3,8 @@
 **Date:** 2026-08-09
 **Milestone:** M6 slice (doha SAF pack)
 **Status:** approved design, not yet implemented
+**Amended 2026-08-09** — major review fixes (scan depth, permission lifecycle,
+source precedence, slot labelling)
 
 ## Problem
 
@@ -41,17 +43,39 @@ any change to `DohaSlots` selection rules.
 
 ### Picking the folder
 
-`ActivityResultContracts.OpenDocumentTree`. On result, take persistable
-read permission:
+`ActivityResultContracts.OpenDocumentTree`. Persistable permissions survive
+reboot, which matters for an appliance. If the folder later becomes unreadable
+(SD card pulled, permission revoked), the screen must say so rather than
+silently showing stale rows.
 
-```
-contentResolver.takePersistableUriPermission(uri, FLAG_GRANT_READ_URI_PERMISSION)
-```
+**Which folder to pick.** Staff must pick the folder that **directly contains**
+the `D01`…`D11` files, not an ancestor. `MEDIA.md` shows real packs living under
+a `doha/` directory, so picking the pack root is an easy mistake that would
+otherwise scan to zero files and look broken.
 
-Persist the tree URI to `doha_tree_uri` via `repo.putSetting`. Persistable
-permissions survive reboot, which matters for an appliance. If the folder later
-becomes unreadable (SD card pulled, permission revoked), the screen must say so
-rather than silently showing stale rows.
+One concession, no more: if the picked tree has **no matching audio at the top
+level** and its immediate children contain **exactly one** subdirectory named
+`doha` (case-insensitive), scan that child's immediate children instead. **Do not
+recurse further.** Anything deeper is a wrong pick and gets the empty state.
+
+**Allowed extensions (v1):** `.mp3` only, case-insensitive. A finite explicit
+list keeps "why didn't my file appear" answerable.
+
+### Permission lifecycle on re-pick
+
+Order matters, because a half-applied re-pick can strand the appliance with a
+tree URI it cannot read.
+
+1. Take persistable read permission on the **new** URI first.
+2. Only if that succeeds: release the persistable permission on the **previous**
+   `doha_tree_uri` (when set and different), then persist the new URI, then remap.
+3. If `takePersistableUriPermission` throws: show a banner and **change nothing** —
+   do not replace `doha_tree_uri`, do not touch `media_slots`. A failed re-pick
+   must leave a working appliance working.
+
+Releasing the old grant matters because persisted URI permissions are a limited
+per-app resource; re-picking repeatedly over a course season would otherwise leak
+them.
 
 ### Auto-mapping
 
@@ -69,13 +93,26 @@ Rules:
   coin flip on which recording plays at 04:30.
 - Auto-mapping writes `source = auto`.
 
+### Source precedence — what auto-map may touch
+
+`MediaSlotDao.put` is an upsert keyed on `slot`, so auto-map must be told which
+slots it is allowed to write. The rule:
+
+> **Auto-map may only write a slot that is empty or currently `source = auto`.
+> It must never overwrite `source = manual` or `source = bundled`.**
+
+`bundled` matters in debug builds, where the synthetic test tones occupy slots;
+an auto-map over a sideloaded folder must not silently displace them. `manual`
+matters because it is the staff's explicit correction.
+
+Rescan therefore clears only `auto` rows (`deleteBySource(AUTO)`) and then writes
+auto rows **only into slots not held by manual or bundled**. A file that claims a
+slot already held manually is reported as skipped, not applied — visible, not silent.
+
 ### Manual reassignment
 
-Staff can assign any scanned file to any slot. That write uses `source = manual`.
-
-**A rescan must never overwrite a `manual` row.** Rescan clears and rewrites only
-`source = auto` rows (`deleteBySource(AUTO)`), so a staff override survives
-re-scanning the folder. Clearing a manual row is an explicit action.
+Staff can assign any scanned file to any slot, writing `source = manual`. Clearing
+a manual row is an explicit staff action; nothing automatic removes it.
 
 ### Verification
 
@@ -95,9 +132,15 @@ screen's remit — track choice, volumes, burst gap, doha time, no-course mode �
 stays unbuilt. The screen must not imply otherwise, and `PROGRESS.md` should keep
 Sounds listed as partial rather than shipped.
 
-Layout: folder path + Change/Rescan at the top; an 11-row slot table (slot, day
-it serves, filename, source tag, state dot, reassign control); an unassigned /
+Layout: folder path + Change/Rescan at the top; an 11-row slot table (**`Slot 01`
+… `Slot 11`**, filename, source tag, state dot, reassign control); an unassigned /
 conflicts list below.
+
+**No day column.** `DohaSlots.legacyModular(day, total, anapana)` maps course-day
+→ slot through modular cycles — slot 3 serves anapana day 3 *and* part of the
+vipassana cycle, and slot 11 only the last day. A slot does not own a calendar
+day, and a "day it serves" column would state something false. Label by slot number
+only.
 
 ### Data flow
 
@@ -133,6 +176,10 @@ Pure prefix/conflict classification is extracted to `domain/DohaPackMapper.kt`
 - two files claiming one slot produce a conflict, not a silent winner
 - non-audio and prefix-less files land in unassigned
 - rescan preserves `manual` rows and replaces `auto` rows
+- **a `bundled` or `manual` slot survives a rescan even when a scanned file
+  claims that same slot — the file is reported skipped, not applied**
+- **a tree whose only match is under a single `doha/` child resolves to those
+  files; a two-level-deep tree does not**
 
 SAF itself is not unit-tested; it is covered by the QA checklist.
 
@@ -140,6 +187,11 @@ SAF itself is not unit-tested; it is covered by the QA checklist.
 
 1. Picking a folder of 11 correctly-named files maps all 11 and clears GONGS ONLY.
 2. Permission survives a reboot.
-3. A manual override survives a rescan.
+3. A manual override survives a rescan; so does a bundled slot.
 4. A duplicate-slot folder produces a visible conflict, and nothing is auto-picked.
-5. `./gradlew :app:testDebugUnitTest` green, including the new mapper tests.
+5. **Picking the wrong parent folder (no matches, no single `doha/` child) shows
+   the empty state naming the `D01…D11` convention — not a silent no-op.**
+6. **Re-picking a folder releases the previous grant and remaps from the new one,
+   leaving no stale `doha_tree_uri`. A re-pick whose permission take fails leaves
+   the existing folder and mapping untouched.**
+7. `./gradlew :app:testDebugUnitTest` green, including the new mapper tests.
