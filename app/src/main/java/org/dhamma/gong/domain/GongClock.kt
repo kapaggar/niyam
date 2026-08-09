@@ -30,8 +30,15 @@ interface GongClock {
         ZonedDateTime.of(day, hhmm, zone)
 }
 
-/** Real device clock. */
-class SystemGongClock(override val zone: ZoneId) : GongClock {
+/**
+ * Real device clock. The zone is read through [zoneProvider] on every use so a
+ * settings change (Time screen, timezone poke) takes effect without rebuilding
+ * the scheduler.
+ */
+class SystemGongClock(private val zoneProvider: () -> ZoneId) : GongClock {
+    constructor(zone: ZoneId) : this({ zone })
+
+    override val zone: ZoneId get() = zoneProvider()
     override fun now(): ZonedDateTime = ZonedDateTime.now(zone)
 }
 

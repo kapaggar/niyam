@@ -65,11 +65,13 @@ fun DashboardScreen(vm: AppViewModel) {
     val overlapping by vm.overlappingCourses.collectAsState()
 
     // The clock ticks every second and the countdown is recomputed from
-    // seconds — never by borrowing minutes by hand (design handoff).
-    var now by remember { mutableStateOf(ZonedDateTime.now()) }
-    LaunchedEffect(Unit) {
+    // seconds — never by borrowing minutes by hand (design handoff). It shows
+    // the *appliance's* wall time, which may differ from the device TZ.
+    val zone by vm.applianceZone.collectAsState()
+    var now by remember(zone) { mutableStateOf(ZonedDateTime.now(zone)) }
+    LaunchedEffect(zone) {
         while (true) {
-            now = ZonedDateTime.now()
+            now = ZonedDateTime.now(zone)
             delay(1_000)
         }
     }
@@ -236,7 +238,10 @@ private fun CourseCard(
         }
         Spacer(Modifier.height(4.dp))
         Text(
-            ctx?.let { "zero day ${it.startDate} · ${java.time.ZoneId.systemDefault()}" }
+            ctx?.let {
+                "zero day ${it.startDate} · " +
+                    org.dhamma.gong.domain.ApplianceZone.resolve(settings["timezone"])
+            }
                 ?: "add a course to start the schedule",
             fontSize = 12.5.sp,
             color = Nocturne.Neutral400,
