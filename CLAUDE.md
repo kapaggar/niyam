@@ -8,7 +8,7 @@ Repo: https://github.com/kapaggar/niyam
 
 Also read **`AGENTS.md`** (agent rules), **`PROGRESS.md`** (status), **`docs/FABLE-REVIEW.md`** (review queue), **`docs/SKILLS.md`** (installed Android skills).
 
-Project skills (auto-discovered under `.claude/skills/`): **android-cli**, **adaptive**, **testing-setup**, **android-data-layer**, **android-jetpack-compose**.
+Project skills also live under `skills/` and `.grok/skills/`. For **Claude personal** (`CLAUDE_CONFIG_DIR=~/.claude-personal`), the same five are installed at **`~/.claude-personal/skills/`**: **android-cli**, **adaptive**, **testing-setup**, **android-data-layer**, **android-jetpack-compose**.
 
 ## Architecture in one paragraph
 

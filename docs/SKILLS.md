@@ -19,33 +19,37 @@ Lockfile: [`skills-lock.json`](../skills-lock.json) (reproducible installs via `
 
 | Path | Agent |
 |------|--------|
-| `skills/` | Canonical copy (commit this) |
-| `.claude/skills/` | Claude Code |
-| `.grok/skills/` | Grok Build |
-| `.agents/skills/` | Generic / other agents |
+| `skills/` | Canonical copy in this repo (commit this) |
+| `.grok/skills/` | Grok Build (project) |
+| `.agents/skills/` (repo) | Generic project mirror |
+| **`$HOME/.claude-personal/skills/`** | **Claude Code personal config** (`CLAUDE_CONFIG_DIR`) — symlinks → `$HOME/.agents/skills/` |
+| `$HOME/.agents/skills/` | Shared user skill store (personal Claude pattern) |
 
-Grok also scans `.grok/skills/` per project; Claude Code scans `.claude/skills/`.
+This machine does **not** use `~/.claude` for the personal Claude setup; skills for Claude go under **`~/.claude-personal/skills/`**.
+
+Grok scans `.grok/skills/` in the project (and `~/.grok/skills/` user-wide).
 
 ## Reinstall / update
 
 ```bash
 cd /Users/wizops/DIPI/niyam   # or your clone
 
-# Restore from lockfile
-npx skills experimental_install
-
-# Or re-add explicitly (Claude Code + Grok only — do NOT use -a '*')
+# Project mirrors (Grok + repo skills/)
 npx skills add android/skills -s android-cli -s adaptive -s testing-setup \
-  -a claude-code -a grok -y --copy
+  -a grok -y --copy
 npx skills add new-silvermoon/awesome-android-agent-skills -s android-data-layer \
-  -a claude-code -a grok -y --copy
+  -a grok -y --copy
 npx skills add thebushidocollective/han -s android-jetpack-compose \
-  -a claude-code -a grok -y --copy
+  -a grok -y --copy
+rsync -a --delete .grok/skills/ skills/
 
-# Keep trees in sync
-rsync -a --delete .claude/skills/ skills/
-rsync -a --delete .claude/skills/ .grok/skills/
-rsync -a --delete .claude/skills/ .agents/skills/
+# Claude personal (~/.claude-personal) — copy then symlink like other personal skills
+for skill in android-cli adaptive testing-setup android-data-layer android-jetpack-compose; do
+  rm -rf "$HOME/.agents/skills/$skill"
+  cp -a "skills/$skill" "$HOME/.agents/skills/$skill"
+  rm -rf "$HOME/.claude-personal/skills/$skill"
+  ln -s "../../.agents/skills/$skill" "$HOME/.claude-personal/skills/$skill"
+done
 ```
 
 ## Intentionally not installed (for now)

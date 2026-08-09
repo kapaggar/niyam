@@ -33,7 +33,7 @@ Historical parent: Gong-NG / GongDohaServer Raspberry Pi daemon (behavioural ref
 | `android-data-layer` | Room, repository, offline data |
 | `android-jetpack-compose` | Compose UI patterns |
 
-Paths: `skills/`, `.claude/skills/`, `.grok/skills/` (see `docs/SKILLS.md`).
+Paths: repo `skills/`, project `.grok/skills/`, and for Claude on this machine **`$HOME/.claude-personal/skills/`** (not `~/.claude`). See `docs/SKILLS.md`.
 
 **Do not invent schedule semantics.** If Gong-NG and a design note conflict on fire rules, prefer domain tests + `SchedulerCore` / `FireRules` / `ActiveCourse` / `DohaSlots`. Add a failing unit test before changing behaviour.
 
