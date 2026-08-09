@@ -87,10 +87,32 @@ Each rule is covered by unit tests — see [`PROGRESS.md`](PROGRESS.md).
     └── ui/                   # Compose client of the service
 ```
 
+## Screenshots
+
+Captured at **1280×800 landscape** (appliance target). Full captions:
+[docs/screenshots/README.md](docs/screenshots/README.md).
+
+| | |
+|--|--|
+| **Install** | [![Installation](docs/screenshots/01-installation.png)](docs/screenshots/01-installation.png) |
+| **Dashboard** | [![Dashboard](docs/screenshots/03-dashboard-main.png)](docs/screenshots/03-dashboard-main.png) |
+| **Schedule** | [![Schedule](docs/screenshots/05-schedule.png)](docs/screenshots/05-schedule.png) |
+
+| Screen | File |
+|--------|------|
+| Installation (app info) | [`01-installation.png`](docs/screenshots/01-installation.png) |
+| Dashboard (idle / no course) | [`02-dashboard-idle.png`](docs/screenshots/02-dashboard-idle.png) |
+| Dashboard (active course) | [`03-dashboard-main.png`](docs/screenshots/03-dashboard-main.png) |
+| Courses | [`04-courses.png`](docs/screenshots/04-courses.png) |
+| Schedule | [`05-schedule.png`](docs/screenshots/05-schedule.png) |
+| Logs | [`06-logs.png`](docs/screenshots/06-logs.png) |
+| PIN settings | [`07-pin-settings.png`](docs/screenshots/07-pin-settings.png) |
+
 ## Documentation index
 
 | Doc | Purpose |
 |-----|---------|
+| [docs/screenshots/README.md](docs/screenshots/README.md) | Screenshot gallery & re-capture notes |
 | [PRIVACY.md](PRIVACY.md) | What is stored on-device; no cloud backend |
 | [SECURITY.md](SECURITY.md) | Threat model, reporting, centre hardening |
 | [LICENSE](LICENSE) | MIT for code and project docs |

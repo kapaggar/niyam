@@ -35,6 +35,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -66,8 +68,12 @@ enum class Tab(
 }
 
 @Composable
-fun GongApp(vm: AppViewModel) {
-    var tab by remember { mutableStateOf(Tab.DASHBOARD) }
+fun GongApp(vm: AppViewModel, initialTab: Tab? = null) {
+    var tab by remember {
+        mutableStateOf(
+            initialTab?.takeIf { it.enabled } ?: Tab.DASHBOARD,
+        )
+    }
     val toast by vm.toast.collectAsState()
     val pinHash by vm.pinHash.collectAsState()
     val unlocked by vm.unlocked.collectAsState()
@@ -154,6 +160,7 @@ private fun NavItem(tab: Tab, selected: Boolean, onClick: () -> Unit) {
             .padding(horizontal = 10.dp)
             .clip(RoundedCornerShape(8.dp))
             .background(if (selected) Nocturne.Accent.copy(alpha = 0.14f) else Color.Transparent)
+            .semantics { contentDescription = "nav_${tab.name}" }
             .clickable(enabled = tab.enabled, onClick = onClick)
             .padding(horizontal = 10.dp)
             // Locked items are inert at 42 % (design handoff).
