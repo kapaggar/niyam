@@ -9,16 +9,18 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
@@ -29,19 +31,32 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import org.dhamma.gong.data.CourseTypeEntity
 import java.time.LocalDate
+
+/** Well-formed ISO shape; a match that still fails to parse is a real-date problem. */
+private val ISO_DATE_SHAPE = Regex("""\d{4}-\d{2}-\d{2}""")
+
+/** Below this width the add row and the table have to shed columns to stay reachable. */
+private val NARROW_WIDTH = 760.dp
 
 /**
  * Add and remove courses. The single most important thing on this screen is
@@ -52,13 +67,40 @@ import java.time.LocalDate
 fun CoursesScreen(vm: AppViewModel) {
     val rows by vm.courseRows.collectAsState()
     val types by vm.courseTypes.collectAsState()
+    // "Today" for the example date must be the appliance's zone, never the device's.
+    val zone by vm.applianceZone.collectAsState()
 
-    var typeId by remember { mutableStateOf<Int?>(null) }
-    var dateText by remember { mutableStateOf("") }
-    var note by remember { mutableStateOf("") }
+    // Saveable: a rotation or process-death restore must not eat a half-typed course.
+    var typeId by rememberSaveable { mutableStateOf<Int?>(null) }
+    var dateText by rememberSaveable { mutableStateOf("") }
+    var note by rememberSaveable { mutableStateOf("") }
+
+    val onAdd: () -> Unit = {
+        val raw = dateText.trim()
+        val parsed = runCatching { LocalDate.parse(raw) }.getOrNull()
+        val t = typeId
+        when {
+            t == null -> vm.toast("Pick a course type")
+            raw.isEmpty() -> vm.toast("Pick a start date")
+            parsed == null && !ISO_DATE_SHAPE.matches(raw) ->
+                vm.toast("Use YYYY-MM-DD, e.g. ${LocalDate.now(zone)}")
+            parsed == null ->
+                vm.toast("$raw isn't a real date — check the month and day")
+            else -> {
+                vm.addCourse(t, parsed, note.trim())
+                dateText = ""
+                note = ""
+            }
+        }
+    }
+
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+    // Below this width the fixed-dp add row would push "Add course" out of the
+    // card, which clips it away entirely — collapse to two lines instead.
+    val narrow = maxWidth < NARROW_WIDTH
 
     Column(
-        Modifier.fillMaxSize().padding(32.dp),
+        Modifier.fillMaxSize().padding(if (narrow) 16.dp else 32.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         ScreenTitle(
@@ -69,40 +111,62 @@ fun CoursesScreen(vm: AppViewModel) {
         )
 
         SurfaceCard(padding = PaddingValues(horizontal = 16.dp, vertical = 14.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
+            val typePicker: @Composable (Modifier) -> Unit = { m ->
                 TypePicker(
                     types = types,
                     selected = types.firstOrNull { it.id == typeId },
-                    modifier = Modifier.width(190.dp),
+                    modifier = m,
                 ) { typeId = it.id }
-
+            }
+            val dateField: @Composable (Modifier) -> Unit = { m ->
                 Field(
                     value = dateText,
                     onValueChange = { dateText = it },
                     placeholder = "YYYY-MM-DD",
-                    modifier = Modifier.width(150.dp),
+                    modifier = m,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Done,
+                    ),
                 )
+            }
+            val noteField: @Composable (Modifier) -> Unit = { m ->
                 Field(
                     value = note,
                     onValueChange = { note = it },
                     placeholder = "note (optional)",
-                    modifier = Modifier.weight(1f),
+                    modifier = m,
                 )
-                PrimaryButton("Add course") {
-                    val parsed = runCatching { LocalDate.parse(dateText.trim()) }.getOrNull()
-                    val t = typeId
-                    when {
-                        t == null -> vm.toast("Pick a course type")
-                        parsed == null -> vm.toast("Pick a start date")
-                        else -> {
-                            vm.addCourse(t, parsed, note.trim())
-                            dateText = ""
-                            note = ""
-                        }
+            }
+
+            if (narrow) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        typePicker(Modifier.weight(1f))
+                        dateField(Modifier.width(140.dp))
                     }
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        noteField(Modifier.weight(1f))
+                        PrimaryButton("Add course", onClick = onAdd)
+                    }
+                }
+            } else {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    typePicker(Modifier.width(190.dp))
+                    dateField(Modifier.width(150.dp))
+                    noteField(Modifier.weight(1f))
+                    PrimaryButton("Add course", onClick = onAdd)
                 }
             }
         }
@@ -114,20 +178,51 @@ fun CoursesScreen(vm: AppViewModel) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 HeaderCell("Start (zero day)", 150.dp)
-                HeaderCell("Type", 170.dp)
-                Text(
-                    "NOTE",
-                    fontSize = 11.sp,
-                    letterSpacing = 1.1.sp,
-                    color = Nocturne.Neutral500,
-                    modifier = Modifier.weight(1f),
-                )
+                HeaderCell("Type", if (narrow) 120.dp else 170.dp)
+                if (narrow) {
+                    // NOTE moves under the start date; keep status and delete right-aligned.
+                    Spacer(Modifier.weight(1f))
+                } else {
+                    Text(
+                        "NOTE",
+                        fontSize = 11.sp,
+                        letterSpacing = 1.1.sp,
+                        color = Nocturne.Neutral500,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
                 HeaderCell("Status", 92.dp)
                 Spacer(Modifier.width(44.dp))
             }
             Hairline()
 
             LazyColumn {
+                if (rows.isEmpty()) {
+                    item {
+                        Column(Modifier.fillMaxWidth().padding(vertical = 22.dp)) {
+                            Text(
+                                "No courses yet.",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Nocturne.Text,
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                "Add one above. Enter the arrival day as the start date — that " +
+                                    "day is day 0, not day 1.",
+                                fontSize = 13.sp,
+                                color = Nocturne.Neutral500,
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "Until a course is running the appliance keeps the no-course " +
+                                    "schedule, so those gongs still ring.",
+                                fontSize = 13.sp,
+                                color = Nocturne.Neutral500,
+                            )
+                        }
+                    }
+                }
                 items(rows, key = { it.course.id }) { row ->
                     val active = row.status == AppViewModel.CourseRow.Status.ACTIVE
                     Column {
@@ -141,25 +236,50 @@ fun CoursesScreen(vm: AppViewModel) {
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            Text(
-                                row.course.startDate.toString(),
-                                fontSize = 13.5.sp,
-                                fontFamily = Nocturne.Mono,
-                                color = if (active) Nocturne.Accent200 else Nocturne.Text,
-                                modifier = Modifier.width(150.dp),
-                            )
+                            Column(Modifier.width(150.dp)) {
+                                Text(
+                                    row.course.startDate.toString(),
+                                    fontSize = 13.5.sp,
+                                    fontFamily = Nocturne.Mono,
+                                    color = if (active) Nocturne.Accent200 else Nocturne.Text,
+                                )
+                                // The window, not just the start: the subtitle promises it.
+                                row.type?.let { t ->
+                                    Text(
+                                        "→ ${row.course.startDate.plusDays(t.totalDays.toLong())}",
+                                        fontSize = 11.5.sp,
+                                        fontFamily = Nocturne.Mono,
+                                        color = Nocturne.Neutral600,
+                                    )
+                                }
+                                if (narrow && row.course.note.isNotBlank()) {
+                                    Text(
+                                        row.course.note,
+                                        fontSize = 11.5.sp,
+                                        color = Nocturne.Neutral500,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            }
                             Text(
                                 row.type?.name ?: "type ${row.course.courseTypeId}",
                                 fontSize = 13.5.sp,
                                 color = Nocturne.Text,
-                                modifier = Modifier.width(170.dp),
+                                modifier = Modifier.width(if (narrow) 120.dp else 170.dp),
                             )
-                            Text(
-                                row.course.note.ifBlank { "—" },
-                                fontSize = 13.5.sp,
-                                color = Nocturne.Neutral500,
-                                modifier = Modifier.weight(1f),
-                            )
+                            if (narrow) {
+                                Spacer(Modifier.weight(1f))
+                            } else {
+                                Text(
+                                    row.course.note.ifBlank { "—" },
+                                    fontSize = 13.5.sp,
+                                    color = Nocturne.Neutral500,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
                             Text(
                                 when (row.status) {
                                     AppViewModel.CourseRow.Status.ACTIVE -> "ACTIVE"
@@ -176,13 +296,17 @@ fun CoursesScreen(vm: AppViewModel) {
                                 },
                                 modifier = Modifier.width(92.dp),
                             )
-                            DeleteButton { vm.deleteCourse(row.course.id) }
+                            DeleteButton(
+                                label = row.course.startDate.toString(),
+                                modifier = Modifier.width(44.dp),
+                            ) { vm.deleteCourse(row.course.id) }
                         }
                         Hairline()
                     }
                 }
             }
         }
+    }
     }
 }
 
@@ -205,52 +329,76 @@ fun Field(
     onValueChange: (String) -> Unit,
     placeholder: String,
     modifier: Modifier = Modifier,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
 ) {
+    // 38 dp painted box (design handoff) centred in a 44 dp touch target.
     Box(
-        modifier
-            .height(38.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(Nocturne.SurfaceHigh)
-            .border(1.dp, Nocturne.Neutral700, RoundedCornerShape(8.dp))
-            .padding(horizontal = 10.dp),
-        contentAlignment = Alignment.CenterStart,
+        modifier.height(Nocturne.MIN_TOUCH_DP.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        if (value.isEmpty()) {
-            Text(
-                placeholder,
-                fontSize = 13.5.sp,
-                color = Nocturne.Neutral600,
-                maxLines = 1,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-            )
-        }
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(38.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Nocturne.SurfaceHigh)
+                .border(1.dp, Nocturne.Neutral700, RoundedCornerShape(8.dp)),
+        )
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
             singleLine = true,
+            keyboardOptions = keyboardOptions,
             textStyle = TextStyle(
                 fontSize = 13.5.sp,
                 color = Nocturne.Text,
                 fontFamily = Nocturne.Mono,
             ),
             cursorBrush = SolidColor(Nocturne.Accent),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight()
+                .padding(horizontal = 10.dp),
+            decorationBox = { inner ->
+                Box(
+                    Modifier.fillMaxHeight(),
+                    contentAlignment = Alignment.CenterStart,
+                ) {
+                    if (value.isEmpty()) {
+                        Text(
+                            placeholder,
+                            fontSize = 13.5.sp,
+                            color = Nocturne.Neutral600,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    inner()
+                }
+            },
         )
     }
 }
 
 @Composable
 fun PrimaryButton(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    // 38 dp painted pill inside a 44 dp hit target.
     Box(
         modifier
-            .height(38.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(Nocturne.Accent)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp),
+            .height(Nocturne.MIN_TOUCH_DP.dp)
+            .clickable(onClick = onClick, role = Role.Button),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, fontSize = 13.5.sp, fontWeight = FontWeight.Medium, color = Nocturne.Bg)
+        Box(
+            Modifier
+                .height(38.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Nocturne.Accent)
+                .padding(horizontal = 16.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(label, fontSize = 13.5.sp, fontWeight = FontWeight.Medium, color = Nocturne.Bg)
+        }
     }
 }
 
@@ -260,7 +408,7 @@ fun PrimaryButton(label: String, modifier: Modifier = Modifier, onClick: () -> U
  * harmless — re-entering a deleted course costs staff real time.
  */
 @Composable
-private fun DeleteButton(onClick: () -> Unit) {
+private fun DeleteButton(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     var armed by remember { mutableStateOf(false) }
     LaunchedEffect(armed) {
         if (armed) {
@@ -268,14 +416,12 @@ private fun DeleteButton(onClick: () -> Unit) {
             armed = false
         }
     }
+    // 30 dp painted glyph centred in a 44 dp hit target; the description changes
+    // with the armed state so a screen reader can tell the two taps apart.
     Box(
-        Modifier
-            .height(30.dp)
-            .widthIn(min = 30.dp)
-            .clip(RoundedCornerShape(6.dp))
-            .background(Nocturne.Error.copy(alpha = if (armed) 0.30f else 0.12f))
-            .border(1.dp, Nocturne.Error.copy(alpha = if (armed) 0.85f else 0.34f), RoundedCornerShape(6.dp))
-            .clickable {
+        modifier
+            .height(Nocturne.MIN_TOUCH_DP.dp)
+            .clickable(role = Role.Button) {
                 if (armed) {
                     armed = false
                     onClick()
@@ -283,10 +429,30 @@ private fun DeleteButton(onClick: () -> Unit) {
                     armed = true
                 }
             }
-            .padding(horizontal = 6.dp),
+            .semantics {
+                contentDescription =
+                    if (armed) "Confirm delete of course starting $label"
+                    else "Delete course starting $label"
+            },
         contentAlignment = Alignment.Center,
     ) {
-        Text(if (armed) "sure?" else "✕", fontSize = 13.sp, color = Nocturne.Error)
+        Box(
+            Modifier
+                .height(30.dp)
+                .widthIn(min = 30.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(Nocturne.Error.copy(alpha = if (armed) 0.30f else 0.12f))
+                .border(1.dp, Nocturne.Error.copy(alpha = if (armed) 0.85f else 0.34f), RoundedCornerShape(6.dp))
+                .padding(horizontal = 6.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                if (armed) "sure?" else "✕",
+                fontSize = 13.sp,
+                color = Nocturne.Error,
+                maxLines = 1,
+            )
+        }
     }
 }
 
@@ -301,6 +467,14 @@ fun TypePicker(
 ) {
     var open by remember { mutableStateOf(false) }
     Box(modifier) {
+        // 38 dp painted control centred in a 44 dp hit target.
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(Nocturne.MIN_TOUCH_DP.dp)
+                .clickable(role = Role.Button) { open = true },
+            contentAlignment = Alignment.Center,
+        ) {
         Row(
             Modifier
                 .fillMaxWidth()
@@ -308,7 +482,6 @@ fun TypePicker(
                 .clip(RoundedCornerShape(8.dp))
                 .background(Nocturne.SurfaceHigh)
                 .border(1.dp, Nocturne.Neutral700, RoundedCornerShape(8.dp))
-                .clickable { open = true }
                 .padding(horizontal = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -320,6 +493,7 @@ fun TypePicker(
                 modifier = Modifier.weight(1f),
             )
             Text("▾", fontSize = 12.sp, color = Nocturne.Neutral500)
+        }
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             if (includeNoCourse) {

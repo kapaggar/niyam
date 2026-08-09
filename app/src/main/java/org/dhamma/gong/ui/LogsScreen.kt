@@ -2,9 +2,10 @@ package org.dhamma.gong.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,101 +13,160 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.dhamma.gong.domain.PlayKind
 import org.dhamma.gong.domain.PlayResult
+import java.time.Instant
+import java.time.ZoneId
+import java.time.ZoneOffset
+
+private val COL_GAP = 8.dp
+private val TS_W = 168.dp
+private val LOCAL_W = 92.dp
+private val KIND_W = 96.dp
+private val FILE_W = 150.dp
+private val STRIKES_W = 46.dp
+private val RESULT_W = 110.dp
+
+/** DETAIL grows into whatever is left, but never shrinks past this. */
+private val DETAIL_MIN_W = 300.dp
+
+private val FIXED_W = TS_W + LOCAL_W + KIND_W + FILE_W + STRIKES_W + RESULT_W + COL_GAP * 6
 
 /**
  * `play_log`, read-only, so no PIN.
  *
- * **Timestamps are UTC** and the detail column carries the local scheduled
- * instant with offset, so a missed fire is diagnosable without guessing the
- * device's timezone at the time (design handoff §4).
+ * **`ts_utc` is the canonical column and stays UTC.** The LOCAL column is paint
+ * only: the same instant rendered in the *appliance* zone (the `timezone`
+ * setting, never the raw device TZ), because a 05:50 IST gong logged as
+ * `00:20:00Z` is otherwise unreadable at 2 m. The detail column still carries
+ * the local scheduled instant for a missed fire (design handoff §4).
+ *
+ * The table is wider than a phone pane, so the header and every row share one
+ * horizontal scroll state — the house pattern from `ScheduleScreen` — instead
+ * of letting the trailing columns measure to zero and vanish.
  */
 @Composable
 fun LogsScreen(vm: AppViewModel) {
-    val rows by vm.logs.collectAsState()
-    var filter by remember { mutableStateOf(Filter.ALL) }
+    val rows by vm.logs.collectAsStateWithLifecycle()
+    val zone by vm.applianceZone.collectAsStateWithLifecycle()
+    var filter by rememberSaveable { mutableStateOf(Filter.ALL) }
 
-    val visible = rows.filter { row ->
-        when (filter) {
-            Filter.ALL -> true
-            Filter.GONG -> row.kind == PlayKind.GONG || row.kind == PlayKind.TEST_GONG
-            Filter.DOHA -> row.kind == PlayKind.DOHA || row.kind == PlayKind.TEST_DOHA
-            Filter.MISSED -> row.result == PlayResult.MISSED
-            Filter.ERROR -> row.result == PlayResult.ERROR
+    val visible = remember(rows, filter) {
+        rows.filter { row ->
+            when (filter) {
+                Filter.ALL -> true
+                Filter.GONG -> row.kind == PlayKind.GONG || row.kind == PlayKind.TEST_GONG
+                Filter.DOHA -> row.kind == PlayKind.DOHA || row.kind == PlayKind.TEST_DOHA
+                Filter.MISSED -> row.result == PlayResult.MISSED
+                Filter.ERROR -> row.result == PlayResult.ERROR
+            }
         }
     }
+
+    // One state, two readers (header + rows). Separate states would let the
+    // columns drift out of alignment the moment anyone drags a row.
+    val hScroll = rememberScrollState()
 
     Column(
         Modifier.fillMaxSize().padding(32.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        ScreenTitle("Logs", "Timestamps are UTC. ${rows.size} recent entries.")
+        ScreenTitle(
+            "Logs",
+            "Timestamps are UTC; LOCAL is ${zone.id}. " +
+                "Showing ${visible.size} of the latest ${rows.size}.",
+        )
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            Modifier.selectableGroup(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             for (f in Filter.entries) {
                 FilterChip(f.label, f == filter) { filter = f }
             }
         }
 
-        Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Head("When (UTC)", 168.dp)
-            Head("What", 96.dp)
-            Head("File", 150.dp)
-            Head("×", 46.dp)
-            Head("Result", 110.dp)
-            Text("DETAIL", fontSize = 11.sp, letterSpacing = 1.1.sp, color = Nocturne.Neutral500)
-        }
-        Hairline()
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val detailW = maxOf(DETAIL_MIN_W, maxWidth - FIXED_W)
 
-        if (visible.isEmpty()) {
-            // Before the fix this sat BELOW a fillMaxSize list and could
-            // never render.
-            Text("Nothing logged yet.", fontSize = 13.5.sp, color = Nocturne.Neutral500)
-        } else {
-            LazyColumn(Modifier.fillMaxSize()) {
-                items(visible, key = { it.id }) { row ->
-                    Column {
-                        Row(
-                            Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Mono(row.tsUtc, 168.dp, Nocturne.Neutral400)
-                            Mono(row.kind, 96.dp, Nocturne.Neutral300)
-                            Mono(row.file, 150.dp, Nocturne.Neutral400)
-                            Mono(row.repeats.toString(), 46.dp, Nocturne.Neutral400)
-                            Text(
-                                row.result,
-                                fontSize = 12.5.sp,
-                                fontFamily = Nocturne.Mono,
-                                color = resultColor(row.result),
-                                modifier = Modifier.width(110.dp),
-                            )
-                            Text(
-                                row.detail.ifBlank { "—" },
-                                fontSize = 12.5.sp,
-                                fontFamily = Nocturne.Mono,
-                                color = Nocturne.Neutral500,
-                            )
+            Column(Modifier.fillMaxSize()) {
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 4.dp).horizontalScroll(hScroll),
+                    horizontalArrangement = Arrangement.spacedBy(COL_GAP),
+                ) {
+                    Head("When (UTC)", TS_W)
+                    Head("Local", LOCAL_W)
+                    Head("What", KIND_W)
+                    Head("File", FILE_W)
+                    Head("×", STRIKES_W, description = "strikes")
+                    Head("Result", RESULT_W)
+                    Head("Detail", detailW)
+                }
+                Hairline()
+
+                when {
+                    // Before the fix this sat BELOW a fillMaxSize list and could
+                    // never render.
+                    rows.isEmpty() -> Empty("Nothing logged yet.")
+
+                    // Never claim nothing was logged when a filter is hiding it —
+                    // this screen exists to diagnose, not to mislead.
+                    visible.isEmpty() -> Empty(
+                        "No ${filter.label} entries in the latest ${rows.size}.",
+                    )
+
+                    else -> LazyColumn(Modifier.fillMaxSize()) {
+                        items(visible, key = { it.id }) { row ->
+                            Column {
+                                Row(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 6.dp)
+                                        .horizontalScroll(hScroll),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(COL_GAP),
+                                ) {
+                                    Mono(row.tsUtc, TS_W, Nocturne.Neutral400)
+                                    Mono(localStamp(row.tsUtc, zone), LOCAL_W, Nocturne.Neutral500)
+                                    Mono(row.kind, KIND_W, Nocturne.Neutral300)
+                                    Mono(row.file, FILE_W, Nocturne.Neutral400)
+                                    Mono(row.repeats.toString(), STRIKES_W, Nocturne.Neutral400)
+                                    Mono(row.result, RESULT_W, resultColor(row.result))
+                                    Mono(
+                                        row.detail.ifBlank { "—" },
+                                        detailW,
+                                        Nocturne.Neutral500,
+                                    )
+                                }
+                                Hairline()
+                            }
                         }
-                        Hairline()
                     }
                 }
             }
@@ -118,6 +178,24 @@ private enum class Filter(val label: String) {
     ALL("all"), GONG("gong"), DOHA("doha"), MISSED("missed"), ERROR("error")
 }
 
+/**
+ * The stored instant in the appliance zone. `ts_utc` is untouched; when the
+ * local calendar date differs from the UTC one the shift is spelled out, so a
+ * 19:00Z row cannot read as "today 00:30" by accident.
+ */
+private fun localStamp(tsUtc: String, zone: ZoneId): String {
+    val instant = runCatching { Instant.parse(tsUtc) }.getOrNull() ?: return "—"
+    val local = instant.atZone(zone)
+    val shift = local.toLocalDate().toEpochDay() -
+        instant.atZone(ZoneOffset.UTC).toLocalDate().toEpochDay()
+    val marker = when {
+        shift > 0L -> " +${shift}d"
+        shift < 0L -> " ${shift}d"
+        else -> ""
+    }
+    return "%02d:%02d:%02d".format(local.hour, local.minute, local.second) + marker
+}
+
 /** Design handoff §4 result colouring. */
 private fun resultColor(result: String): Color = when (result) {
     PlayResult.OK -> Nocturne.Neutral300
@@ -127,48 +205,88 @@ private fun resultColor(result: String): Color = when (result) {
 }
 
 @Composable
-private fun Head(text: String, width: androidx.compose.ui.unit.Dp) {
+private fun Empty(text: String) {
+    Text(
+        text,
+        fontSize = 13.5.sp,
+        color = Nocturne.Neutral500,
+        modifier = Modifier.padding(top = 12.dp),
+    )
+}
+
+@Composable
+private fun Head(text: String, width: Dp, description: String? = null) {
     Text(
         text.uppercase(),
         fontSize = 11.sp,
         letterSpacing = 1.1.sp,
         color = Nocturne.Neutral500,
-        modifier = Modifier.width(width),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier
+            .width(width)
+            .then(
+                if (description == null) {
+                    Modifier
+                } else {
+                    Modifier.semantics { contentDescription = description }
+                },
+            ),
     )
 }
 
 @Composable
-private fun Mono(text: String, width: androidx.compose.ui.unit.Dp, color: Color) {
+private fun Mono(text: String, width: Dp, color: Color) {
     Text(
         text,
         fontSize = 12.5.sp,
         fontFamily = Nocturne.Mono,
         color = color,
         maxLines = 1,
+        // Every column is fixed-width, so without this a long value is silently
+        // cut mid-glyph and reads as a shorter, wrong value.
+        overflow = TextOverflow.Ellipsis,
         modifier = Modifier.width(width),
     )
 }
 
+/**
+ * A 32 dp painted pill inside a 44 dp touch target (`Nocturne.MIN_TOUCH_DP`).
+ * `selectable` + `Role.Tab` is what tells TalkBack which filter is active;
+ * colour alone did not. `filter_<label>` doubles as the automation hook, matching
+ * the nav rail's `nav_<TAB>`.
+ */
 @Composable
 private fun FilterChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    val description = "filter_$label"
     Box(
         Modifier
-            .height(32.dp)
-            .clip(RoundedCornerShape(6.dp))
-            .background(if (selected) Nocturne.Accent.copy(alpha = 0.22f) else Color.Transparent)
-            .border(
-                1.dp,
-                if (selected) Nocturne.Accent else Nocturne.Neutral700,
-                RoundedCornerShape(6.dp),
-            )
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp),
+            .height(Nocturne.MIN_TOUCH_DP.dp)
+            .widthIn(min = Nocturne.MIN_TOUCH_DP.dp)
+            .selectable(selected = selected, role = Role.Tab, onClick = onClick)
+            .semantics { contentDescription = description },
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            label,
-            fontSize = 12.5.sp,
-            color = if (selected) Nocturne.Accent200 else Nocturne.Neutral400,
-        )
+        Box(
+            Modifier
+                .height(32.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(
+                    if (selected) Nocturne.Accent.copy(alpha = 0.22f) else Color.Transparent,
+                )
+                .border(
+                    1.dp,
+                    if (selected) Nocturne.Accent else Nocturne.Neutral700,
+                    RoundedCornerShape(6.dp),
+                )
+                .padding(horizontal = 12.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                label,
+                fontSize = 12.5.sp,
+                color = if (selected) Nocturne.Accent200 else Nocturne.Neutral400,
+            )
+        }
     }
 }

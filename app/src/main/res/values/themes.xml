@@ -1,4 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.GongAppliance" parent="android:Theme.Material.Light.NoActionBar" />
+    <!--
+      The appliance is a wall tablet in a dim hall; there is no light theme.
+      The parent must be dark so the pre-Compose window (cold-start splash,
+      recents thumbnail, system bars) matches Nocturne instead of flashing a
+      grey Material Light chrome over a #161826 app.
+
+      enableEdgeToEdge() in MainActivity supersedes the bar colours on API 35+,
+      but they still apply on API 29-34 and for the frame before the activity
+      runs, so both are set.
+    -->
+    <style name="Theme.GongAppliance" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/nocturne_bg</item>
+        <item name="android:colorBackground">@color/nocturne_bg</item>
+        <item name="android:statusBarColor">@color/nocturne_status_bar</item>
+        <item name="android:navigationBarColor">@color/nocturne_status_bar</item>
+        <!-- Dark bars => light icons. -->
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
 </resources>

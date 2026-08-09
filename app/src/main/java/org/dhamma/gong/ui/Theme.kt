@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
@@ -49,9 +50,45 @@ object Nocturne {
     /** Every time, count, filename and log field is monospace. */
     val Mono = FontFamily.Monospace
 
-    /** Nothing goes below 12 sp on this device; hit targets stay >= 44 dp. */
+    /**
+     * Nothing *readable* goes below 12 sp on this device; hit targets stay >= 44 dp.
+     *
+     * `MIN_TEXT_SP` governs reading text — labels, values, body copy, log fields.
+     * It does **not** govern the two decorative micro-styles below
+     * ([Size.EYEBROW] and [Size.TAG]), which are ratified exemptions from the
+     * handoff: they are all-caps, wide-tracked, low-information chrome read at
+     * arm's length on a near-field control surface, never at 2 m.
+     */
     const val MIN_TEXT_SP = 12f
     const val MIN_TOUCH_DP = 44
+
+    /**
+     * The handoff's type scale, as tokens. New work should reach for these
+     * rather than re-typing the literal; existing call sites are deliberately
+     * left alone (a mass migration is out of beta scope).
+     */
+    object Size {
+        /** Dashboard hero clock only. The one true 2 m element. */
+        val HERO = 98.sp
+        /** Monospace counts and countdowns. */
+        val NUMERAL = 30.sp
+        val TITLE = 23.sp
+        val BODY_LG = 17.sp
+        val BODY = 15.sp
+        val BODY_SM = 13.5.sp
+        val LABEL = 12.5.sp
+        val LABEL_SM = 11.5.sp
+
+        /** Exempt from [MIN_TEXT_SP] — see the note on that constant. */
+        val EYEBROW = 11.sp
+        /** Exempt from [MIN_TEXT_SP] — see the note on that constant. */
+        val TAG = 10.5.sp
+    }
+
+    /** Corner radii used across the shell. Existing literals are left as-is. */
+    val RadiusSm = 4.dp
+    val RadiusMd = 8.dp
+    val RadiusLg = 12.dp
 }
 
 private val GongColors = darkColorScheme(
@@ -69,6 +106,20 @@ private val GongColors = darkColorScheme(
     onError = Nocturne.Bg,
     outline = Nocturne.Neutral700,
     outlineVariant = Nocturne.Neutral800,
+    // M3 components that pick their own container (DropdownMenu, Tooltip,
+    // DatePicker, Snackbar) read the surfaceContainer* roles, not `surface`.
+    // Left unmapped they fall back to the M3 baseline browns, which is why the
+    // course-type picker rendered #211F26 inside a Nocturne app.
+    surfaceDim = Nocturne.BgDeep,
+    surfaceBright = Nocturne.SurfaceHigh,
+    surfaceContainerLowest = Nocturne.BgDeep,
+    surfaceContainerLow = Nocturne.NavRail,
+    surfaceContainer = Nocturne.Surface,
+    surfaceContainerHigh = Nocturne.SurfaceHigh,
+    surfaceContainerHighest = Nocturne.Neutral800,
+    inverseSurface = Nocturne.Text,
+    inverseOnSurface = Nocturne.Bg,
+    scrim = Nocturne.BgDeep,
 )
 
 /** The handoff's type scale: 98 / 34 / 23 / 17 / 15 / 13.5 / 12.5 / 11.5 / 11. */
