@@ -8,7 +8,7 @@ import java.time.ZoneId
 
 /**
  * FABLE-REVIEW B1: the appliance timezone comes from the `timezone` setting,
- * never from the phone's travel TZ. NG parity: `ng/gong_ng/config.py` defaults
+ * never from the phone's travel TZ. Pi parity: the Pi daemon's config.py defaults
  * `timezone = "Asia/Kolkata"`.
  */
 class ApplianceZoneTest {
@@ -46,7 +46,7 @@ class ApplianceZoneTest {
 
     @Test
     fun settingsDefaultIsKolkataNotEmpty() {
-        // Fresh installs must seed the NG default, not "unset".
+        // Fresh installs must seed the Pi default, not "unset".
         assertEquals("Asia/Kolkata", SettingsDefaults.all["timezone"])
     }
 

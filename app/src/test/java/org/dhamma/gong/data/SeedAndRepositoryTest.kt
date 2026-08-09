@@ -29,7 +29,7 @@ import java.time.ZonedDateTime
 
 /**
  * M1 data layer against real SQLite (Robolectric), plus the seed exported from
- * ng/seed/seed.sql. These assert NG parity of the *stored* shape, not just the
+ * the Pi repo's seed.sql. These assert Pi parity of the *stored* shape, not just the
  * in-memory domain.
  */
 @RunWith(RobolectricTestRunner::class)

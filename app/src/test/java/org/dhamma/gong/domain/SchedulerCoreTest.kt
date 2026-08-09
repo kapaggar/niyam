@@ -14,7 +14,7 @@ import kotlin.random.Random
 
 /**
  * Behavioural oracle ported from ng/tests/test_scheduler.py.
- * Every assertion here is a Gong-NG guarantee, not an Android detail.
+ * Every assertion here is a Pi daemon guarantee, not an Android detail.
  */
 class SchedulerCoreTest {
 
@@ -122,7 +122,7 @@ class SchedulerCoreTest {
             settings = mapOf("enabled" to "0"),
         )
         assertTrue(out.fired.isEmpty())
-        // NG marks fired before dispatch: re-enabling mid-window must not
+        // The Pi daemon marks fired before dispatch: re-enabling mid-window must not
         // retro-fire a gong the staff deliberately silenced.
         assertTrue(out.marks.isNotEmpty())
     }

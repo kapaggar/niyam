@@ -8,7 +8,7 @@ import java.time.ZoneOffset
 
 /**
  * The one place that decides whether an occurrence may play right now
- * (design doc §05, `ng/gong_ng/scheduler.py`).
+ * (design doc §05, the Pi daemon's scheduler.py).
  *
  * [SchedulerCore] calls this; nothing else should re-implement the window.
  */

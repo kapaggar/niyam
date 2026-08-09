@@ -9,10 +9,10 @@ import org.dhamma.gong.domain.SettingsDefaults
 
 /**
  * First-launch seed: course types + the whole schedule matrix, exported from
- * `ng/seed/seed.sql` by `android/tools/export_seed_json.py`.
+ * the Pi repo's seed.sql by `tools/export_seed_json.py`.
  *
  * Idempotent — [apply] is a no-op once `course_types` is populated, matching
- * `init_db(seed_sql=...)` in `ng/gong_ng/db.py`.
+ * `init_db(seed_sql=...)` in the Pi daemon's db.py.
  */
 object SeedLoader {
 

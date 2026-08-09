@@ -4,13 +4,13 @@ import java.time.LocalDate
 import java.time.LocalTime
 
 /**
- * Port of `ng/gong_ng/scheduler.py` `upcoming_occurrences` +
- * `ng/gong_ng/model.py` `events_for` (design §3.1).
+ * Port of the Pi daemon's scheduler.py `upcoming_occurrences` +
+ * the Pi daemon's model.py `events_for` (design §3.1).
  */
 object ScheduleMaterializer {
 
     /**
-     * Effective rows for a context, in NG's precedence order:
+     * Effective rows for a context, in the Pi daemon's precedence order:
      * explicit day → default pattern (`day_no IS NULL`) → no-course set.
      */
     fun eventsFor(ctx: CourseCtx?, allEvents: List<ScheduleEvent>): List<ScheduleEvent> {

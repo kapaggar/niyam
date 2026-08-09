@@ -1,140 +1,79 @@
-# Dhamma Gong — Android appliance
+# Niyam — Dhamma Gong Android appliance
 
-Self-contained Android project: **phone/tablet is the gong + doha scheduler and player**
-(Gong-NG semantics), offline-first. Scaffolded to be **moved into its own git repo**.
+A phone/tablet left on charge at a Vipassana centre **is** the gong + morning-doha
+appliance: offline course schedule, Media3 audio, on-device Compose UI. Ported from
+the centre's Raspberry Pi daemon; the domain unit tests are the behavioural law.
 
 | | |
 |--|--|
 | Application id | `org.dhamma.gong` |
-| Min SDK | 26 |
-| UI | Jetpack Compose (placeholder shell) |
-| Domain | Pure Kotlin under `app/.../domain/` |
-| Seed | `seed/seed.json` + `assets/seed/seed.json` (from Gong-NG `ng/seed/seed.sql`) |
+| Min SDK | 29 · target 35 |
+| UI | Jetpack Compose, landscape tablet (Nocturne theme) |
+| Domain | Pure Kotlin (JVM-testable) under `app/.../domain/` |
+| Store | Room `gong.db` (WAL) — field-readable with any SQLite tool |
+| Seed | `assets/seed/seed.json` — 12 course types, 335 schedule events |
 
-## Move to a new git repo
-
-```bash
-# from wherever this folder lives
-cp -R android /path/to/GongAndroid
-cd /path/to/GongAndroid
-git init
-git add .
-git commit -m "Initial Gong Android appliance scaffold from Gong-NG"
-```
-
-Or: `git subtree split` / drag the `android/` directory into a new GitHub repo.
-Everything needed to develop without the parent monorepo is inside this tree
-(`docs/`, `seed/`, `reference/`, `media/`, Gradle project).
-
-## Open in Android Studio
-
-1. **File → Open** → select this `android/` directory (the one with `settings.gradle.kts`).
-2. Let Gradle sync (needs Android SDK + JDK 17).
-3. Run configuration: `app` on emulator or device.
-
-## Tests (domain / M0)
+## Build & test
 
 ```bash
-./gradlew :app:testDebugUnitTest
+./gradlew :app:testDebugUnitTest    # pure-JVM + Robolectric suite
+./gradlew :app:assembleDebug        # app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Covers:
-
-- `DohaSlots` — golden vectors from Gong-NG `test_doha.py`
-- `ActiveCourse` — window match, day number, pin override
-- `FireRules` — grace / missed / double-fire / clock
-- `ScheduleMaterializer` — explicit day vs default pattern vs no-course
-
-If `./gradlew` is missing, open once in Android Studio (generates wrapper) or install a
-Gradle wrapper:
-
-```bash
-gradle wrapper --gradle-version 8.9
-```
+`local.properties` must point at your SDK (`sdk.dir=…`). JDK 17+, Gradle 8.9,
+AGP 8.7.2, Kotlin 2.0.21.
 
 ## Layout
 
 ```
-android/
-├── README.md
-├── LICENSE-NOTES.md
-├── MEDIA.md
-├── docs/                          # design + implementation prompts + GONG-NG design
-│   ├── ANDROID-APP-DESIGN-PROMPT.md
-│   ├── ANDROID-APP-IMPLEMENTATION-PROMPT.md
-│   └── GONG-NG-DESIGN.md
+├── README.md / MEDIA.md / LICENSE-NOTES.md / PROGRESS.md
+├── docs/
+│   ├── ANDROID-APP-IMPLEMENTATION-PROMPT.md   # milestones M0–M7 + rules
+│   ├── FABLE-REVIEW.md                        # code review + restart surface
+│   └── handoff/                               # product design (open README.md + .html in a browser)
 ├── seed/                          # portable seed (JSON + SQL source)
-│   ├── seed.json                  # course_types + schedule_events
-│   ├── seed.sql
-│   ├── doha-manifest.json
-│   └── courses-sudha-2026-2027.sql
-├── media/                         # source media (not full doha library)
-│   ├── gongs/{ting,drum}.mp3
-│   └── doha/manifest.json
-├── reference/                     # read-only Gong-NG Python for algorithm parity
-│   ├── gong_ng/{doha,model,scheduler,player,clock,jobs}.py
-│   └── tests/
-├── app/
-│   ├── build.gradle.kts
-│   └── src/
-│       ├── main/
-│       │   ├── AndroidManifest.xml
-│       │   ├── assets/seed/seed.json
-│       │   ├── assets/media/...
-│       │   └── java/org/dhamma/gong/
-│       │       ├── domain/        # pure Kotlin (M0 done)
-│       │       ├── ui/            # MainActivity placeholder
-│       │       ├── data/          # (next: Room)
-│       │       ├── player/        # (next: Media3)
-│       │       └── service/       # (next: FGS scheduler)
-│       └── test/.../domain/       # unit tests
-├── build.gradle.kts
-├── settings.gradle.kts
-└── gradle.properties
+├── media/                         # gong strikes + doha manifest (no doha audio)
+├── tools/                         # seed exporter, test-tone generator
+└── app/src/
+    ├── main/java/org/dhamma/gong/
+    │   ├── domain/    # scheduler core, fire rules, clock trust, doha slots, PIN
+    │   ├── data/      # Room entities/DAOs, repository, seed loader
+    │   ├── player/    # player engine, Media3 sink, audio routing
+    │   ├── schedule/  # scheduler loop + exact alarms
+    │   ├── service/   # foreground service (the appliance process), receivers
+    │   └── ui/        # Compose shell: dashboard, courses, schedule, logs, PIN
+    ├── test/          # unit suite — the behavioural spec
+    └── debug/assets/media/doha-test/   # synthetic doha tones (debug only)
 ```
 
-## Product intent (short)
+## Behavioural guarantees (do not regress)
 
-- Appliance app: device schedules gongs + morning doha for Vipassana courses.
-- Parity with **Gong-NG** (not legacy PHP bugs): course window, calendar day, 120s grace,
-  missed vs double-fire, `legacy_modular` doha slots.
-- Later: Bluetooth/USB audio, hotspot + office Wi‑Fi UI, smart-plug amp power.
-- **Not** in MVP: Deshna jukebox server.
+- Course **window** matching, not "starts today only"; start date is **day 0**.
+- **Calendar-day** arithmetic (`ChronoUnit.DAYS`), never seconds/86400.
+- Never fires early; late only within a **120 s grace** window, else logs `missed`.
+- Double-fire guard persisted **before** play dispatch.
+- Untrusted clock (backwards jump) silences automatic plays until confirmed.
+- Doha slots: `legacy_modular` in-course, `no_course_doha` outside.
+- Player queue: a new gong preempts a gong; doha waits; stop clears everything.
+- Appliance timezone comes from the `timezone` setting (default `Asia/Kolkata`),
+  never the device's travel TZ.
 
-## Implementation roadmap
+Every rule above is pinned by a unit test — see `PROGRESS.md` for the inventory.
 
-Follow `docs/ANDROID-APP-IMPLEMENTATION-PROMPT.md` milestones:
+## Security
 
-| Milestone | Status in this scaffold |
-|-----------|-------------------------|
-| M0 Domain + skeleton | **Started** — domain + tests + empty UI |
-| M1 Room + seed import | TODO |
-| M2 Player + FGS | TODO |
-| M3 Scheduler alarms | TODO |
-| M4–M7 UI / backup / network | TODO |
+Opening the app can require a **PIN** (4–8 digits): set, change, or remove it from
+the in-app **PIN** tab. Stored as salted PBKDF2 in the settings table, never
+plaintext. No PIN set → the app opens directly.
 
-### Claude Code kickoff (after move)
+## Media licensing
 
-```text
-Read docs/ANDROID-APP-IMPLEMENTATION-PROMPT.md and docs/GONG-NG-DESIGN.md.
-Continue from M0 (domain exists). Implement M1: Room + import assets/seed/seed.json.
-Keep domain pure JVM-testable. Do not add Deshna.
-```
+Bundled gong strikes and any doha recordings are **not** MIT-licensed — see
+`LICENSE-NOTES.md` before redistributing. Release builds ship no doha audio;
+the dashboard shows **GONGS ONLY** until a centre installs a licensed pack.
 
-## Regenerating seed from parent monorepo (optional)
+## History
 
-If you still have Gongserver checked out:
-
-```bash
-# from gongserver root
-python3 - <<'PY'
-# same converter used when scaffolding — see tools/export_seed_json.py
-PY
-```
-
-Use `tools/export_seed_json.py` if present, or re-copy `ng/seed/seed.sql` and convert.
-
-## Parent project
-
-Extracted from [GongDohaServer / gongserver](https://github.com/kapaggar/GongDohaServer)
-`ng/` stack. Parent path on the authoring machine: often `~/gongserver/android`.
+Extracted (with history) from the `android/` tree of
+[GongDohaServer](https://github.com/kapaggar/GongDohaServer); the Pi daemon this
+app supersedes lives on in that repo.

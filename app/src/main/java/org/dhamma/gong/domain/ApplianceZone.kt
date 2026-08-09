@@ -7,7 +7,7 @@ import java.time.ZoneId
  * default. A centre tablet must gong in the centre's zone even if the phone
  * thinks it has travelled (FABLE-REVIEW B1).
  *
- * NG parity: `ng/gong_ng/config.py` defaults `timezone = "Asia/Kolkata"`.
+ * Pi parity: the Pi daemon's config.py defaults `timezone = "Asia/Kolkata"`.
  */
 object ApplianceZone {
 

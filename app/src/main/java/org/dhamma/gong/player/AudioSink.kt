@@ -18,7 +18,7 @@ import kotlin.coroutines.resume
  * "Render this file once, and don't come back until it has finished."
  *
  * Split out of [PlayerEngine] so the queue and burst semantics — the parts that
- * carry NG's guarantees — can be tested without an audio device.
+ * carry the Pi daemon's guarantees — can be tested without an audio device.
  */
 interface AudioSink {
     /** Suspends until playback ends. Cancellation must stop the output. */

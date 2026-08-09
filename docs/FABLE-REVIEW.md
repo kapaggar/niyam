@@ -12,7 +12,7 @@ This document is the single restart surface for **Fable** (or any follow-on agen
 
 ## 1. One-sentence product
 
-> A phone/tablet left on charge at a Vipassana centre **is** the gong + morning-doha appliance: offline schedule, Media3 audio, on-device UI — behavioural parity with **Gong-NG** on Raspberry Pi.
+> A phone/tablet left on charge at a Vipassana centre **is** the gong + morning-doha appliance: offline schedule, Media3 audio, on-device UI — behavioural parity with the Pi daemon.
 
 ---
 
@@ -22,11 +22,11 @@ This document is the single restart surface for **Fable** (or any follow-on agen
 
 | Priority | Document | Role |
 |---|---|---|
-| 1 | **Gong-NG Python** `../ng/gong_ng/{model,scheduler,doha,player,clock}.py` | **Behavioural law** — wins all schedule/play conflicts |
+| 1 | **The unit-test suite** (`app/src/test/`, ports of the Pi daemon) | **Behavioural law** — wins all schedule/play conflicts |
 | 2 | `docs/handoff/` (design handoff + HTML design doc + screens) | Product UX, tablet landscape, Nocturne UI, alarm choice |
 | 3 | `docs/ANDROID-APP-IMPLEMENTATION-PROMPT.md` | Milestones M0–M7, engineering rules |
-| 4 | `docs/ANDROID-APP-DESIGN-PROMPT.md` | Original design-agent brief |
-| 5 | `../docs/GONG-NG-DESIGN.md` | Pi appliance architecture (reference) |
+| 4 | *(removed — see git history)* | Original design-agent brief |
+| 5 | *(removed — see git history)* | Pi appliance architecture reference |
 | 6 | `PROGRESS.md` | Living build status |
 
 ### 2.2 Locked product decisions
@@ -65,11 +65,11 @@ This document is the single restart surface for **Fable** (or any follow-on agen
 | M | Intent | Status |
 |---|---|---|
 | **M0** | Pure Kotlin domain + unit tests | **Done** |
-| **M1** | Room + NG-shaped schema + seed | **Done** |
+| **M1** | Room + Pi-shaped schema + seed | **Done** |
 | **M2** | PlayerEngine + Media3 + FGS | **Done** |
 | **M3** | SchedulerEngine + `setAlarmClock` + 30 s heartbeat | **Done** |
 | **M4** | Compose UI (4 screens) | **Done** |
-| **M5** | PIN + five undesigned screens (design first) | **Not started** |
+| **M5** | PIN + five undesigned screens (design first) | **PIN done** (app-open gate, 2026-08-08); screens not started |
 | **M6** | Backup/restore, audio route picker, doha SAF, first-run | **Not started** |
 | **M7** | Play hardening (battery, R8, privacy, media pack docs) | **Not started** |
 
@@ -129,20 +129,20 @@ Severity: **P0** ship-blocker · **P1** wrong course behaviour · **P2** UX/ops 
 
 | ID | Issue | Where | Notes / fix direction |
 |---|---|---|---|
-| **B1** | ~~**Timezone is only `ZoneId.systemDefault()`**~~ **FIXED 2026-08-08** | `domain/ApplianceZone.kt`, `GongService` | Clock zone now comes from the `timezone` setting (default `Asia/Kolkata`, NG `config.py` parity); blank/invalid → IST. `SystemGongClock` takes a zone provider; re-read on every poke. UI follows. `ApplianceZoneTest`. |
+| **B1** | ~~**Timezone is only `ZoneId.systemDefault()`**~~ **FIXED 2026-08-08** | `domain/ApplianceZone.kt`, `GongService` | Clock zone now comes from the `timezone` setting (default `Asia/Kolkata`, Pi-daemon config parity); blank/invalid → IST. `SystemGongClock` takes a zone provider; re-read on every poke. UI follows. `ApplianceZoneTest`. |
 | **B2** | **`applyOutcome` is not a single DB transaction** | `GongRepository.applyOutcome` | Guards then logs as separate Room ops. Crash between can leave marks without log (or partial marks). Prefer `@Transaction` wrapping put+insert. |
-| **B3** | **Gong burst gap is start-to-start, not end-to-gap** | `PlayerEngine.execute` | Absolute deadlines from burst start: if strike audio **longer** than `gap_seconds`, strikes overlap / zero silence. NG waits for play **then** gap. Align with NG or document as deliberate. |
-| **B4** | **Day 0 doha uses `no_course_doha` (often random)** | `DohaSlots.pickSlot` (`day > 0`) | Matches NG (`0 < day`). Confirm with centres whether arrival morning should use modular day-1 or off. Not a code bug vs NG; product clarity needed. |
+| **B3** | **Gong burst gap is start-to-start, not end-to-gap** | `PlayerEngine.execute` | Absolute deadlines from burst start: if strike audio **longer** than `gap_seconds`, strikes overlap / zero silence. The Pi daemon waits for play **then** gap. Align with Pi or document as deliberate. |
+| **B4** | **Day 0 doha uses `no_course_doha` (often random)** | `DohaSlots.pickSlot` (`day > 0`) | Matches the Pi daemon (`0 < day`). Confirm with centres whether arrival morning should use modular day-1 or off. Not a code bug vs the Pi daemon; product clarity needed. |
 
 ### P2 — product / security / ops
 
 | ID | Issue | Where | Notes |
 |---|---|---|---|
-| **B5** | **PIN not enforced** | `Tab.requiresPin`, `admin_pin_hash` | Courses/Schedule editable by anyone who unlocks the tablet. M5. |
+| **B5** | ~~**PIN not enforced**~~ **FIXED 2026-08-08** | `domain/PinCode.kt`, `ui/PinScreens.kt`, `GongApp` | App-open PIN gate (salted PBKDF2 in `admin_pin_hash`); set/change/remove from the in-app PIN tab. `PinCodeTest`. |
 | **B6** | **No first-run for exact alarms / battery optimization** | Manifest has perms; UI Setup locked | Without `canScheduleExactAlarms()`, falls back to inexact + 30 s heartbeat (may still work; later on some OEMs). |
 | **B7** | **`LOCKED_BOOT_COMPLETED` starts service** | `BootReceiver` | DB is credential-encrypted default; early direct-boot start can fail until unlock. Prefer only `BOOT_COMPLETED` or device-protected context. |
 | **B8** | **Overlapping courses both painted ACTIVE** | `AppViewModel.courseRows` `else -> ACTIVE` | Drives overlap warning; can confuse staff. Prefer ACTIVE only for resolved course + OVERLAP badge for others. |
-| **B9** | **Auto-chosen active course not persisted** | NG writes `active_course_id` on resolve | Android only reads pin. Overlap set can flip if dates change. Minor. |
+| **B9** | **Auto-chosen active course not persisted** | the Pi daemon writes `active_course_id` on resolve | Android only reads pin. Overlap set can flip if dates change. Minor. |
 | **B10** | **No backup/restore** | M6 | Field recovery requires re-seed + re-enter courses. |
 | **B11** | **Release builds have no doha media** | intentional | Dashboard must clearly show **GONGS ONLY**; verify copy is obvious. |
 
@@ -162,7 +162,7 @@ Severity: **P0** ship-blocker · **P1** wrong course behaviour · **P2** UX/ops 
 - Seed idempotence and corrupt-row null-mapping (`toDomain()`).
 - Service owns player+scheduler; UI pokes via service.
 - Heartbeat + alarm belt-and-braces.
-- Queue preemption rules match NG intent.
+- Queue preemption rules match the Pi daemon's intent.
 
 ---
 
@@ -209,13 +209,13 @@ adb logcat -s SeedLoader:I AlarmScheduler:I SchedulerEngine:I GongService:I Play
 
 1. **B1** Appliance timezone setting (default `Asia/Kolkata` or settings-driven `GongClock`).
 2. **B2** `@Transaction` on `applyOutcome`.
-3. **B3** Decide gap semantics; if NG parity, sleep after each `sink.play` then gap.
+3. **B3** Decide gap semantics; if Pi parity, sleep after each `sink.play` then gap.
 4. **B7** Drop `LOCKED_BOOT_COMPLETED` or use device-protected storage.
 5. Confirm **GONGS ONLY** / missing doha UX is explicit on Dashboard.
 
 ### M5 (product)
 
-6. PIN gate (`admin_pin_hash` + scrypt/Argon2id or Android Keystore + hash).
+6. ~~PIN gate~~ done — app-open gate, salted PBKDF2 (`PinCode`).
 7. Design + implement: Sounds, Audio out, Time (clock confirm!), Network, Setup checklist.
 
 ### M6 (field ops)
@@ -241,7 +241,7 @@ adb logcat -s SeedLoader:I AlarmScheduler:I SchedulerEngine:I GongService:I Play
 
 ## 9. Agent rules when improving the app
 
-1. **Do not invent schedule semantics** — port NG; add a unit test that fails first.
+1. **Do not invent schedule semantics** — port the Pi behaviour; add a unit test that fails first.
 2. **One milestone / one concern per PR** when possible.
 3. Keep `domain/` free of Android imports.
 4. After behaviour change: `./gradlew :app:testDebugUnitTest`.
@@ -267,7 +267,7 @@ adb logcat -s SeedLoader:I AlarmScheduler:I SchedulerEngine:I GongService:I Play
 
 ```text
 Read android/docs/FABLE-REVIEW.md and android/PROGRESS.md end-to-end.
-Behavioural law: ../ng/gong_ng and domain ports in app/src/main/java/org/dhamma/gong/domain/.
+Behavioural law: the unit tests and domain ports in app/src/main/java/org/dhamma/gong/domain/.
 Pick one P1 from §6 (prefer B1 timezone or B2 transactional applyOutcome) OR implement M5 PIN gate.
 Keep domain pure; add unit tests; run ./gradlew :app:testDebugUnitTest.
 Do not start Deshna. Update PROGRESS.md when done.

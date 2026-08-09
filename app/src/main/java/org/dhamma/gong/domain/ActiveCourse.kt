@@ -4,7 +4,7 @@ import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
 /**
- * Port of `ng/gong_ng/model.py` active_course (design §5.2).
+ * Port of the Pi daemon's model.py active_course (design §5.2).
  * Matches course *window*, not only start day.
  */
 object ActiveCourse {
@@ -31,7 +31,7 @@ object ActiveCourse {
             chosen = candidates.firstOrNull { it.second.id.toString() == pinned }
         }
         if (chosen == null) {
-            // most recent start wins (same as NG max by start)
+            // most recent start wins (same as the Pi daemon: max by start)
             chosen = candidates.maxBy { it.first }
         }
 

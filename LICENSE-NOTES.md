@@ -2,7 +2,7 @@
 
 ## Code and configuration
 
-Scaffold Kotlin/Gradle code, seed JSON/SQL derived from Gong-NG conversion scripts,
+Scaffold Kotlin/Gradle code, seed JSON/SQL derived from the Pi appliance's conversion scripts,
 and documentation under `docs/` follow the same intent as the parent Gongserver
 project (MIT for software/docs unless noted otherwise in the parent LICENSE).
 

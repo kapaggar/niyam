@@ -32,7 +32,7 @@ body{margin:0;background:var(--color-bg)}
 <header style="max-width:var(--w);margin:0 auto;padding:76px 40px 0">
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
     <span class="tag tag-outline" style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px">DRAFT · v0.1</span>
-    <span class="text-muted" style="font-size:12px">2026-08-08 · aligned to Gong-NG M1+M2</span>
+    <span class="text-muted" style="font-size:12px">2026-08-08 · aligned to the Pi daemon M1+M2</span>
   </div>
   <h1 style="font-size:52px;max-width:14ch;line-height:1.04;margin:0 0 14px">Gong appliance for Android</h1>
   <p style="font-size:17px;max-width:62ch;color:color-mix(in srgb,var(--color-text) 70%,transparent);line-height:1.5">A phone or tablet, plugged in at the centre, rings the course gong and the morning doha on the correct wall-clock time for the correct course day — without internet — while staff manage schedule, audio route and Wi-Fi on its own screen.</p>
@@ -59,7 +59,7 @@ body{margin:0;background:var(--color-bg)}
 <li>Never fire early. Never fire twice. Never blast a missed 04:00 at 04:10.</li>
 <li>Silence beats a wrong gong — an untrusted clock suppresses automatic plays.</li>
 <li>A non-technical server can answer "what day, what's next, is it healthy" from across the office.</li>
-<li>Behavioural parity with Gong-NG, verified by porting its tests — not a line-for-line Python port.</li>
+<li>Behavioural parity with the Pi daemon, verified by porting its tests — not a line-for-line Python port.</li>
 </ul>
 </div>
 <div>
@@ -110,7 +110,7 @@ body{margin:0;background:var(--color-bg)}
       <div style="font-size:13px;font-weight:500;margin-bottom:4px">Store</div>
       <div style="font-size:12px;line-height:1.5;color:var(--color-neutral-400)">Room over SQLite (WAL) · settings/state KV · play_log · seeded from bundled <code>seed.sql</code></div>
     </div>
-    <div style="grid-column:1 / -1;border-top:1px solid var(--color-divider);padding-top:14px;font-size:12px;color:var(--color-neutral-400)">Compose UI (activity) &mdash; observes engine state flows, issues commands. <span style="color:var(--color-neutral-500)">Interface-identical to the NG JSON API, so an embedded HTTP admin can be added later without touching the engine.</span></div>
+    <div style="grid-column:1 / -1;border-top:1px solid var(--color-divider);padding-top:14px;font-size:12px;color:var(--color-neutral-400)">Compose UI (activity) &mdash; observes engine state flows, issues commands. <span style="color:var(--color-neutral-500)">Interface-identical to the Pi JSON API, so an embedded HTTP admin can be added later without touching the engine.</span></div>
   </div>
 </div>
 
@@ -128,8 +128,8 @@ body{margin:0;background:var(--color-bg)}
 
 <section class="sec" id="data" style="margin-top:56px">
 <h6 style="color:var(--color-accent-400);margin-bottom:10px">04 — Data model</h6>
-<h2>1:1 with Gong-NG, three deltas</h2>
-<p style="max-width:64ch">Entities <code>course_types</code>, <code>courses</code>, <code>schedule_events</code>, <code>settings</code>, <code>state</code>, <code>play_log</code> carry the NG semantics unchanged, including seed IDs. Room entities, same column names, so a pulled DB is readable by NG tooling.</p>
+<h2>1:1 with the Pi daemon, three deltas</h2>
+<p style="max-width:64ch">Entities <code>course_types</code>, <code>courses</code>, <code>schedule_events</code>, <code>settings</code>, <code>state</code>, <code>play_log</code> carry the Pi semantics unchanged, including seed IDs. Room entities, same column names, so a pulled DB is readable by Pi tooling.</p>
 <table>
 <tr><th style="width:26%">Delta</th><th>What and why</th></tr>
 <tr><td>+ <code>media_slots</code></td><td><code>(slot INTEGER PK 1..11, uri TEXT, filename TEXT, source TEXT, verified_at)</code>. The Pi's <code>manifest.json</code> becomes a table because Android holds SAF document URIs, not paths, and staff need per-slot override. The manifest file remains the import/export format.</td></tr>
@@ -240,7 +240,7 @@ body{margin:0;background:var(--color-bg)}
 <h2>M0 &rarr; M4</h2>
 <table>
 <tr><th style="width:12%">Milestone</th><th style="width:30%">Ships</th><th>Done when</th></tr>
-<tr><td class="mono">M0</td><td>Engine, headless</td><td>Ported NG tests pass on JVM: day math, materialization, grace/missed, doha slots.</td></tr>
+<tr><td class="mono">M0</td><td>Engine, headless</td><td>Ported Pi tests pass on JVM: day math, materialization, grace/missed, doha slots.</td></tr>
 <tr><td class="mono">M1</td><td>Service + player + speaker</td><td>Overnight run on a real tablet fires within grace; force-stop and reboot produce no doubles.</td></tr>
 <tr><td class="mono">M2</td><td>Dashboard + Schedule + PIN</td><td>MVP acceptance criteria 1&ndash;9 pass with a staff member who has not seen the app.</td></tr>
 <tr><td class="mono">M3</td><td>Routes, doha folder, backup</td><td>Criterion 10 passes; export &rarr; wipe &rarr; restore is lossless.</td></tr>
@@ -252,7 +252,7 @@ body{margin:0;background:var(--color-bg)}
 <h6 style="color:var(--color-accent-400);margin-bottom:10px">12 — Test plan</h6>
 <h2>No hall required until M4</h2>
 <ul style="max-width:66ch">
-<li><strong style="font-weight:500">Unit (JVM).</strong> NG's <code>test_scheduler</code>, <code>test_doha</code>, <code>test_player</code> ported as the oracle. Every legacy bug from §3.1 gets a named regression test — the day-2 fallback, the <code>0 =&gt; 0</code> doha index, the <code>/86400</code> DST break.</li>
+<li><strong style="font-weight:500">Unit (JVM).</strong> Pi's <code>test_scheduler</code>, <code>test_doha</code>, <code>test_player</code> ported as the oracle. Every legacy bug from §3.1 gets a named regression test — the day-2 fallback, the <code>0 =&gt; 0</code> doha index, the <code>/86400</code> DST break.</li>
 <li><strong style="font-weight:500">Virtual clock.</strong> The engine takes an injected <code>Clock</code>; a 400-day run over every course type executes in seconds and asserts an exact fire ledger.</li>
 <li><strong style="font-weight:500">Instrumented.</strong> Doze forced via <code>adb</code>, alarm-permission denial, force-stop mid-burst, timezone flip, DST boundary dates, BT disconnect at fire time.</li>
 <li><strong style="font-weight:500">Field.</strong> A compressed-time mode (1 course day per 20 min) so a full 10-day course is observable in a single afternoon on a desk.</li>
@@ -291,7 +291,7 @@ body{margin:0;background:var(--color-bg)}
 <h2>Area by area</h2>
 <table>
 <tr><th style="width:26%">Area</th><th style="width:12%">Ready</th><th>Blocker</th></tr>
-<tr><td>Scheduler semantics</td><td style="color:var(--color-accent-300)">Yes</td><td class="text-muted">NG is the spec; tests are the oracle.</td></tr>
+<tr><td>Scheduler semantics</td><td style="color:var(--color-accent-300)">Yes</td><td class="text-muted">Pi is the spec; tests are the oracle.</td></tr>
 <tr><td>Data model</td><td style="color:var(--color-accent-300)">Yes</td><td class="text-muted">Three deltas above, all additive.</td></tr>
 <tr><td>Service &amp; wake strategy</td><td style="color:var(--color-accent-300)">Yes</td><td class="text-muted">Belt-and-braces design does not depend on any one API surviving.</td></tr>
 <tr><td>Audio routing</td><td style="color:#e0c07a">Mostly</td><td>Needs one real BT amp and one USB DAC on the bench to pin latency numbers.</td></tr>

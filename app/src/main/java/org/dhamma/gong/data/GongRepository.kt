@@ -71,7 +71,7 @@ class GongRepository(private val db: GongDatabase) {
         db.playLog().insert(entry.toEntity(nowUtc))
     }
 
-    /** NG's prune_fired — keeps `state` from growing without bound. */
+    /** the Pi daemon's prune_fired — keeps `state` from growing without bound. */
     suspend fun pruneFired(today: LocalDate, keepDays: Long = 2) {
         db.state().pruneFired(today.minusDays(keepDays).toString())
     }

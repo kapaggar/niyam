@@ -26,7 +26,7 @@ import org.dhamma.gong.domain.PlayResult
 /**
  * The single player queue. Exactly one of these exists, in the service process.
  *
- * Preemption rules ported from `ng/gong_ng/player.py` `Player.submit`:
+ * Preemption rules ported from the Pi daemon's player.py `Player.submit`:
  *   - a new gong aborts a still-running gong (bursts never stack);
  *   - a doha never preempts a gong — it waits its turn;
  *   - [stop] aborts what is playing and drops what is queued.
@@ -78,7 +78,7 @@ class PlayerEngine(
     /**
      * Enqueue a command; returns as soon as it is queued.
      *
-     * @return false when the queue is saturated — NG drops rather than stacks.
+     * @return false when the queue is saturated — the Pi daemon drops rather than stacks.
      */
     suspend fun submit(command: PlayCommand): Boolean {
         lock.withLock {

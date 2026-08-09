@@ -264,7 +264,7 @@ private fun CourseCard(
             Toggle("Master", settings["enabled"] == "1") { vm.toggle("enabled") }
             Toggle("Gong", settings["gong_enabled"] == "1") { vm.toggle("gong_enabled") }
             Toggle("Doha", settings["doha_enabled"] == "1") { vm.toggle("doha_enabled") }
-            // Retained for NG parity, inert in v1 (design doc §04).
+            // Retained for Pi parity, inert in v1 (design doc §04).
             Box(Modifier.alpha(0.5f)) { Toggle("Relay", false, enabled = false) {} }
         }
     }

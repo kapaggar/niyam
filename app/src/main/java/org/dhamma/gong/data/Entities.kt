@@ -6,10 +6,10 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
- * Room entities — column names identical to `ng/gong_ng/db.py` SCHEMA, so a DB
- * pulled off the tablet stays readable by NG tooling (design doc §04).
+ * Room entities — column names identical to the Pi daemon's db.py SCHEMA, so a DB
+ * pulled off the tablet stays readable by Pi tooling (design doc §04).
  *
- * Three deliberate deltas from NG, all additive:
+ * Three deliberate deltas from the Pi daemon, all additive:
  *   + [MediaSlotEntity]   — the Pi's manifest.json becomes a table, because
  *                           Android holds SAF document URIs, not paths.
  *   + `state.route_last_ok` — a state key, no schema change.
@@ -84,7 +84,7 @@ data class StateEntity(
 )
 data class PlayLogEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    /** ISO-8601 **UTC**, second precision — matches NG exactly. */
+    /** ISO-8601 **UTC**, second precision — matches the Pi daemon exactly. */
     @ColumnInfo(name = "ts_utc") val tsUtc: String,
     /** gong | doha | test_gong | test_doha */
     @ColumnInfo(name = "kind") val kind: String,

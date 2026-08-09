@@ -10,7 +10,7 @@ object Fixtures {
 
     val IST: ZoneId = ZoneId.of("Asia/Kolkata")
 
-    /** Course types, verbatim from ng/seed/seed.sql. */
+    /** Course types, verbatim from the Pi repo's seed.sql. */
     val TEN_DAY = CourseType(1, "10 Day", totalDays = 11, anapanaDays = 3)
     val TWENTY_DAY = CourseType(2, "20 Day", totalDays = 21, anapanaDays = 7)
     val THIRTY_DAY = CourseType(3, "30 Day", totalDays = 31, anapanaDays = 10)
@@ -20,7 +20,7 @@ object Fixtures {
         .associateBy { it.id }
 
     /**
-     * The real NG 10-day gong pattern (design handoff §1 copy notes), stored as
+     * The real Pi 10-day gong pattern (design handoff §1 copy notes), stored as
      * the mid-course default (`day_no = null`) plus an explicit day 0.
      */
     val EVENTS: List<ScheduleEvent> = buildList {
@@ -50,7 +50,7 @@ object Fixtures {
         add(ScheduleEvent(id++, null, null, LocalTime.of(6, 30), 3))
     }
 
-    /** The 11 wall-clock times of the real NG mid-course day. */
+    /** The 11 wall-clock times of the real Pi mid-course day. */
     val DEFAULT_PATTERN: List<Pair<LocalTime, Int>> = listOf(
         LocalTime.of(4, 0) to 16,
         LocalTime.of(4, 20) to 12,
