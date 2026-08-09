@@ -20,9 +20,12 @@ import org.dhamma.gong.data.GongRepository
 import org.dhamma.gong.data.PlayLogEntity
 import org.dhamma.gong.data.ScheduleEventEntity
 import org.dhamma.gong.data.toDomain
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.dhamma.gong.domain.ActiveCourse
 import org.dhamma.gong.domain.ApplianceZone
 import org.dhamma.gong.domain.Course
+import org.dhamma.gong.domain.PinCode
 import org.dhamma.gong.domain.SettingsDefaults
 import org.dhamma.gong.schedule.SchedulerEngine
 import org.dhamma.gong.service.GongService
@@ -132,6 +135,68 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val overlappingCourses: StateFlow<Boolean> = courseRows
         .map { rows -> rows.count { it.status == CourseRow.Status.ACTIVE } > 1 }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    // ------------------------------------------------------------ pin gate
+
+    /**
+     * The stored `admin_pin_hash` row. Null until the first DB emission, so
+     * the gate can render *nothing* instead of flashing the dashboard while
+     * it does not yet know whether a PIN exists.
+     */
+    val pinHash: StateFlow<String?> = db.settings().observeAll()
+        .map { rows -> rows.firstOrNull { it.key == "admin_pin_hash" }?.value.orEmpty() }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /**
+     * Unlocked for the life of this ViewModel: opening the app fresh asks
+     * again; a rotation does not. Never persisted.
+     */
+    private val _unlocked = MutableStateFlow(false)
+    val unlocked: StateFlow<Boolean> = _unlocked.asStateFlow()
+
+    /** @return true and unlocks when [pin] matches the stored hash. */
+    suspend fun verifyAndUnlock(pin: String): Boolean {
+        val stored = repo.setting("admin_pin_hash")
+        val ok = withContext(Dispatchers.Default) { PinCode.verify(pin, stored) }
+        if (ok) _unlocked.value = true
+        return ok
+    }
+
+    /** Set a first PIN or change the existing one (current PIN required). */
+    fun setOrChangePin(current: String, newPin: String, confirm: String) {
+        viewModelScope.launch {
+            val stored = repo.setting("admin_pin_hash")
+            when {
+                !PinCode.isValidPin(newPin) -> toast("PIN must be 4–8 digits")
+                newPin != confirm -> toast("PINs do not match")
+                PinCode.isSet(stored) &&
+                    !withContext(Dispatchers.Default) { PinCode.verify(current, stored) } ->
+                    toast("Current PIN is wrong")
+                else -> {
+                    val hash = withContext(Dispatchers.Default) { PinCode.hash(newPin) }
+                    repo.putSetting("admin_pin_hash", hash)
+                    _unlocked.value = true
+                    toast("PIN saved")
+                }
+            }
+        }
+    }
+
+    /** Remove the PIN entirely; the current PIN is required. */
+    fun removePin(current: String) {
+        viewModelScope.launch {
+            val stored = repo.setting("admin_pin_hash")
+            when {
+                !PinCode.isSet(stored) -> toast("No PIN is set")
+                !withContext(Dispatchers.Default) { PinCode.verify(current, stored) } ->
+                    toast("Current PIN is wrong")
+                else -> {
+                    repo.putSetting("admin_pin_hash", "")
+                    toast("PIN removed")
+                }
+            }
+        }
+    }
 
     // ------------------------------------------------------------ toasts
 
