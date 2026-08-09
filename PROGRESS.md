@@ -2,16 +2,17 @@
 
 Standalone repo **`kapaggar/niyam`** (branch `main`), extracted with history from the gongserver monorepo's `android/` tree.
 
-Last updated: 2026-08-08, end of **M4** + review fix **B1** (appliance timezone)
-+ the app-open **PIN gate** (M5 partial) + Pi-reference scrub (repo is standalone).
+Last updated: 2026-08-09, post-review improvements **B6** (first-run exact
+alarms + battery + notifications on health card) and **B9** (persist resolved
+`active_course_id`). Prior: M0–M4, B1–B5/B7/B8/B13, app-open PIN, standalone scrub.
 
 ---
 
 ## How to resume
 
 ```bash
-cd /Users/wizops/gongserver/android
-./gradlew :app:testDebugUnitTest     # 127 tests, all green
+cd /Users/wizops/DIPI/niyam
+./gradlew :app:testDebugUnitTest     # unit suite green
 ./gradlew :app:assembleDebug         # app/build/outputs/apk/debug/app-debug.apk
 ```
 
@@ -19,8 +20,8 @@ cd /Users/wizops/gongserver/android
 Environment used: JDK 20, AGP 8.7.2, Kotlin 2.0.21, Gradle 8.9, compileSdk 35
 (auto-downloaded on first build), minSdk 29.
 
-**Next milestone: M5 — schedule-editor writes + the five undesigned screens.**
-See "What's next" below.
+**Next milestone: M5 rest — the five undesigned screens (Sounds / Audio / Time / Network / Setup).**
+PIN gate already shipped. See "What's next" below.
 
 ---
 
@@ -29,9 +30,9 @@ See "What's next" below.
 | What | Where |
 |---|---|
 | Milestones & engineering rules | `docs/ANDROID-APP-IMPLEMENTATION-PROMPT.md` (repo root `docs/`) |
-| Product design + screen specs | `android/docs/handoff/README.md` |
-| Engineering design doc | `android/docs/handoff/Gong Appliance Design Doc.dc.html` (open in a browser) |
-| Interactive hi-fi prototype | `android/docs/handoff/Gong Appliance Screens.dc.html` |
+| Product design + screen specs | `docs/handoff/README.md` |
+| Engineering design doc | `docs/handoff/Gong Appliance Design Doc.dc.html` (open in a browser) |
+| Interactive hi-fi prototype | `docs/handoff/Gong Appliance Screens.dc.html` |
 | **Behavioural spec** | the unit-test suite under `app/src/test/` — ports of the Pi daemon; **the tests win any conflict** |
 
 Conflicts resolved so far:
@@ -111,12 +112,12 @@ log-trim on day rollover. Route warm-up 15 s ahead.
 
 ---
 
-## Test inventory (127)
+## Test inventory (130)
 
 | Class | N | What it guards |
 |---|---|---|
 | `SchedulerCoreTest` | 19 | tick semantics, grace edges, toggles, doha resolution |
-| `SchedulerEngineTest` | 18 | power cut, process death, reboot, clock jumps, pruning |
+| `SchedulerEngineTest` | 21 | power cut, process death, reboot, clock jumps, pruning, active_course_id pin |
 | `PlayerEngineTest` | 18 | burst timing (gap after strike), preemption, stop, missing media, route fallback |
 | `ApplyOutcomeTransactionTest` | 2 | marks+logs land atomically; orphaned guards roll back |
 | `SeedAndRepositoryTest` | 19 | seed idempotence, Pi column parity, guard atomicity, corrupt rows |
@@ -242,3 +243,9 @@ Contains design/plan/implementation overview, P1–P3 findings, reinstall steps,
   renders, doha test toast no longer names a path that never existed, and
   course delete is a two-tap confirm. **B4** closed as *keep Pi behaviour*
   (user-confirmed): day-0 doha stays on `no_course_doha`.
+- **Review improvements (2026-08-09):** **B6/B14** first-run surface —
+  `AppliancePermissions` + dashboard health rows open exact-alarm, battery, and
+  notification system settings; notification runtime request on open; status
+  refreshed on every resume. Untrusted clock row is tappable to confirm.
+  **B9** `SchedulerEngine.tick` persists the resolved `active_course_id`
+  (clears when none; honours pin on overlap). Three new unit tests.

@@ -41,6 +41,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -48,6 +49,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.dhamma.gong.domain.Occurrence
 import org.dhamma.gong.domain.PlayResult
+import org.dhamma.gong.service.AppliancePermissions
 import java.time.Duration
 import java.time.ZonedDateTime
 
@@ -63,6 +65,7 @@ fun DashboardScreen(vm: AppViewModel) {
     val settings by vm.settings.collectAsState()
     val slots by vm.mappedDohaSlots.collectAsState()
     val overlapping by vm.overlappingCourses.collectAsState()
+    val permissions by vm.permissionStatus.collectAsState()
 
     // The clock ticks every second and the countdown is recomputed from
     // seconds — never by borrowing minutes by hand (design handoff). It shows
@@ -96,7 +99,7 @@ fun DashboardScreen(vm: AppViewModel) {
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 CourseCard(vm, state, settings, overlapping)
-                HealthCard(state, player, slots.size)
+                HealthCard(vm, state, player, slots.size, permissions)
             }
         }
 
@@ -318,10 +321,15 @@ private fun Toggle(label: String, checked: Boolean, enabled: Boolean = true, onC
 
 @Composable
 private fun HealthCard(
+    vm: AppViewModel,
     state: org.dhamma.gong.schedule.SchedulerEngine.State,
     player: org.dhamma.gong.player.PlayerEngine.Status,
     mappedSlots: Int,
+    permissions: AppliancePermissions.Status,
 ) {
+    val context = LocalContext.current
+    // Prefer live scheduler signal for exact alarms; fall back to Activity status.
+    val exactOk = state.exactAlarmsAllowed && permissions.exactAlarmsAllowed
     SurfaceCard {
         HealthRow(
             "Scheduler",
@@ -329,16 +337,48 @@ private fun HealthCard(
             if (state.running) Nocturne.Ok else Nocturne.Error,
         )
         Spacer(Modifier.height(7.dp))
-        HealthRow("Audio route", player.route, Nocturne.Ok)
+        HealthRow("Audio route", player.route.ifBlank { "—" }, Nocturne.Ok)
         Spacer(Modifier.height(7.dp))
         HealthRow(
-            "Clock",
-            if (state.clockTrusted) "trusted" else "UNTRUSTED — plays suppressed",
-            if (state.clockTrusted) Nocturne.Ok else Nocturne.Warning,
+            label = "Clock",
+            value = if (state.clockTrusted) {
+                "trusted"
+            } else {
+                "UNTRUSTED — tap to confirm"
+            },
+            dot = if (state.clockTrusted) Nocturne.Ok else Nocturne.Warning,
+            onClick = if (!state.clockTrusted) {
+                { vm.confirmClock() }
+            } else {
+                null
+            },
         )
-        if (!state.exactAlarmsAllowed) {
+        if (!exactOk) {
             Spacer(Modifier.height(7.dp))
-            HealthRow("Exact alarms", "denied — heartbeat only", Nocturne.Warning)
+            HealthRow(
+                label = "Exact alarms",
+                value = "denied — tap to allow",
+                dot = Nocturne.Warning,
+                onClick = { AppliancePermissions.openExactAlarmSettings(context) },
+            )
+        }
+        if (!permissions.batteryUnrestricted) {
+            Spacer(Modifier.height(7.dp))
+            HealthRow(
+                label = "Battery",
+                value = "restricted — tap to free",
+                dot = Nocturne.Warning,
+                onClick = { AppliancePermissions.openBatterySettings(context) },
+            )
+        }
+        if (!permissions.notificationsGranted) {
+            Spacer(Modifier.height(7.dp))
+            HealthRow(
+                label = "Notify",
+                value = "denied — tap to open",
+                dot = Nocturne.Warning,
+                onClick = { AppliancePermissions.openAppNotificationSettings(context) },
+            )
         }
         Spacer(Modifier.height(10.dp))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -353,8 +393,25 @@ private fun HealthCard(
 }
 
 @Composable
-private fun HealthRow(label: String, value: String, dot: Color) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+private fun HealthRow(
+    label: String,
+    value: String,
+    dot: Color,
+    onClick: (() -> Unit)? = null,
+) {
+    val rowMod = if (onClick != null) {
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 2.dp)
+    } else {
+        Modifier.fillMaxWidth()
+    }
+    Row(
+        rowMod,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
         Dot(dot)
         Text(label, fontSize = 12.5.sp, color = Nocturne.Neutral500, modifier = Modifier.width(100.dp))
         Text(value, fontSize = 12.5.sp, fontFamily = Nocturne.Mono, color = Nocturne.Text)

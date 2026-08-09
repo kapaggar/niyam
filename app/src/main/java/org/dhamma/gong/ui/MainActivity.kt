@@ -11,11 +11,16 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
+import org.dhamma.gong.service.AppliancePermissions
 import org.dhamma.gong.service.GongService
 
 /**
@@ -33,7 +38,7 @@ class MainActivity : ComponentActivity() {
             GongTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = Nocturne.Bg) {
                     val vm: AppViewModel = viewModel()
-                    RequestNotifications()
+                    RequestAppliancePermissions(vm)
                     GongApp(vm, initialTab = initialTab)
                 }
             }
@@ -46,21 +51,39 @@ class MainActivity : ComponentActivity() {
 }
 
 /**
- * The persistent notification is the appliance's health indicator; denied, the
- * service still runs and health is only visible in-app (design doc §09).
+ * First-run grants for the three OS permissions that keep overnight fires
+ * reliable (FABLE-REVIEW B6). Notifications use the runtime dialog; exact
+ * alarms and battery exemption need system settings screens and are opened
+ * from the dashboard health card when still denied. Status is re-checked on
+ * every ON_RESUME so a staff grant from Settings is reflected immediately.
  */
 @Composable
-private fun RequestNotifications() {
+private fun RequestAppliancePermissions(vm: AppViewModel) {
     val context = LocalContext.current
-    val launcher = rememberLauncherForActivityResult(
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val notifLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
-    ) { }
+    ) { vm.refreshPermissionStatus() }
+
+    fun refresh() {
+        vm.updatePermissionStatus(AppliancePermissions.status(context))
+    }
+
     LaunchedEffect(Unit) {
+        refresh()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
         ) {
-            launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) refresh()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 }

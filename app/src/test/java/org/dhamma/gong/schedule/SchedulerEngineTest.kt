@@ -346,4 +346,54 @@ class SchedulerEngineTest {
             db.state().firedKeys().none { it.endsWith(start.plusDays(2).toString()) },
         )
     }
+
+    // ------------------------------------------------------------ active course pin (B9)
+
+    @Test
+    fun tickPersistsTheAutoResolvedActiveCourseId() = runTest {
+        seedWithCourse()
+        assertEquals("", repo.setting("active_course_id"))
+
+        val (engine, _) = engineAt(at(2, 9, 0))
+        engine.tick(at(2, 9, 0))
+
+        val courseId = engine.state.value.course!!.courseId
+        assertEquals(
+            "Pi parity: auto-resolved course is written so restarts stay stable",
+            courseId.toString(),
+            repo.setting("active_course_id"),
+        )
+    }
+
+    @Test
+    fun tickHonoursAPinnedActiveCourseWhenTwoWindowsOverlap() = runTest {
+        SeedLoader.apply(db, SeedLoader.readAsset(ApplicationProvider.getApplicationContext()))
+        // Two 10-Day courses overlapping today; most-recent start would pick B.
+        val older = repo.addCourse(courseTypeId = 1, startDate = start)
+        val newer = repo.addCourse(courseTypeId = 1, startDate = start.plusDays(1))
+        repo.putSetting("active_course_id", older.toString())
+
+        val (engine, _) = engineAt(at(2, 9, 0))
+        engine.tick(at(2, 9, 0))
+
+        assertEquals(older, engine.state.value.course!!.courseId)
+        assertEquals(older.toString(), repo.setting("active_course_id"))
+        // Sanity: the newer id must still exist so the pin is doing the work.
+        assertTrue(newer > 0)
+    }
+
+    @Test
+    fun tickClearsActiveCourseIdWhenNoCourseIsInWindow() = runTest {
+        SeedLoader.apply(db, SeedLoader.readAsset(ApplicationProvider.getApplicationContext()))
+        val id = repo.addCourse(courseTypeId = 1, startDate = start)
+        repo.putSetting("active_course_id", id.toString())
+
+        // Long after the 10-Day window ends (total_days=10 → end day 10).
+        val far = ZonedDateTime.of(start.plusDays(40), LocalTime.of(9, 0), ist)
+        val (engine, _) = engineAt(far)
+        engine.tick(far)
+
+        assertNull(engine.state.value.course)
+        assertEquals("", repo.setting("active_course_id"))
+    }
 }
