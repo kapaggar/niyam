@@ -22,7 +22,9 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,6 +39,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import org.dhamma.gong.data.CourseTypeEntity
 import java.time.LocalDate
 
@@ -160,12 +163,17 @@ fun CoursesScreen(vm: AppViewModel) {
                             Text(
                                 when (row.status) {
                                     AppViewModel.CourseRow.Status.ACTIVE -> "ACTIVE"
+                                    AppViewModel.CourseRow.Status.OVERLAP -> "OVERLAP"
                                     AppViewModel.CourseRow.Status.UPCOMING -> "upcoming"
                                     AppViewModel.CourseRow.Status.PAST -> "past"
                                 },
                                 fontSize = 12.5.sp,
                                 fontFamily = Nocturne.Mono,
-                                color = if (active) Nocturne.Accent200 else Nocturne.Neutral600,
+                                color = when (row.status) {
+                                    AppViewModel.CourseRow.Status.ACTIVE -> Nocturne.Accent200
+                                    AppViewModel.CourseRow.Status.OVERLAP -> Nocturne.Warning
+                                    else -> Nocturne.Neutral600
+                                },
                                 modifier = Modifier.width(92.dp),
                             )
                             DeleteButton { vm.deleteCourse(row.course.id) }
@@ -246,18 +254,39 @@ fun PrimaryButton(label: String, modifier: Modifier = Modifier, onClick: () -> U
     }
 }
 
+/**
+ * Two-tap delete: the first tap arms the button ("sure?"), the second within
+ * 3 s deletes. Keeps the design's no-dialogs feel while making a mis-tap
+ * harmless — re-entering a deleted course costs staff real time.
+ */
 @Composable
 private fun DeleteButton(onClick: () -> Unit) {
+    var armed by remember { mutableStateOf(false) }
+    LaunchedEffect(armed) {
+        if (armed) {
+            delay(3_000)
+            armed = false
+        }
+    }
     Box(
         Modifier
-            .size(30.dp)
+            .height(30.dp)
+            .widthIn(min = 30.dp)
             .clip(RoundedCornerShape(6.dp))
-            .background(Nocturne.Error.copy(alpha = 0.12f))
-            .border(1.dp, Nocturne.Error.copy(alpha = 0.34f), RoundedCornerShape(6.dp))
-            .clickable(onClick = onClick),
+            .background(Nocturne.Error.copy(alpha = if (armed) 0.30f else 0.12f))
+            .border(1.dp, Nocturne.Error.copy(alpha = if (armed) 0.85f else 0.34f), RoundedCornerShape(6.dp))
+            .clickable {
+                if (armed) {
+                    armed = false
+                    onClick()
+                } else {
+                    armed = true
+                }
+            }
+            .padding(horizontal = 6.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text("✕", fontSize = 13.sp, color = Nocturne.Error)
+        Text(if (armed) "sure?" else "✕", fontSize = 13.sp, color = Nocturne.Error)
     }
 }
 

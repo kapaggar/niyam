@@ -41,7 +41,7 @@ class ExoAudioSink(private val context: Context) : AudioSink {
 
     override suspend fun play(uri: Uri, volume: Int) {
         val p = ensurePlayer()
-        withContext(Dispatchers.Main) {
+        withContext(Dispatchers.Main.immediate) {
             p.volume = volume.coerceIn(0, 100) / 100f
             p.setMediaItem(MediaItem.fromUri(uri))
             p.repeatMode = Player.REPEAT_MODE_OFF
@@ -52,21 +52,21 @@ class ExoAudioSink(private val context: Context) : AudioSink {
             // A wedged decode must not block the queue for the rest of the day.
             val finished = withTimeoutOrNull(PLAY_TIMEOUT_MS) { awaitEnded(p) }
             if (finished == null) {
-                withContext(Dispatchers.Main) { p.stop() }
+                withContext(Dispatchers.Main.immediate) { p.stop() }
                 error("playback did not finish within ${PLAY_TIMEOUT_MS}ms")
             }
         } catch (e: Throwable) {
-            withContext(Dispatchers.Main + kotlinx.coroutines.NonCancellable) { p.stop() }
+            withContext(Dispatchers.Main.immediate + kotlinx.coroutines.NonCancellable) { p.stop() }
             throw e
         }
     }
 
-    override suspend fun release() = withContext(Dispatchers.Main) {
+    override suspend fun release() = withContext(Dispatchers.Main.immediate) {
         player?.release()
         player = null
     }
 
-    private suspend fun ensurePlayer(): ExoPlayer = withContext(Dispatchers.Main) {
+    private suspend fun ensurePlayer(): ExoPlayer = withContext(Dispatchers.Main.immediate) {
         player ?: ExoPlayer.Builder(context)
             .setAudioAttributes(
                 AudioAttributes.Builder()
@@ -84,7 +84,7 @@ class ExoAudioSink(private val context: Context) : AudioSink {
             .also { player = it }
     }
 
-    private suspend fun awaitEnded(p: ExoPlayer) = withContext(Dispatchers.Main) {
+    private suspend fun awaitEnded(p: ExoPlayer) = withContext(Dispatchers.Main.immediate) {
         suspendCancellableCoroutine { cont ->
             if (p.playbackState == Player.STATE_ENDED) {
                 cont.resume(Unit)

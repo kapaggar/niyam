@@ -124,8 +124,10 @@ class GongService : Service() {
 
     override fun onDestroy() {
         instance.value = null
-        runBlocking { runCatching { playerEngine.release() } }
         scope.cancel()
+        // release() does no Room writes and the sink frees on Main.immediate,
+        // so this cannot deadlock the main thread (FABLE-REVIEW B13).
+        runBlocking { runCatching { playerEngine.release() } }
         super.onDestroy()
     }
 

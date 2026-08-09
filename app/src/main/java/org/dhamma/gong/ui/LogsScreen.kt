@@ -75,39 +75,41 @@ fun LogsScreen(vm: AppViewModel) {
         }
         Hairline()
 
-        LazyColumn(Modifier.fillMaxSize()) {
-            items(visible, key = { it.id }) { row ->
-                Column {
-                    Row(
-                        Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Mono(row.tsUtc, 168.dp, Nocturne.Neutral400)
-                        Mono(row.kind, 96.dp, Nocturne.Neutral300)
-                        Mono(row.file, 150.dp, Nocturne.Neutral400)
-                        Mono(row.repeats.toString(), 46.dp, Nocturne.Neutral400)
-                        Text(
-                            row.result,
-                            fontSize = 12.5.sp,
-                            fontFamily = Nocturne.Mono,
-                            color = resultColor(row.result),
-                            modifier = Modifier.width(110.dp),
-                        )
-                        Text(
-                            row.detail.ifBlank { "—" },
-                            fontSize = 12.5.sp,
-                            fontFamily = Nocturne.Mono,
-                            color = Nocturne.Neutral500,
-                        )
+        if (visible.isEmpty()) {
+            // Before the fix this sat BELOW a fillMaxSize list and could
+            // never render.
+            Text("Nothing logged yet.", fontSize = 13.5.sp, color = Nocturne.Neutral500)
+        } else {
+            LazyColumn(Modifier.fillMaxSize()) {
+                items(visible, key = { it.id }) { row ->
+                    Column {
+                        Row(
+                            Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Mono(row.tsUtc, 168.dp, Nocturne.Neutral400)
+                            Mono(row.kind, 96.dp, Nocturne.Neutral300)
+                            Mono(row.file, 150.dp, Nocturne.Neutral400)
+                            Mono(row.repeats.toString(), 46.dp, Nocturne.Neutral400)
+                            Text(
+                                row.result,
+                                fontSize = 12.5.sp,
+                                fontFamily = Nocturne.Mono,
+                                color = resultColor(row.result),
+                                modifier = Modifier.width(110.dp),
+                            )
+                            Text(
+                                row.detail.ifBlank { "—" },
+                                fontSize = 12.5.sp,
+                                fontFamily = Nocturne.Mono,
+                                color = Nocturne.Neutral500,
+                            )
+                        }
+                        Hairline()
                     }
-                    Hairline()
                 }
             }
-        }
-
-        if (visible.isEmpty()) {
-            Text("Nothing logged yet.", fontSize = 13.5.sp, color = Nocturne.Neutral500)
         }
     }
 }
