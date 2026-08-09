@@ -4,7 +4,7 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZonedDateTime
 
-/** Active course resolved for a local calendar date (Gong-NG CourseCtx). */
+/** Active course resolved for a local calendar date (Pi daemon CourseCtx). */
 data class CourseCtx(
     val courseId: Long,
     val typeId: Int,
@@ -15,7 +15,7 @@ data class CourseCtx(
     /** 0 = arrival day. */
     val day: Int,
 ) {
-    /** "10 Day course, Day 3" — the label NG puts in play_log. */
+    /** "10 Day course, Day 3" — the label the Pi daemon puts in play_log. */
     val label: String get() = "$typeName course, Day $day"
 }
 
@@ -81,7 +81,7 @@ enum class FireDecision {
     SKIPPED_CLOCK,
 }
 
-/** play_log.kind values (NG parity). */
+/** play_log.kind values (Pi parity). */
 object PlayKind {
     const val GONG = "gong"
     const val DOHA = "doha"
@@ -89,7 +89,7 @@ object PlayKind {
     const val TEST_DOHA = "test_doha"
 }
 
-/** play_log.result values (NG parity). */
+/** play_log.result values (Pi parity). */
 object PlayResult {
     const val OK = "ok"
     const val MISSED = "missed"
@@ -168,7 +168,7 @@ data class TickOutcome(
 )
 
 object SettingsDefaults {
-    /** Mirrors ng/gong_ng/model.py SETTINGS_DEFAULTS. */
+    /** Mirrors the Pi daemon's model.py SETTINGS_DEFAULTS. */
     val map: Map<String, String> = mapOf(
         "enabled" to "1",
         "gong_enabled" to "1",
@@ -185,7 +185,7 @@ object SettingsDefaults {
         "admin_pin_hash" to "",
     )
 
-    /** Android-only additions (no NG counterpart). */
+    /** Android-only additions (no Pi counterpart). */
     val androidExtras: Map<String, String> = mapOf(
         "audio_route" to "speaker",
         "timezone" to ApplianceZone.DEFAULT_ID,

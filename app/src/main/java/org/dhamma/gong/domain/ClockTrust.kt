@@ -4,7 +4,7 @@ import java.time.Duration
 import java.time.ZonedDateTime
 
 /**
- * Clock-sanity model — port of `ng/gong_ng/clock.py` (design doc §05).
+ * Clock-sanity model — port of the Pi daemon's clock.py (design doc §05).
  *
  * "Silence beats a wrong gong": if the wall clock appears to have gone
  * backwards since we last saw it, automatic plays are suppressed and logged
@@ -51,7 +51,7 @@ object ClockTrust {
     /**
      * Advance the known-good watermark. Also auto-clears untrusted mode once
      * the clock has caught up past the last known-good instant (an NTP step
-     * forward), matching NG's touch_last_good.
+     * forward), matching the Pi daemon's touch_last_good.
      */
     fun touchLastGood(state: KeyValueState, now: ZonedDateTime) {
         val lastGood = state.get(LAST_GOOD_KEY)?.let(::parse)

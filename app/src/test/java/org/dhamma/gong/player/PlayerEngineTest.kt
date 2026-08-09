@@ -28,7 +28,7 @@ import org.robolectric.annotation.Config
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
- * The queue and burst guarantees from `ng/gong_ng/player.py`, asserted with a
+ * The queue and burst guarantees from the Pi daemon's player.py, asserted with a
  * fake [AudioSink] so no audio device is needed.
  */
 @OptIn(ExperimentalCoroutinesApi::class)

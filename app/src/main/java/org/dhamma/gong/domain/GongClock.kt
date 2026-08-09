@@ -10,7 +10,7 @@ import java.time.ZonedDateTime
  * Wall-clock access, injectable so the engine can be driven by a virtual clock
  * in tests (design doc §12 — a 400-day run must execute in seconds).
  *
- * Port of `ng/gong_ng/clock.py` Clock.
+ * Port of the Pi daemon's clock.py Clock.
  */
 interface GongClock {
     val zone: ZoneId
@@ -24,7 +24,7 @@ interface GongClock {
      * Fall-back ambiguity → the *first* occurrence (earlier offset).
      *
      * `ZonedDateTime.of` implements exactly these two rules, which is why
-     * NG's astimezone round-trip is not needed here.
+     * the Pi daemon's astimezone round-trip is not needed here.
      */
     fun materialize(day: LocalDate, hhmm: LocalTime): ZonedDateTime =
         ZonedDateTime.of(day, hhmm, zone)

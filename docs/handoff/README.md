@@ -1,11 +1,11 @@
-# Handoff: Gong appliance for Android (Gong-NG port)
+# Handoff: Gong appliance for Android (Pi daemon port)
 
 ## Overview
 An Android "appliance" app for Vipassana meditation centres. A phone or tablet, permanently
 plugged in at the centre, rings the course gong and the morning doha at the correct wall-clock
 time for the correct course day — fully offline — while staff manage schedule, courses, audio
 route and diagnostics on the device's own screen. It replaces a Raspberry Pi running the
-existing Gong-NG Python daemon; NG's scheduling semantics are the spec.
+existing Pi Python daemon; its scheduling semantics are the spec.
 
 ## About the design files
 The files in this bundle are **design references created in HTML**. They are prototypes showing
@@ -49,7 +49,7 @@ Layout — vertical stack, 26 px top / 32 px side padding, 22 px gap:
       2026-08-05 · Asia/Kolkata" (12.5 px neutral-400), a day-progress bar of N+1 segments
       (5 px tall, 3 px gap: past = accent-700, today = accent, future = neutral-800), then a
       12 px-padded top-divider row of four checkbox toggles — Master, Gong, Doha, Relay
-      (Relay at 50 % opacity, inert, retained for NG parity). Checkbox: 20×20, 4 px radius,
+      (Relay at 50 % opacity, inert, retained for Pi parity). Checkbox: 20×20, 4 px radius,
       1 px neutral-700; checked = accent 26 % fill, accent border, accent-100 tick.
     - **Health card**: rows of (7 px dot, 100 px label neutral-500, value) at 12.5 px —
       Scheduler / Audio route / Clock. Final row is the amber **GONGS ONLY** tag
@@ -65,7 +65,7 @@ Layout — vertical stack, 26 px top / 32 px side padding, 22 px gap:
     and last play result.
 - **Toast**: centred 38 px from top, amber-tinted, 0.18 s slide-in, 2.6 s auto-dismiss.
 
-Copy notes: real NG strike counts (04:00 ×16, 04:20 ×12, 06:32 ×3, 07:50 ×8, 11:00 ×6,
+Copy notes: real Pi strike counts (04:00 ×16, 04:20 ×12, 06:32 ×3, 07:50 ×8, 11:00 ×6,
 12:50 ×8, 14:10 ×1, 14:20 ×3, 17:00 ×6, 17:50 ×6, 21:00 ×3).
 
 ### 2. Courses (PIN)
@@ -79,7 +79,7 @@ Add/remove courses. **Start date is zero day (arrival day)**, not day 1.
   - The **active** course row is tinted (accent 12 %), its date and status in accent-200,
     status text "ACTIVE". Others read "upcoming" or "past" in neutral-600.
   - Delete is a 30×30 red-tinted ✕ button (#e08a8a on 12 % fill, 34 % border).
-- Course types (13, ported verbatim from NG with total_days): No course (0), 10 Day (11),
+- Course types (13, ported verbatim from the Pi daemon with total_days): No course (0), 10 Day (11),
   20 Day (21), 30 Day (31), 45 Day 10A (46), STP (9), 3 Day (4), 2 Day (3), 1 Day (2),
   STP D9 Ending (10), 45 Day 15A (46), Teen (8), Gratitude (2).
 
@@ -164,7 +164,7 @@ Never below 12 px on this device; hit targets ≥ 44 px.
 Full rationale in `Gong Appliance Design Doc.dc.html` (open in a browser). The short version:
 - minSdk 29 / target 35. Single foreground service (`mediaPlayback`), `START_STICKY`, boot receiver.
 - `setAlarmClock` for the next occurrence **plus** a 30 s in-service heartbeat — alarms are an optimisation, not the only path.
-- Room over SQLite, column names identical to NG so a pulled DB stays readable by NG tooling.
+- Room over SQLite, column names identical to the Pi daemon so a pulled DB stays readable by Pi tooling.
 - Day math on `LocalDate` differences, never `/86400`. `start_date` is day 0.
 - Fire window `fire_at ≤ now ≤ fire_at + 120 s`; the fired-guard `state["fired:<key>:<date>"]` is committed **before** the job is enqueued.
 - Untrusted clock suppresses automatic plays (`skipped_clock`) but still permits tests.
@@ -180,7 +180,7 @@ is what Nocturne specifies.
 | --- | --- |
 | `Gong Appliance Screens.dc.html` | The interactive hi-fi prototype. Open in a browser; everything in it works. |
 | `Gong Appliance Design Doc.dc.html` | The engineering design doc — architecture, data model, state machine, permissions, failure matrix, roadmap, risks, readiness. |
-| `ANDROID-APP-DESIGN-PROMPT.md` | The original brief, including full Gong-NG semantics to port. |
+| `ANDROID-APP-DESIGN-PROMPT.md` | The original brief (removed with the Pi-era docs; see git history). |
 | `support.js`, `_ds/` | Runtime + Nocturne design system needed for the two HTML files to render. |
 
 ## Open questions (blocking, from the design doc §14)

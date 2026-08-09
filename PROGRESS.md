@@ -1,8 +1,9 @@
 # Gong Android appliance — build progress & restart point
 
-Working branch: **`android-app`** (off `gong-ng`). Everything lives in `android/`.
+Standalone repo **`kapaggar/niyam`** (branch `main`), extracted with history from the gongserver monorepo's `android/` tree.
 
-Last updated: 2026-08-08, end of **M4** + review fix **B1** (appliance timezone).
+Last updated: 2026-08-08, end of **M4** + review fix **B1** (appliance timezone)
++ the app-open **PIN gate** (M5 partial) + Pi-reference scrub (repo is standalone).
 
 ---
 
@@ -10,7 +11,7 @@ Last updated: 2026-08-08, end of **M4** + review fix **B1** (appliance timezone)
 
 ```bash
 cd /Users/wizops/gongserver/android
-./gradlew :app:testDebugUnitTest     # 117 tests, all green
+./gradlew :app:testDebugUnitTest     # 124 tests, all green
 ./gradlew :app:assembleDebug         # app/build/outputs/apk/debug/app-debug.apk
 ```
 
@@ -31,7 +32,7 @@ See "What's next" below.
 | Product design + screen specs | `android/docs/handoff/README.md` |
 | Engineering design doc | `android/docs/handoff/Gong Appliance Design Doc.dc.html` (open in a browser) |
 | Interactive hi-fi prototype | `android/docs/handoff/Gong Appliance Screens.dc.html` |
-| **Behavioural spec** | `ng/gong_ng/{model,scheduler,doha,player,clock}.py` — **NG wins any conflict** |
+| **Behavioural spec** | the unit-test suite under `app/src/test/` — ports of the Pi daemon; **the tests win any conflict** |
 
 Conflicts resolved so far:
 - **minSdk 29**, not the prompt's 26 — design doc §03 (uniform SAF, dependable
@@ -59,14 +60,14 @@ Framework-free, runs on the JVM.
 | `Models.kt` | Entities, `PlayCommand`, `PlayLogEntry`, `FiredMark`, `SettingsDefaults`. |
 
 ### M1 — Room store (`data/`)
-Column names identical to `ng/gong_ng/db.py` so a pulled DB stays NG-readable.
+Column names identical to the Pi daemon's schema so a pulled DB stays readable by Pi tooling.
 Entities: `course_types`, `courses`, `schedule_events`, `settings`, `state`,
 `play_log`, **`media_slots`** (the Android delta — SAF URIs, not paths).
 `GongRepository` is the only Room↔domain bridge. `SeedLoader` is idempotent and
 backfills missing settings on every launch.
 
 ### M2 — player + service (`player/`, `service/`)
-`PlayerEngine` carries NG's queue rules (new gong aborts a running gong; doha
+`PlayerEngine` carries the Pi daemon's queue rules (new gong aborts a running gong; doha
 waits; stop drops everything and logs it). `AudioSink` splits "render once" out
 so the rules are testable without an audio device; `ExoAudioSink` is Media3 with
 `USAGE_MEDIA` + `CONTENT_TYPE_SONIFICATION`. `AudioRouter` falls back to the
@@ -89,9 +90,9 @@ log-trim on day rollover. Route warm-up 15 s ahead.
 
 ---
 
-## Parity checklist vs Gong-NG
+## Parity checklist vs the Pi daemon
 
-| Behaviour | NG | Android | Covered by |
+| Behaviour | Pi | Android | Covered by |
 |---|---|---|---|
 | Calendar `current_day` (never `/86400`) | yes | **yes** | `DstAndDayMathTest` |
 | Course window, not start-day only | yes | **yes** | `ActiveCourseTest` |
@@ -110,14 +111,14 @@ log-trim on day rollover. Route warm-up 15 s ahead.
 
 ---
 
-## Test inventory (117)
+## Test inventory (124)
 
 | Class | N | What it guards |
 |---|---|---|
 | `SchedulerCoreTest` | 19 | tick semantics, grace edges, toggles, doha resolution |
 | `SchedulerEngineTest` | 18 | power cut, process death, reboot, clock jumps, pruning |
 | `PlayerEngineTest` | 17 | burst timing, preemption, stop, missing media, route fallback |
-| `SeedAndRepositoryTest` | 19 | seed idempotence, NG column parity, guard atomicity, corrupt rows |
+| `SeedAndRepositoryTest` | 19 | seed idempotence, Pi column parity, guard atomicity, corrupt rows |
 | `ClockTrustTest` | 7 | backwards jump, NTP recovery, confirm |
 | `DstAndDayMathTest` | 6 | spring-forward gap, fall-back ambiguity, `/86400` regression |
 | `ActiveCourseTest` | 5 | window, overlap, pin |
@@ -125,6 +126,7 @@ log-trim on day rollover. Route warm-up 15 s ahead.
 | `FireRulesTest` | 6 | the window, in isolation |
 | `DohaSlotsTest` | 4 | golden slot tables per course type |
 | `ApplianceZoneTest` | 7 | timezone-setting resolution, IST fallback, dynamic-zone clock |
+| `PinCodeTest` | 7 | PBKDF2 hash/verify, salting, stored format, 4–8 digit shape |
 | `VirtualClockLedgerTest` | 4 | 400-day ledger over every course type (1.9 s) |
 
 Two test-harness facts worth keeping:
@@ -163,8 +165,11 @@ Sounds, Audio out, Time, Network, Setup checklist, PIN lock.
 ### M5 — the five undesigned screens + PIN
 Sounds, Audio out, Time, Network, Setup checklist are nav entries only. They
 need visual design first (design doc §08 says what each must answer). The PIN
-gate is specified but not implemented — `admin_pin_hash` exists in settings and
-is unused; `Tab.requiresPin` is declared and not yet enforced.
+gate shipped 2026-08-08 as an **app-open** gate (stricter than the per-tab
+design): `domain/PinCode.kt` (salted PBKDF2 into `admin_pin_hash`),
+`ui/PinScreens.kt` (lock keypad + the PIN tab to set/change/remove it),
+gate in `GongApp`. `Tab.requiresPin` is now moot — the whole app is behind
+the PIN when one is set.
 
 ### M6 — backup, audio route picker, doha SAF folder, first-run wizard
 Doha files auto-map by `D01`…`D11` prefix into `media_slots`; unmatched files
@@ -196,7 +201,7 @@ strings, media-pack install docs.
   been seen at their intended size.
 - Release builds ship **no doha audio at all** — `media_slots` is empty until
   staff sideload a pack, and the dashboard is expected to show `GONGS ONLY`.
-- `relay_enabled` is retained in settings for NG parity and is inert.
+- `relay_enabled` is retained in settings for Pi parity and is inert.
 - Design doc §14 open questions are all still open; #1 (which tablet model)
   blocks M1-field-testing in the design doc's own numbering.
 
@@ -214,7 +219,7 @@ Contains design/plan/implementation overview, P1–P3 findings, reinstall steps,
 
 - **B1 (2026-08-08, Fable): appliance timezone.** The scheduler clock no longer
   uses `ZoneId.systemDefault()`. `domain/ApplianceZone.kt` resolves the
-  `timezone` setting (NG parity: `ng/gong_ng/config.py` defaults
+  `timezone` setting (Pi parity: the daemon's config defaulted
   `Asia/Kolkata`); blank or unparseable values fall back to IST — important
   because devices seeded before this fix carry a persisted `timezone=""` row
   that `SeedLoader.insertMissing` will never overwrite. `SystemGongClock` now

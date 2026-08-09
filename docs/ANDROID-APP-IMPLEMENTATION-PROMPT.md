@@ -1,7 +1,7 @@
 # Claude Code prompt: implement Gong Android appliance app
 
 **Scope: BUILD A WORKING APP** (not a design essay).  
-Design context lives in [`ANDROID-APP-DESIGN-PROMPT.md`](./ANDROID-APP-DESIGN-PROMPT.md) and Gong-NG in `docs/GONG-NG-DESIGN.md` + `ng/`.
+Design context lives in the original design prompt (removed with the Pi-era docs; see git history) and the Pi daemon in the Pi design doc (removed; see git history) + `ng/`.
 
 ---
 
@@ -19,7 +19,7 @@ Paste this document into **Claude Code** (or Cursor/agent) at the start of an im
 
 **Repo layout assumption**
 
-- Gong-NG monorepo may live at `gongserver/` (this tree).
+- The Pi monorepo may live at `gongserver/` (this tree).
 - Create the Android project as a **sibling or subdir**:
   - Preferred: `gongserver/android/` (single monorepo), **or**
   - `GongAndroid/` next to `gongserver` if user prefers a separate git root.
@@ -35,7 +35,7 @@ You are a senior Android engineer shipping a **centre appliance app**:
 
 - Device **is** the scheduler + player (speaker / Bluetooth / USB DAC).
 - Offline-first; no cloud required for course operation.
-- Behavioural parity with Gong-NG scheduling (not a PHP clone).
+- Behavioural parity with the Pi daemon scheduling (not a PHP clone).
 - Display on device for staff; hotspot + office Wi‑Fi configuration in-app.
 - Deshna jukebox server is **out of scope** until after MVP gong/doha works.
 
@@ -44,7 +44,7 @@ You are a senior Android engineer shipping a **centre appliance app**:
 1. **Small vertical slices** — ship runnable app early; do not build all screens before scheduler works.
 2. **Test domain logic first** — pure Kotlin unit tests for day math, materialization, grace/missed, doha slots (port cases from `ng/tests/`).
 3. **No speculative frameworks** — one architecture; avoid multi-module explosion until needed.
-4. **Do not invent schedule semantics** — copy Gong-NG algorithms; link to source file in comments when porting.
+4. **Do not invent schedule semantics** — copy the Pi daemon algorithms; link to source file in comments when porting.
 5. **Media licensing** — do not assume Play Store may ship real doha/gong masters. Ship **tiny synthetic test tones** in-repo; document how centres add licensed media packs.
 6. **Evidence before “done”** — run unit tests; for instrumented/emulator, state what you ran and results.
 7. Ask before destructive git ops, Play Console setup, or committing secrets.
@@ -61,7 +61,7 @@ You are a senior Android engineer shipping a **centre appliance app**:
 | Network | Configure hotspot and/or join office Wi‑Fi; scheduling works offline |
 | Auth | PIN for settings; optional “kiosk” later |
 | Data | Local SQLite (Room) |
-| NG parity | Course window, schedule materialization, grace 120s, double-fire guard, doha modular, clock trust |
+| Pi parity | Course window, schedule materialization, grace 120s, double-fire guard, doha modular, clock trust |
 | Out of MVP | Deshna `fetch.php`, GPIO relay, cloud accounts, full schedule CSV import |
 
 ---
@@ -94,8 +94,8 @@ If `docs/android/DESIGN.md` is missing, implement this MVP without blocking:
 **In**
 
 - Foreground scheduler service + persistent notification (next event, course day)
-- Room schema matching Gong-NG entities (see design prompt §3.3)
-- Seed importer from exported JSON/SQL derived from `ng/seed/seed.sql` (course_types + schedule_events)
+- Room schema matching the Pi daemon entities (see design prompt §3.3)
+- Seed importer from exported JSON/SQL derived from the Pi repo's seed.sql (course_types + schedule_events)
 - Course CRUD (type + start date)
 - Active course derivation + dashboard
 - Gong burst player + doha once daily
@@ -130,7 +130,7 @@ else → none
 currentDay = ChronoUnit.DAYS.between(startDate, today)  // calendar, not /86400
 ```
 
-Reference: `ng/gong_ng/model.py` `active_course`.
+Reference: the Pi daemon's model.py `active_course`.
 
 ### 4.2 Schedule materialization
 
@@ -138,7 +138,7 @@ Reference: `ng/gong_ng/model.py` `active_course`.
 - In course → events for `(type, day_no == currentDay)` if any, else `(type, day_no == null)` default pattern
 - Plus synthetic doha at `doha_time` settings
 
-Reference: `ng/gong_ng/scheduler.py` `upcoming_occurrences`, design §3.1.
+Reference: the Pi daemon's scheduler.py `upcoming_occurrences`, design §3.1.
 
 ### 4.3 Fire rules
 
@@ -148,17 +148,17 @@ Reference: `ng/gong_ng/scheduler.py` `upcoming_occurrences`, design §3.1.
 - Else past window → log `missed`
 - Clock invalid → automatic plays `skipped_clock`; tests still work
 
-Reference: `ng/gong_ng/scheduler.py`, design §5.3, §6.
+Reference: the Pi daemon's scheduler.py, design §5.3, §6.
 
 ### 4.4 Doha slots
 
-Port `legacy_modular` from `ng/gong_ng/doha.py` byte-for-byte. Outside course: `random` | `off` | `slot:n`. Resolve via manifest 1..11.
+Port `legacy_modular` from the Pi daemon's doha.py byte-for-byte. Outside course: `random` | `off` | `slot:n`. Resolve via manifest 1..11.
 
 ### 4.5 Gong burst
 
 `repeats` times, `gap_seconds` between, track file stem, volume; stop aborts; doha waits for gong (queue).
 
-Reference: `ng/gong_ng/player.py`, design §5.4.
+Reference: the Pi daemon's player.py, design §5.4.
 
 Copy unit-test intent from:
 
@@ -187,9 +187,9 @@ Copy unit-test intent from:
 
 - [ ] Room entities + DAOs for course_types, courses, schedule_events, settings, state, play_log
 - [ ] Seed load on first launch (course types + schedule from assets)
-- [ ] Settings defaults match NG
+- [ ] Settings defaults match Pi
 - [ ] Tiny **generated** beep/gong placeholder WAV/MP3 in `assets/media/` for CI (not full doha masters)
-- [ ] Optional script under `android/tools/` or `ng/tools/` to export seed JSON from `ng/seed/seed.sql` if helpful
+- [ ] Optional script under `android/tools/` or `tools/` to export seed JSON from the Pi repo's seed.sql if helpful
 
 ### M2 — Player + foreground service + manual test fires
 
@@ -251,7 +251,7 @@ Copy unit-test intent from:
 - [ ] ProGuard/R8 rules if minify on
 - [ ] Privacy policy stub + permission rationale strings
 - [ ] Document media pack install path for licensed audio
-- [ ] Checklist vs Gong-NG parity table filled in README
+- [ ] Checklist vs the Pi daemon parity table filled in README
 
 **Stop after M7 unless user asks for Deshna / LAN API / Play release engineering.**
 
@@ -300,13 +300,13 @@ For each permission: short rationale string in UI + README.
 | Centre production | User-installed pack under app-specific storage; verified by manifest |
 | Play Store public | **Do not** ship VRI doha masters without legal clearance; gate features or use placeholders |
 
-Add `docs/android/MEDIA.md` explaining install of a media pack (folder layout matching NG).
+Add `docs/android/MEDIA.md` explaining install of a media pack (folder layout matching Pi).
 
 ---
 
 ## 9. Parity checklist (track in README)
 
-| Behaviour | NG | Android |
+| Behaviour | Pi | Android |
 |-----------|----|---------|
 | Calendar current_day | yes | |
 | Course window not start-only | yes | |
@@ -354,7 +354,7 @@ That is enough to call MVP **working**. Polish and Play release are separate.
 ## 12. Session start checklist (do this first)
 
 1. Confirm workspace path and whether `android/` already exists.
-2. Read `docs/GONG-NG-DESIGN.md` §§3,5,6 and `ng/gong_ng/{model,scheduler,doha,player}.py` headers.
+2. Read the Pi design doc (removed; see git history) §§3,5,6 and `the Pi daemon sources` headers.
 3. If `docs/android/DESIGN.md` exists, follow it; else §3 MVP defaults.
 4. Create todo list for the **current milestone only**.
 5. Implement → test → short summary for the user.
@@ -377,9 +377,9 @@ That is enough to call MVP **working**. Polish and Play release are separate.
 Copy-paste:
 
 ```text
-Read docs/ANDROID-APP-IMPLEMENTATION-PROMPT.md and docs/ANDROID-APP-DESIGN-PROMPT.md
+Read docs/ANDROID-APP-IMPLEMENTATION-PROMPT.md
 (for domain context). Implement milestone M0 in android/ under this repo.
-Use Gong-NG algorithms from ng/gong_ng. Domain unit tests first, then skeleton app.
+Use the Pi daemon algorithms from the Pi daemon sources. Domain unit tests first, then skeleton app.
 Do not implement M1+ until M0 tests pass and you show how to run them.
 ```
 
@@ -398,8 +398,8 @@ If the user provides `docs/android/DESIGN.md` (from the design prompt):
 
 1. Diff it against §3 MVP defaults; note extra scope.
 2. Prefer design doc screen names and package structure **if** they do not break domain purity or milestones.
-3. If design conflicts with Gong-NG fire semantics, **Gong-NG wins** unless design explicitly documents a deliberate change.
+3. If design conflicts with the Pi daemon fire semantics, **the Pi daemon wins** unless design explicitly documents a deliberate change.
 
 ---
 
-*Implementation prompt version: 2026-08-08 — pairs with ANDROID-APP-DESIGN-PROMPT.md and Gong-NG M1+M2.*
+*Implementation prompt version: 2026-08-08 — pairs with the original design prompt (removed) and the Pi daemon M1+M2.*

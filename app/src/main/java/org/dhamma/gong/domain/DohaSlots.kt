@@ -3,7 +3,7 @@ package org.dhamma.gong.domain
 import kotlin.random.Random
 
 /**
- * Port of `ng/gong_ng/doha.py` — byte-for-byte legacy_modular algorithm
+ * Port of the Pi daemon's doha.py — byte-for-byte legacy_modular algorithm
  * (verified against app/dhamma/doha.php).
  */
 object DohaSlots {

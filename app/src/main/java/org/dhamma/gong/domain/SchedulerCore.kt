@@ -8,7 +8,7 @@ import kotlin.random.Random
 /**
  * The scheduler, as a pure function of (now, snapshot, fired-guard).
  *
- * Port of `ng/gong_ng/scheduler.py` `Scheduler.tick` + `dispatch`. The Android
+ * Port of the Pi daemon's scheduler.py `Scheduler.tick` + `dispatch`. The Android
  * service is a shell that loads a [ScheduleSnapshot], calls [tick], applies the
  * [TickOutcome] in order, and re-arms an alarm for [TickOutcome.nextDeadline].
  *
@@ -36,7 +36,7 @@ object SchedulerCore {
         graceSeconds: Long = SettingsDefaults.FIRE_GRACE_SECONDS,
         random: Random = Random.Default,
     ): TickOutcome {
-        // §05: untrusted clock suppresses automatic playback entirely. NG
+        // §05: untrusted clock suppresses automatic playback entirely. The Pi daemon
         // returns no deadline at all, so the loop falls back to its heartbeat.
         if (!clockTrusted) return TickOutcome()
 
@@ -61,7 +61,7 @@ object SchedulerCore {
                     if (next == null || occ.fireAt.toInstant() < next.toInstant()) next = occ.fireAt
                 }
 
-                // Past due. NG marks fired *before* deciding what to do with it,
+                // Past due. The Pi daemon marks fired *before* deciding what to do with it,
                 // so a disabled toggle or a missed window still consumes the slot.
                 FireDecision.MISSED -> {
                     marks += FiredMark(occ.key, occ.localDate)

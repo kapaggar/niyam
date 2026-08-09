@@ -123,7 +123,7 @@ interface StateDao {
     @Query("SELECT key FROM state WHERE key LIKE 'fired:%'")
     suspend fun firedKeys(): List<String>
 
-    /** NG's prune_fired: the date is the last 10 chars of the key. */
+    /** the Pi daemon's prune_fired: the date is the last 10 chars of the key. */
     @Query("DELETE FROM state WHERE key LIKE 'fired:%' AND substr(key, -10) < :cutoffIso")
     suspend fun pruneFired(cutoffIso: String)
 }

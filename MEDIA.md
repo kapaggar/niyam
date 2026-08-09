@@ -27,7 +27,7 @@ files/media/
     D01_....mp3 … D11_....mp3
 ```
 
-Manifest format (from Gong-NG):
+Manifest format (from the Pi appliance):
 
 ```json
 {

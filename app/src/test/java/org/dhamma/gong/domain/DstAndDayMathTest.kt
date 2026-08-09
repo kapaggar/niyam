@@ -29,7 +29,7 @@ class DstAndDayMathTest {
 
     @Test
     fun fallBackAmbiguityTakesTheFirstOccurrence() {
-        // 2026-11-01: 01:30 happens twice. NG takes fold=0 (the EDT one).
+        // 2026-11-01: 01:30 happens twice. The Pi daemon takes fold=0 (the EDT one).
         val at = clock.materialize(LocalDate.of(2026, 11, 1), LocalTime.of(1, 30))
         assertEquals(LocalTime.of(1, 30), at.toLocalTime())
         assertEquals(ZoneOffset.ofHours(-4), at.offset)
