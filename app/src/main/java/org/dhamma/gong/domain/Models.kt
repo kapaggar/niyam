@@ -188,7 +188,7 @@ object SettingsDefaults {
     /** Android-only additions (no NG counterpart). */
     val androidExtras: Map<String, String> = mapOf(
         "audio_route" to "speaker",
-        "timezone" to "",
+        "timezone" to ApplianceZone.DEFAULT_ID,
         "doha_tree_uri" to "",
     )
 

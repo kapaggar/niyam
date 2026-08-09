@@ -2,7 +2,7 @@
 
 Working branch: **`android-app`** (off `gong-ng`). Everything lives in `android/`.
 
-Last updated: 2026-08-08, end of **M4**.
+Last updated: 2026-08-08, end of **M4** + review fix **B1** (appliance timezone).
 
 ---
 
@@ -10,7 +10,7 @@ Last updated: 2026-08-08, end of **M4**.
 
 ```bash
 cd /Users/wizops/gongserver/android
-./gradlew :app:testDebugUnitTest     # 110 tests, all green
+./gradlew :app:testDebugUnitTest     # 117 tests, all green
 ./gradlew :app:assembleDebug         # app/build/outputs/apk/debug/app-debug.apk
 ```
 
@@ -106,10 +106,11 @@ log-trim on day rollover. Route warm-up 15 s ahead.
 | Backup DB | yes | **no** | M6 |
 | Schedule editor | yes (web UI) | **yes** | M4 grid + inspector |
 | Nullable gap/track = inherit | yes | **yes** | `SeedAndRepositoryTest`, inspector |
+| Appliance TZ from config, not host | yes (`config.timezone`) | **yes** (`timezone` setting) | `ApplianceZoneTest` |
 
 ---
 
-## Test inventory (110)
+## Test inventory (117)
 
 | Class | N | What it guards |
 |---|---|---|
@@ -123,6 +124,7 @@ log-trim on day rollover. Route warm-up 15 s ahead.
 | `ScheduleMaterializerTest` | 5 | day precedence, doha injection |
 | `FireRulesTest` | 6 | the window, in isolation |
 | `DohaSlotsTest` | 4 | golden slot tables per course type |
+| `ApplianceZoneTest` | 7 | timezone-setting resolution, IST fallback, dynamic-zone clock |
 | `VirtualClockLedgerTest` | 4 | 400-day ledger over every course type (1.9 s) |
 
 Two test-harness facts worth keeping:
@@ -197,3 +199,27 @@ strings, media-pack install docs.
 - `relay_enabled` is retained in settings for NG parity and is inert.
 - Design doc §14 open questions are all still open; #1 (which tablet model)
   blocks M1-field-testing in the design doc's own numbering.
+
+---
+
+## External review (2026-08-08)
+
+Code review + factory-reset reinstall handoff for Fable:
+
+→ **`docs/FABLE-REVIEW.md`**
+
+Contains design/plan/implementation overview, P1–P3 findings, reinstall steps, and next-work queue.
+
+### Review fixes applied
+
+- **B1 (2026-08-08, Fable): appliance timezone.** The scheduler clock no longer
+  uses `ZoneId.systemDefault()`. `domain/ApplianceZone.kt` resolves the
+  `timezone` setting (NG parity: `ng/gong_ng/config.py` defaults
+  `Asia/Kolkata`); blank or unparseable values fall back to IST — important
+  because devices seeded before this fix carry a persisted `timezone=""` row
+  that `SeedLoader.insertMissing` will never overwrite. `SystemGongClock` now
+  takes a zone *provider*, and `GongService` re-reads the setting on every
+  poke/time-change, so a future Time-screen edit takes effect without a service
+  restart. The dashboard hero clock, course "today" resolution, and the
+  zero-day zone label all follow the appliance zone, not the device zone.
+  Covered by `ApplianceZoneTest` (7 tests). B2–B4 remain open.

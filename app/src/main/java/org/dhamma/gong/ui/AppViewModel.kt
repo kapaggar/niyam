@@ -21,11 +21,13 @@ import org.dhamma.gong.data.PlayLogEntity
 import org.dhamma.gong.data.ScheduleEventEntity
 import org.dhamma.gong.data.toDomain
 import org.dhamma.gong.domain.ActiveCourse
+import org.dhamma.gong.domain.ApplianceZone
 import org.dhamma.gong.domain.Course
 import org.dhamma.gong.domain.SettingsDefaults
 import org.dhamma.gong.schedule.SchedulerEngine
 import org.dhamma.gong.service.GongService
 import java.time.LocalDate
+import java.time.ZoneId
 
 /**
  * The UI's view of the appliance.
@@ -70,6 +72,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         .map { rows -> SettingsDefaults.all + rows.associate { it.key to it.value } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsDefaults.all)
 
+    /** The appliance's zone — the `timezone` setting, never the device TZ. */
+    val applianceZone: StateFlow<ZoneId> = settings
+        .map { ApplianceZone.resolve(it["timezone"]) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ApplianceZone.DEFAULT)
+
     val events: StateFlow<List<ScheduleEventEntity>> = db.scheduleEvents().observeAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -94,7 +101,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         db.courseTypes().observeAll(),
         db.settings().observeAll(),
     ) { courses, types, settingRows ->
-        val today = LocalDate.now()
+        // "Today" in the appliance's zone, matching the scheduler's resolution.
+        val zone = ApplianceZone.resolve(settingRows.firstOrNull { it.key == "timezone" }?.value)
+        val today = LocalDate.now(zone)
         val byId = types.associateBy { it.id }
         val domainTypes = types.associate { it.id to it.toDomain() }
         val pinned = settingRows.firstOrNull { it.key == "active_course_id" }

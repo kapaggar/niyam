@@ -24,6 +24,7 @@ import org.dhamma.gong.R
 import org.dhamma.gong.data.GongDatabase
 import org.dhamma.gong.data.GongRepository
 import org.dhamma.gong.data.SeedLoader
+import org.dhamma.gong.domain.ApplianceZone
 import org.dhamma.gong.domain.Occurrence
 import org.dhamma.gong.domain.PlayCommand
 import org.dhamma.gong.domain.PlayKind
@@ -35,7 +36,6 @@ import org.dhamma.gong.player.PlayerEngine
 import org.dhamma.gong.schedule.AlarmScheduler
 import org.dhamma.gong.schedule.SchedulerEngine
 import org.dhamma.gong.ui.MainActivity
-import java.time.ZoneId
 
 /**
  * The appliance process. Maps 1:1 to the Pi's `gongd`: it owns the scheduler
@@ -53,6 +53,15 @@ class GongService : Service() {
     private lateinit var playerEngine: PlayerEngine
     private lateinit var schedulerEngine: SchedulerEngine
 
+    /**
+     * The appliance's zone — the `timezone` setting, never the device default
+     * (a centre tablet must gong in the centre's zone even if the phone thinks
+     * it has travelled). Volatile: written from the service scope, read by the
+     * scheduler through the clock's zone provider.
+     */
+    @Volatile
+    private var applianceZone = ApplianceZone.DEFAULT
+
     override fun onCreate() {
         super.onCreate()
         val db = GongDatabase.get(this)
@@ -64,10 +73,9 @@ class GongService : Service() {
             sink = ExoAudioSink(this),
             scope = scope,
         )
-        val zone = runCatching { ZoneId.systemDefault() }.getOrDefault(ZoneId.of("UTC"))
         schedulerEngine = SchedulerEngine(
             repo = repo,
-            clock = SystemGongClock(zone),
+            clock = SystemGongClock { applianceZone },
             alarms = AlarmScheduler(this),
             scope = scope,
             dispatch = { playerEngine.submit(it) },
@@ -83,6 +91,7 @@ class GongService : Service() {
             // would resolve an empty schedule and arm nothing.
             runCatching { SeedLoader.applyFromAssets(this@GongService, db) }
                 .onFailure { Log.e(TAG, "seed failed", it) }
+            refreshZone()
             schedulerEngine.start()
         }
         scope.launch { observePlayer() }
@@ -95,13 +104,17 @@ class GongService : Service() {
             ACTION_TEST_DOHA -> scope.launch { testDoha(intent.getIntExtra(EXTRA_SLOT, 1)) }
             ACTION_STOP -> scope.launch { playerEngine.stop() }
             ACTION_ALARM -> schedulerEngine.poke("alarm")
-            ACTION_TIME_CHANGED -> {
+            ACTION_TIME_CHANGED -> scope.launch {
                 // The wall clock moved: every materialized instant is stale.
+                refreshZone()
                 schedulerEngine.poke(intent.getStringExtra(EXTRA_REASON) ?: "time changed")
             }
-            ACTION_POKE -> schedulerEngine.poke(
-                intent.getStringExtra(EXTRA_REASON) ?: "poke",
-            )
+            ACTION_POKE -> scope.launch {
+                // Settings edits arrive as pokes; the timezone setting is the
+                // one the clock cannot see through the snapshot, so re-read it.
+                refreshZone()
+                schedulerEngine.poke(intent.getStringExtra(EXTRA_REASON) ?: "poke")
+            }
         }
         // Restart with a null intent after an OEM kill; onCreate re-arms us.
         return START_STICKY
@@ -123,11 +136,25 @@ class GongService : Service() {
     val repository: GongRepository get() = repo
 
     /** Any edit that changes what fires next must call this. */
-    fun pokeScheduler(reason: String) = schedulerEngine.poke(reason)
+    fun pokeScheduler(reason: String) {
+        scope.launch {
+            refreshZone()
+            schedulerEngine.poke(reason)
+        }
+    }
+
+    /** Re-resolve the appliance zone from the `timezone` setting. */
+    private suspend fun refreshZone() {
+        val zone = ApplianceZone.resolve(repo.setting("timezone"))
+        if (zone != applianceZone) {
+            Log.i(TAG, "appliance timezone → $zone")
+            applianceZone = zone
+        }
+    }
 
     /** Staff confirmed the wall clock; automatic plays resume. */
     suspend fun confirmClock() {
-        repo.confirmClock(java.time.ZonedDateTime.now())
+        repo.confirmClock(java.time.ZonedDateTime.now(applianceZone))
         schedulerEngine.poke("clock confirmed")
     }
 
