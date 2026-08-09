@@ -34,6 +34,7 @@ import org.dhamma.gong.domain.Course
 import org.dhamma.gong.domain.DohaPackMapper
 import org.dhamma.gong.domain.PinCode
 import org.dhamma.gong.domain.SettingsDefaults
+import org.dhamma.gong.relay.RelayController
 import org.dhamma.gong.schedule.SchedulerEngine
 import org.dhamma.gong.service.AppliancePermissions
 import org.dhamma.gong.service.GongService
@@ -75,6 +76,61 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** One emission per strike, for the dashboard's expanding rings. */
     val strikes = service.flatMapLatest { it?.player?.strikes ?: flowOf() }
+
+    // ------------------------------------------------------------ relay
+
+    /**
+     * The amplifier relay's live view, bridged from the service exactly like
+     * [schedulerState]. With no service there is no relay, and the default
+     * [RelayController.State] reports `reachable = null` — "never probed" — which
+     * is the honest answer rather than a green or a red dot.
+     */
+    val relayState: StateFlow<RelayController.State> = service
+        .flatMapLatest { it?.relay?.state ?: flowOf(RelayController.State()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RelayController.State())
+
+    /**
+     * Save a relay setting and let the controller re-read it. Same immediate
+     * save + toast contract as [setSetting]; the scheduler is not poked because
+     * relay config cannot change when or whether anything fires.
+     */
+    fun setRelaySetting(key: String, value: String, announce: String = "Settings saved") {
+        viewModelScope.launch {
+            repo.putSetting(key, value)
+            service.value?.relay?.refresh()
+            toast(announce)
+        }
+    }
+
+    fun relayTest() {
+        val relay = service.value?.relay
+        if (relay == null) {
+            toast("Appliance service is not running")
+            return
+        }
+        relay.testConnection()
+        toast("Testing…")
+    }
+
+    fun relayManualOn() {
+        val relay = service.value?.relay
+        if (relay == null) {
+            toast("Appliance service is not running")
+            return
+        }
+        relay.manualOn()
+        toast("Switching amp on…")
+    }
+
+    fun relayManualOff() {
+        val relay = service.value?.relay
+        if (relay == null) {
+            toast("Appliance service is not running")
+            return
+        }
+        relay.manualOff()
+        toast("Switching amp off…")
+    }
 
     // ------------------------------------------------------------ store
 

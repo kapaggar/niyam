@@ -81,6 +81,44 @@ changed or is a known gap — please try to break them in that order.
 - [ ] Setup checklist matches the real permission state — an amber row must
       never be green when the grant is actually missing
 
+## Sounds — doha pack folder (new)
+
+- [ ] Sounds → pick the folder that **directly contains** `D01…D11` mp3s →
+      all 11 slots map and the Dashboard GONGS ONLY chip clears
+- [ ] Pick a *parent* folder instead → empty state naming the `D01…D11`
+      convention, not a silent no-op
+- [ ] Pick a folder whose only match is inside a single `doha/` subfolder →
+      still maps (one level down only)
+- [ ] Reassign a file to a different slot, then Rescan → **the manual
+      assignment survives**
+- [ ] Put two files with the same `D03` prefix in the folder → shown as a
+      **conflict**, neither is assigned
+- [ ] Re-pick a different folder → remaps cleanly, no stale path shown
+- [ ] Reboot the tablet → the folder is still readable, slots still mapped
+- [ ] Play a test doha → the mapped file is what you hear
+
+## Amp power — Shelly relay (new)
+
+Provision the Shelly onto the centre WiFi with the **Shelly app** first; Niyam
+does not do BLE setup. Give it a DHCP reservation so the IP is stable.
+
+- [ ] Amp power → enter the Shelly IP → **Test connection** reports model and MAC
+- [ ] Wrong IP → clear error, and reachability shows **unreachable** (not
+      "unknown", and never green)
+- [ ] Before any test, reachability reads **not probed yet** — neither green nor red
+- [ ] Manual Amp on / Amp off actually switch the relay
+- [ ] Enable Relay on the Dashboard (only possible once a host is set)
+- [ ] Schedule a gong +2 min → **the amp switches on shortly before it and off
+      after** (on may come up to ~35 s early — that is by design)
+- [ ] Gong followed by a doha a minute later → the amp does **not** drop out
+      between them
+- [ ] **Power the Shelly down, then let a gong fire → the gong still rings on
+      time.** This is the single most important check on this page
+- [ ] Kill the app mid-play → the amp powers itself off within the watchdog
+      window rather than staying on all night
+- [ ] Set a device password on the Shelly, enter it in Niyam → Test still passes,
+      and the password is never displayed back
+
 ## Overnight / soak
 
 - [ ] Schedule an event +2 min; screen off; hear the gong
@@ -111,6 +149,19 @@ These are understood and deliberately not fixed here.
 6. **API 35 insets not verified.** The app now handles window insets, but the
    test emulator is API 34. On an Android 15 device check nothing hides under
    the status bar.
+7. **The relay has never met real hardware.** Everything is unit-tested against
+   the documented Gen2+ API and a fake HTTP server, but no Shelly has been in
+   the loop. If Test connection returns 401 repeatedly with a password you know
+   is right, suspect the auth variant rather than the password: some Shelly Gen2
+   firmware documents a non-standard digest `ha2` for RPC instead of plain
+   RFC 7616. Report that and it is a small fix.
+8. **Cleartext HTTP is permitted app-wide**, not just to the relay's address.
+   Android's network-security `<domain>` matcher takes hostnames and rejects
+   CIDR, and the relay host is typed at setup, so the narrowing lives in code —
+   `ShellyClient` is the app's only networking. Worth tightening if the relay
+   ever gets a fixed address.
+9. **Sounds is partial.** It holds the doha slot mapping only; track choice,
+   volumes, burst gap, doha time and no-course mode are still unbuilt.
 
 ## Failures / notes
 

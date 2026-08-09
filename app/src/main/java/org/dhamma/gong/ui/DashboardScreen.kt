@@ -302,8 +302,15 @@ private fun CourseCard(
             Toggle("Master", settings["enabled"] == "1") { vm.toggle("enabled") }
             Toggle("Gong", settings["gong_enabled"] == "1") { vm.toggle("gong_enabled") }
             Toggle("Doha", settings["doha_enabled"] == "1") { vm.toggle("doha_enabled") }
-            // Retained for Pi parity, inert in v1 (design doc §04).
-            Box(Modifier.alpha(0.5f)) { Toggle("Relay", false, enabled = false) {} }
+            // Live once a Shelly address is set; dimmed and inert until then,
+            // because a relay with no host cannot switch anything (relay design,
+            // "Error handling": host unset → relay logic inert).
+            val relayConfigured = settings["relay_host"].orEmpty().isNotBlank()
+            if (relayConfigured) {
+                Toggle("Relay", settings["relay_enabled"] == "1") { vm.toggle("relay_enabled") }
+            } else {
+                Box(Modifier.alpha(0.5f)) { Toggle("Relay", false, enabled = false) {} }
+            }
         }
     }
 }

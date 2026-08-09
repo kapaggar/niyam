@@ -44,6 +44,8 @@ Add `-S` only when you deliberately want a cold start or a re-locked PIN.
 | ![PIN](14-beta-pin.png) | **PIN / Security.** |
 | ![Time](15-beta-time.png) | **Time (new).** Appliance zone against device zone — the emulator sits in `America/Los_Angeles` while the appliance runs `Asia/Kolkata`, which is the whole reason the setting exists. |
 | ![Setup](16-beta-setup.png) | **Setup (new).** Permission checklist bound to real status, plus live appliance state. |
+| ![Doha pack](17-beta-doha-pack.png) | **Sounds — doha pack (new).** Point the appliance at a folder of `D01…D11` recordings. Slots are labelled by slot, never by day: `legacyModular` cycles course days onto slots, so no slot owns a calendar date. |
+| ![Amp power](18-beta-amp-power.png) | **Amp power (new).** Shelly 1 Gen4 over local WiFi. Reachability has three states — not probed / reachable / unreachable — and unknown is never painted green. The password is never displayed back. |
 
 Always restore the emulator afterwards:
 
