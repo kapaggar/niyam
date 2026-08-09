@@ -72,7 +72,11 @@ See `PROGRESS.md` for the live checklist.
 
 ## Commits and PRs
 
-- Complete sentences in commit messages; explain *why*.
+- Complete sentences in commit messages; explain *why* (work done only).
+- **Never** add agent attribution trailers or watermarks to commits, including:
+  - `Co-Authored-By: Claude …` / `…@anthropic.com`
+  - `Claude-Session: …` or other session URLs
+  - `Generated with …` / `Made-with: …` style lines
 - Do not force-push `main` unless the human explicitly asks.
 - Do not amend published commits unless explicitly asked.
 - Never skip hooks without human approval.
