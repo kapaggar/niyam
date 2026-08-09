@@ -18,6 +18,12 @@ should be overridden with `wm size` / `wm density` before re-shooting.
 
 ## Gallery
 
+### Launcher icon
+
+![Dhamma Gong in the app drawer](00-launcher-with-icon.png)
+
+Brand gong artwork as the adaptive launcher icon (`@mipmap/ic_launcher`). Source art lives under [`docs/branding/`](../branding/).
+
 ### 1. Installation
 
 ![App installed — system App info](01-installation.png)
