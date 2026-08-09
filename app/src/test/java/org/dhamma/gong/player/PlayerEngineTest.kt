@@ -88,7 +88,6 @@ class PlayerEngineTest {
         router = AudioRouter(ApplicationProvider.getApplicationContext()),
         sink = sink,
         scope = this,
-        elapsedMs = { currentTime },
     )
 
     private fun gong(repeats: Int = 3, gap: Int = 4, kind: String = PlayKind.GONG) =
@@ -116,8 +115,9 @@ class PlayerEngineTest {
     }
 
     @Test
-    fun strikesAreSpacedByTheGapNotByDecodeTime() = runTest {
-        // A 900 ms decode inside a 4 s gap must not push the burst out.
+    fun gapIsCountedAfterTheStrikeEnds() = runTest {
+        // Pi parity (B3): each strike plays to the end, then gap_seconds of
+        // silence. Four 900 ms strikes with 4 s gaps.
         val sink = FakeSink(durationMs = 900)
         val engine = engine(sink)
         val t0 = currentTime
@@ -125,8 +125,22 @@ class PlayerEngineTest {
         advanceUntilIdle()
 
         assertEquals(4, sink.played.size)
-        // 3 gaps of 4 s, plus the final strike's own 900 ms.
-        assertEquals(3 * 4000L + 900L, currentTime - t0)
+        assertEquals(4 * 900L + 3 * 4000L, currentTime - t0)
+    }
+
+    @Test
+    fun strikeLongerThanTheGapStillGetsTheGapAfterIt() = runTest {
+        // Pi parity: the gap is silence AFTER the strike ends, not a
+        // start-to-start cadence. A 5 s recording with a 4 s gap must still
+        // leave 4 s of silence between strikes.
+        val sink = FakeSink(durationMs = 5_000)
+        val engine = engine(sink)
+        val t0 = currentTime
+        engine.submit(gong(repeats = 3, gap = 4))
+        advanceUntilIdle()
+
+        assertEquals(3, sink.played.size)
+        assertEquals(3 * 5_000L + 2 * 4_000L, currentTime - t0)
     }
 
     @Test
@@ -303,7 +317,6 @@ class PlayerEngineTest {
             router = AudioRouter(ApplicationProvider.getApplicationContext()),
             sink = sink,
             scope = this,
-            elapsedMs = { currentTime },
         )
         engine.submit(gong(repeats = 8, gap = 0))
         advanceUntilIdle()

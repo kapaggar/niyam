@@ -1,6 +1,7 @@
 package org.dhamma.gong.data
 
 import android.content.Context
+import androidx.room.withTransaction
 import org.dhamma.gong.domain.ClockTrust
 import org.dhamma.gong.domain.Course
 import org.dhamma.gong.domain.CourseType
@@ -59,11 +60,15 @@ class GongRepository(private val db: GongDatabase) {
      * hand [TickOutcome.fired] to the player.
      */
     suspend fun applyOutcome(outcome: TickOutcome, nowUtc: Instant) {
-        for (mark in outcome.marks) {
-            db.state().put(StateEntity(mark.stateKey, nowUtc.toString()))
-        }
-        if (outcome.logs.isNotEmpty()) {
-            db.playLog().insertAll(outcome.logs.map { it.toEntity(nowUtc) })
+        // One transaction: a crash between the guard and its log row must
+        // leave neither (FABLE-REVIEW B2).
+        db.withTransaction {
+            for (mark in outcome.marks) {
+                db.state().put(StateEntity(mark.stateKey, nowUtc.toString()))
+            }
+            if (outcome.logs.isNotEmpty()) {
+                db.playLog().insertAll(outcome.logs.map { it.toEntity(nowUtc) })
+            }
         }
     }
 

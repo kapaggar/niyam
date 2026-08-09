@@ -11,7 +11,7 @@ Last updated: 2026-08-08, end of **M4** + review fix **B1** (appliance timezone)
 
 ```bash
 cd /Users/wizops/gongserver/android
-./gradlew :app:testDebugUnitTest     # 124 tests, all green
+./gradlew :app:testDebugUnitTest     # 127 tests, all green
 ./gradlew :app:assembleDebug         # app/build/outputs/apk/debug/app-debug.apk
 ```
 
@@ -111,13 +111,14 @@ log-trim on day rollover. Route warm-up 15 s ahead.
 
 ---
 
-## Test inventory (124)
+## Test inventory (127)
 
 | Class | N | What it guards |
 |---|---|---|
 | `SchedulerCoreTest` | 19 | tick semantics, grace edges, toggles, doha resolution |
 | `SchedulerEngineTest` | 18 | power cut, process death, reboot, clock jumps, pruning |
-| `PlayerEngineTest` | 17 | burst timing, preemption, stop, missing media, route fallback |
+| `PlayerEngineTest` | 18 | burst timing (gap after strike), preemption, stop, missing media, route fallback |
+| `ApplyOutcomeTransactionTest` | 2 | marks+logs land atomically; orphaned guards roll back |
 | `SeedAndRepositoryTest` | 19 | seed idempotence, Pi column parity, guard atomicity, corrupt rows |
 | `ClockTrustTest` | 7 | backwards jump, NTP recovery, confirm |
 | `DstAndDayMathTest` | 6 | spring-forward gap, fall-back ambiguity, `/86400` regression |
@@ -133,8 +134,8 @@ Two test-harness facts worth keeping:
 1. Room's own executor is invisible to `runTest`'s scheduler. Any test that
    asserts on work done inside a **launched** coroutine must build the DB with
    `.setQueryExecutor { it.run() }.setTransactionExecutor { it.run() }`.
-2. `PlayerEngine` takes an `elapsedMs` lambda so burst timing runs on
-   `TestScope.currentTime` (virtual time) instead of `SystemClock`.
+2. `PlayerEngine` burst timing is plain `delay()` (gap after each strike),
+   so it runs on the test scheduler's virtual time with no clock injection.
 
 ---
 
@@ -227,4 +228,17 @@ Contains design/plan/implementation overview, P1–P3 findings, reinstall steps,
   poke/time-change, so a future Time-screen edit takes effect without a service
   restart. The dashboard hero clock, course "today" resolution, and the
   zero-day zone label all follow the appliance zone, not the device zone.
-  Covered by `ApplianceZoneTest` (7 tests). B2–B4 remain open.
+  Covered by `ApplianceZoneTest` (7 tests).
+- **Review batch (2026-08-08, Fable):** **B2** `applyOutcome` now runs in one
+  Room transaction (`ApplyOutcomeTransactionTest` proves an orphaned guard
+  rolls back). **B3** strike gap is now counted *after* the strike ends (Pi
+  parity, user-confirmed); the `elapsedMs` clock injection is gone. **B7**
+  `LOCKED_BOOT_COMPLETED` removed — no direct-boot start against a
+  credential-encrypted DB. **B8** overlapping courses paint `OVERLAP` (amber),
+  never a second `ACTIVE`. **B13** teardown deadlock fixed: scope cancelled
+  first, `release()` does no Room writes, sink frees on `Main.immediate`.
+  Also: pump-slot race in `PlayerEngine.drain` closed (a submit landing while
+  the pump exits no longer strands its command), Logs empty-state actually
+  renders, doha test toast no longer names a path that never existed, and
+  course delete is a two-tap confirm. **B4** closed as *keep Pi behaviour*
+  (user-confirmed): day-0 doha stays on `no_course_doha`.

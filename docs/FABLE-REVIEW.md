@@ -130,9 +130,9 @@ Severity: **P0** ship-blocker · **P1** wrong course behaviour · **P2** UX/ops 
 | ID | Issue | Where | Notes / fix direction |
 |---|---|---|---|
 | **B1** | ~~**Timezone is only `ZoneId.systemDefault()`**~~ **FIXED 2026-08-08** | `domain/ApplianceZone.kt`, `GongService` | Clock zone now comes from the `timezone` setting (default `Asia/Kolkata`, Pi-daemon config parity); blank/invalid → IST. `SystemGongClock` takes a zone provider; re-read on every poke. UI follows. `ApplianceZoneTest`. |
-| **B2** | **`applyOutcome` is not a single DB transaction** | `GongRepository.applyOutcome` | Guards then logs as separate Room ops. Crash between can leave marks without log (or partial marks). Prefer `@Transaction` wrapping put+insert. |
-| **B3** | **Gong burst gap is start-to-start, not end-to-gap** | `PlayerEngine.execute` | Absolute deadlines from burst start: if strike audio **longer** than `gap_seconds`, strikes overlap / zero silence. The Pi daemon waits for play **then** gap. Align with Pi or document as deliberate. |
-| **B4** | **Day 0 doha uses `no_course_doha` (often random)** | `DohaSlots.pickSlot` (`day > 0`) | Matches the Pi daemon (`0 < day`). Confirm with centres whether arrival morning should use modular day-1 or off. Not a code bug vs the Pi daemon; product clarity needed. |
+| **B2** | ~~**`applyOutcome` is not a single DB transaction**~~ **FIXED 2026-08-08** | `GongRepository.applyOutcome` | `db.withTransaction` wraps marks+logs; `ApplyOutcomeTransactionTest` proves rollback. |
+| **B3** | ~~**Gong burst gap is start-to-start**~~ **FIXED 2026-08-08** | `PlayerEngine.execute` | Pi parity (user-confirmed): strike plays to the end, then `gap_seconds` of silence. `elapsedMs` injection removed. |
+| **B4** | ~~**Day 0 doha uses `no_course_doha`**~~ **CLOSED 2026-08-08** | `DohaSlots.pickSlot` | Product decision confirmed: keep Pi behaviour — day 0 uses the `no_course_doha` setting. Not a bug. |
 
 ### P2 — product / security / ops
 
@@ -140,8 +140,8 @@ Severity: **P0** ship-blocker · **P1** wrong course behaviour · **P2** UX/ops 
 |---|---|---|---|
 | **B5** | ~~**PIN not enforced**~~ **FIXED 2026-08-08** | `domain/PinCode.kt`, `ui/PinScreens.kt`, `GongApp` | App-open PIN gate (salted PBKDF2 in `admin_pin_hash`); set/change/remove from the in-app PIN tab. `PinCodeTest`. |
 | **B6** | **No first-run for exact alarms / battery optimization** | Manifest has perms; UI Setup locked | Without `canScheduleExactAlarms()`, falls back to inexact + 30 s heartbeat (may still work; later on some OEMs). |
-| **B7** | **`LOCKED_BOOT_COMPLETED` starts service** | `BootReceiver` | DB is credential-encrypted default; early direct-boot start can fail until unlock. Prefer only `BOOT_COMPLETED` or device-protected context. |
-| **B8** | **Overlapping courses both painted ACTIVE** | `AppViewModel.courseRows` `else -> ACTIVE` | Drives overlap warning; can confuse staff. Prefer ACTIVE only for resolved course + OVERLAP badge for others. |
+| **B7** | ~~**`LOCKED_BOOT_COMPLETED` starts service**~~ **FIXED 2026-08-08** | manifest | Action removed; service starts only after first unlock (`BOOT_COMPLETED` / `MY_PACKAGE_REPLACED`). |
+| **B8** | ~~**Overlapping courses both painted ACTIVE**~~ **FIXED 2026-08-08** | `AppViewModel.courseRows` | New `OVERLAP` status (amber); exactly one course paints ACTIVE. Overlap warning now keys off it. |
 | **B9** | **Auto-chosen active course not persisted** | the Pi daemon writes `active_course_id` on resolve | Android only reads pin. Overlap set can flip if dates change. Minor. |
 | **B10** | **No backup/restore** | M6 | Field recovery requires re-seed + re-enter courses. |
 | **B11** | **Release builds have no doha media** | intentional | Dashboard must clearly show **GONGS ONLY**; verify copy is obvious. |
@@ -151,7 +151,7 @@ Severity: **P0** ship-blocker · **P1** wrong course behaviour · **P2** UX/ops 
 | ID | Issue | Notes |
 |---|---|---|
 | **B12** | Phone emulator ≠ 1280×800 tablet | Layout regressions possible on real 10" device. |
-| **B13** | `onDestroy` `runBlocking` player release | Low risk ANR path if service torn down on main. |
+| **B13** | ~~`onDestroy` `runBlocking` player release~~ **FIXED 2026-08-08** — was a real deadlock (`runBlocking` on main + `withContext(Main)` in the sink). Scope cancelled first; `release()` skips Room writes; sink on `Main.immediate`. |
 | **B14** | Notification / FGS without POST_NOTIFICATIONS on API 34 | We granted via adb; real first-run needs UX. |
 | **B15** | No instrumented UI tests | Compose crash (weight/scroll) was found manually once. |
 
@@ -208,9 +208,9 @@ adb logcat -s SeedLoader:I AlarmScheduler:I SchedulerEngine:I GongService:I Play
 ### Immediate hardening (before field tablet)
 
 1. **B1** Appliance timezone setting (default `Asia/Kolkata` or settings-driven `GongClock`).
-2. **B2** `@Transaction` on `applyOutcome`.
-3. **B3** Decide gap semantics; if Pi parity, sleep after each `sink.play` then gap.
-4. **B7** Drop `LOCKED_BOOT_COMPLETED` or use device-protected storage.
+2. ~~**B2**~~ done — `db.withTransaction`.
+3. ~~**B3**~~ done — Pi parity chosen and implemented.
+4. ~~**B7**~~ done — action dropped.
 5. Confirm **GONGS ONLY** / missing doha UX is explicit on Dashboard.
 
 ### M5 (product)
@@ -234,7 +234,7 @@ adb logcat -s SeedLoader:I AlarmScheduler:I SchedulerEngine:I GongService:I Play
 ### Tests to add when touching code
 
 - Instrumented: seed → add course → inject near-term event → assert `play_log` result.
-- Domain: gap-after-play if B3 fixed.
+- ~~Domain: gap-after-play if B3 fixed.~~ done (`gapIsCountedAfterTheStrikeEnds`).
 - Repository: crash-safe transaction of marks+logs.
 
 ---

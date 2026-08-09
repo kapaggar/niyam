@@ -34,8 +34,15 @@
             android:name=".ui.MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
-            android:screenOrientation="sensorLandscape"
+            android:resizeableActivity="true"
+            android:screenOrientation="landscape"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
             android:theme="@style/Theme.GongAppliance">
+            <!--
+              Fixed landscape: the appliance UI targets ~1280×800 (10" tablet
+              landscape). sensorLandscape allowed reverse-landscape flips that
+              broke screenshots and kiosk mounts.
+            -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -50,9 +57,13 @@
         <receiver
             android:name=".service.BootReceiver"
             android:exported="true">
+            <!--
+              No LOCKED_BOOT_COMPLETED: gong.db lives in credential-encrypted
+              storage, so a direct-boot start would crash before first unlock
+              (FABLE-REVIEW B7).
+            -->
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>

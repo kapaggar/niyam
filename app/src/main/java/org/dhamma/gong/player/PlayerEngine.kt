@@ -31,9 +31,9 @@ import org.dhamma.gong.domain.PlayResult
  *   - a doha never preempts a gong — it waits its turn;
  *   - [stop] aborts what is playing and drops what is queued.
  *
- * Strike timing runs against absolute deadlines rather than cumulative
- * `delay()`, so a slow decode shifts one strike instead of stretching the whole
- * burst (design doc §06).
+ * The gap is silence *after* a strike finishes, matching the Pi daemon: a
+ * recording longer than `gap_seconds` still gets its full gap, never an
+ * overlapping or gapless burst (FABLE-REVIEW B3).
  */
 class PlayerEngine(
     private val repo: GongRepository,
@@ -41,8 +41,6 @@ class PlayerEngine(
     private val router: AudioRouter,
     private val sink: AudioSink,
     private val scope: CoroutineScope,
-    /** Monotonic milliseconds; injectable so tests can run on virtual time. */
-    private val elapsedMs: () -> Long = { android.os.SystemClock.elapsedRealtime() },
 ) {
 
     data class Status(
@@ -117,9 +115,17 @@ class PlayerEngine(
 
     val busy: Boolean get() = current != null || queue.isNotEmpty()
 
+    /**
+     * Service-teardown path: abort everything WITHOUT logging (the process is
+     * dying; Room writes here risk blocking the main thread) and free the
+     * sink. Safe from the main thread — the sink releases on Main.immediate.
+     */
     suspend fun release() {
-        stop()
-        pump?.cancel()
+        lock.withLock {
+            queue.clear()
+            currentJob?.cancel(BurstStopped())
+            pump?.cancel()
+        }
         sink.release()
     }
 
@@ -140,8 +146,22 @@ class PlayerEngine(
     private suspend fun drain() {
         while (true) {
             val next = lock.withLock {
-                queue.removeFirstOrNull()?.also { current = it }
-            } ?: break
+                val n = queue.removeFirstOrNull()
+                if (n == null) {
+                    // Release the pump slot under the SAME lock that saw the
+                    // empty queue. Otherwise a submit() landing between that
+                    // check and this coroutine's completion sees a pump that
+                    // is still active but has already decided to exit, and
+                    // its command sits queued until the next submit.
+                    _status.value = _status.value.copy(
+                        playing = false, strike = 0, ofStrikes = 0, label = "",
+                    )
+                    pump = null
+                } else {
+                    current = n
+                }
+                n
+            } ?: return
 
             val job = scope.launch { execute(next) }
             lock.withLock { currentJob = job }
@@ -151,9 +171,6 @@ class PlayerEngine(
                 currentJob = null
             }
         }
-        _status.value = _status.value.copy(
-            playing = false, strike = 0, ofStrikes = 0, label = "",
-        )
     }
 
     // ------------------------------------------------------------ execute
@@ -196,13 +213,9 @@ class PlayerEngine(
         )
 
         try {
-            val start = elapsedMs()
             val gapMs = command.gapSeconds * 1000L
             for (i in 0 until command.repeats) {
-                if (i > 0 && gapMs > 0) {
-                    val wait = (start + i * gapMs) - elapsedMs()
-                    if (wait > 0) delay(wait)
-                }
+                if (i > 0 && gapMs > 0) delay(gapMs)
                 _status.value = _status.value.copy(strike = i + 1)
                 _strikes.tryEmit(i + 1)
                 sink.play(ok.uri, command.volume)

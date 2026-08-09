@@ -96,7 +96,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val type: CourseTypeEntity?,
         val status: Status,
     ) {
-        enum class Status { ACTIVE, UPCOMING, PAST }
+        enum class Status { ACTIVE, OVERLAP, UPCOMING, PAST }
     }
 
     val courseRows: StateFlow<List<CourseRow>> = combine(
@@ -124,8 +124,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     c.id == activeId -> CourseRow.Status.ACTIVE
                     today.isBefore(c.startDate) -> CourseRow.Status.UPCOMING
                     today.isAfter(end) -> CourseRow.Status.PAST
-                    // In window but not chosen (an overlap the scheduler warned about).
-                    else -> CourseRow.Status.ACTIVE
+                    // In window but not the resolved course: an overlap. Only
+                    // ONE course may paint ACTIVE, or staff cannot tell which
+                    // schedule is actually firing (FABLE-REVIEW B8).
+                    else -> CourseRow.Status.OVERLAP
                 },
             )
         }
@@ -133,7 +135,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** True when two courses claim today — the dashboard shows a warning. */
     val overlappingCourses: StateFlow<Boolean> = courseRows
-        .map { rows -> rows.count { it.status == CourseRow.Status.ACTIVE } > 1 }
+        .map { rows -> rows.any { it.status == CourseRow.Status.OVERLAP } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     // ------------------------------------------------------------ pin gate
@@ -282,7 +284,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val slots = mappedDohaSlots.value
             if (slots.isEmpty()) {
-                toast("No doha slots mapped — add files to /sdcard/DhammaGong/doha")
+                toast("No doha media installed — release builds are GONGS ONLY until a pack is added")
                 return@launch
             }
             service.value?.testDoha(slots.first())
