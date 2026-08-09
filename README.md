@@ -1,79 +1,133 @@
 # Niyam — Dhamma Gong Android appliance
 
-A phone/tablet left on charge at a Vipassana centre **is** the gong + morning-doha
-appliance: offline course schedule, Media3 audio, on-device Compose UI. Ported from
-the centre's Raspberry Pi daemon; the domain unit tests are the behavioural law.
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/Android-API%2029%2B-blue.svg)](app/build.gradle.kts)
+
+A phone or tablet left on charge at a Vipassana centre **is** the gong and morning-doha appliance: offline course schedule, Media3 audio, on-device Compose UI. Behaviour is pinned by a pure-Kotlin domain suite (course day, grace window, double-fire guards, doha slots).
 
 | | |
 |--|--|
-| Application id | `org.dhamma.gong` |
-| Min SDK | 29 · target 35 |
-| UI | Jetpack Compose, landscape tablet (Nocturne theme) |
-| Domain | Pure Kotlin (JVM-testable) under `app/.../domain/` |
-| Store | Room `gong.db` (WAL) — field-readable with any SQLite tool |
-| Seed | `assets/seed/seed.json` — 12 course types, 335 schedule events |
+| **Application id** | `org.dhamma.gong` |
+| **Min / target SDK** | 29 / 35 |
+| **UI** | Jetpack Compose · landscape · Nocturne theme |
+| **Store** | Room `gong.db` (WAL) — open with any SQLite tool for field repair |
+| **Seed** | 12 course types · 335 schedule events (`assets/seed/seed.json`) |
+| **Remote** | [github.com/kapaggar/niyam](https://github.com/kapaggar/niyam) |
 
-## Build & test
+## Quick start
 
 ```bash
-./gradlew :app:testDebugUnitTest    # pure-JVM + Robolectric suite
-./gradlew :app:assembleDebug        # app/build/outputs/apk/debug/app-debug.apk
+# Clone
+git clone https://github.com/kapaggar/niyam.git
+cd niyam
+
+# Point Gradle at your SDK (gitignored)
+echo "sdk.dir=$HOME/Library/Android/sdk" > local.properties   # macOS example
+
+# Tests + debug APK
+./gradlew :app:testDebugUnitTest
+./gradlew :app:assembleDebug
+# → app/build/outputs/apk/debug/app-debug.apk
 ```
 
-`local.properties` must point at your SDK (`sdk.dir=…`). JDK 17+, Gradle 8.9,
-AGP 8.7.2, Kotlin 2.0.21.
+Open the project root in **Android Studio** (the folder with `settings.gradle.kts`). JDK **17+**.
 
-## Layout
+Install on a device/emulator:
 
+```bash
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb shell am start -n org.dhamma.gong/.ui.MainActivity
 ```
-├── README.md / MEDIA.md / LICENSE-NOTES.md / PROGRESS.md
-├── docs/
-│   ├── ANDROID-APP-IMPLEMENTATION-PROMPT.md   # milestones M0–M7 + rules
-│   ├── FABLE-REVIEW.md                        # code review + restart surface
-│   └── handoff/                               # product design (open README.md + .html in a browser)
-├── seed/                          # portable seed (JSON + SQL source)
-├── media/                         # gong strikes + doha manifest (no doha audio)
-├── tools/                         # seed exporter, test-tone generator
-└── app/src/
-    ├── main/java/org/dhamma/gong/
-    │   ├── domain/    # scheduler core, fire rules, clock trust, doha slots, PIN
-    │   ├── data/      # Room entities/DAOs, repository, seed loader
-    │   ├── player/    # player engine, Media3 sink, audio routing
-    │   ├── schedule/  # scheduler loop + exact alarms
-    │   ├── service/   # foreground service (the appliance process), receivers
-    │   └── ui/        # Compose shell: dashboard, courses, schedule, logs, PIN
-    ├── test/          # unit suite — the behavioural spec
-    └── debug/assets/media/doha-test/   # synthetic doha tones (debug only)
-```
+
+## What it does
+
+- Runs a **foreground scheduler** so gongs can fire with the screen off  
+- Matches the **active course window** (start date = day 0), not “only if the course starts today”  
+- Plays **gong bursts** (repeats + gap) and optional **morning doha**  
+- Logs plays, misses, and errors for staff  
+- Optional **PIN** for opening the app (salted hash, not plaintext)  
+- Appliance **timezone** from settings (default `Asia/Kolkata`), not a travel phone’s TZ alone  
 
 ## Behavioural guarantees (do not regress)
 
-- Course **window** matching, not "starts today only"; start date is **day 0**.
-- **Calendar-day** arithmetic (`ChronoUnit.DAYS`), never seconds/86400.
-- Never fires early; late only within a **120 s grace** window, else logs `missed`.
-- Double-fire guard persisted **before** play dispatch.
-- Untrusted clock (backwards jump) silences automatic plays until confirmed.
-- Doha slots: `legacy_modular` in-course, `no_course_doha` outside.
-- Player queue: a new gong preempts a gong; doha waits; stop clears everything.
-- Appliance timezone comes from the `timezone` setting (default `Asia/Kolkata`),
-  never the device's travel TZ.
+- Calendar-day arithmetic (`ChronoUnit.DAYS`) — never `seconds/86400` for course day  
+- Never fires early; late only within **120 s grace**, else logs `missed`  
+- Double-fire guard persisted **before** play dispatch  
+- Untrusted clock (large backwards jump) silences automatic plays until confirmed  
+- Doha: `legacy_modular` in-course; `no_course_doha` outside  
+- Player queue: new gong preempts gong; doha waits; stop clears everything  
 
-Every rule above is pinned by a unit test — see `PROGRESS.md` for the inventory.
+Each rule is covered by unit tests — see [`PROGRESS.md`](PROGRESS.md).
 
-## Security
+## Repository layout
 
-Opening the app can require a **PIN** (4–8 digits): set, change, or remove it from
-the in-app **PIN** tab. Stored as salted PBKDF2 in the settings table, never
-plaintext. No PIN set → the app opens directly.
+```text
+├── README.md                 # this file
+├── LICENSE                   # MIT (software & docs)
+├── LICENSE-NOTES.md          # audio rights (not MIT)
+├── PRIVACY.md                # privacy policy
+├── SECURITY.md               # threat model & reporting
+├── AGENTS.md                 # rules for coding agents
+├── CLAUDE.md                 # Claude Code context
+├── PROGRESS.md               # milestones & restart point
+├── MEDIA.md                  # media pack layout
+├── docs/
+│   ├── ANDROID-APP-IMPLEMENTATION-PROMPT.md
+│   ├── FABLE-REVIEW.md
+│   └── handoff/              # product design (open HTML in a browser)
+├── seed/                     # portable seed JSON/SQL
+├── media/                    # gong strikes + doha manifest (no full doha library)
+├── tools/                    # seed export, test tones
+└── app/src/main/java/org/dhamma/gong/
+    ├── domain/               # pure scheduler / fire / doha / PIN
+    ├── data/                 # Room + seed
+    ├── player/               # Media3 + queue
+    ├── schedule/             # alarms + heartbeat loop
+    ├── service/              # GongService (the appliance process)
+    └── ui/                   # Compose client of the service
+```
+
+## Documentation index
+
+| Doc | Purpose |
+|-----|---------|
+| [PRIVACY.md](PRIVACY.md) | What is stored on-device; no cloud backend |
+| [SECURITY.md](SECURITY.md) | Threat model, reporting, centre hardening |
+| [LICENSE](LICENSE) | MIT for code and project docs |
+| [LICENSE-NOTES.md](LICENSE-NOTES.md) | Gong/doha audio are **not** MIT |
+| [MEDIA.md](MEDIA.md) | File layout for media packs |
+| [AGENTS.md](AGENTS.md) / [CLAUDE.md](CLAUDE.md) | AI/agent onboarding |
+| [PROGRESS.md](PROGRESS.md) | M0–M7 status and known gaps |
+| [docs/FABLE-REVIEW.md](docs/FABLE-REVIEW.md) | Implementation review & next work |
+
+## Security (short)
+
+- Optional **PIN** (4–8 digits): set/change/remove in-app when implemented in UI  
+- Stored as **salted PBKDF2** hash in settings — never plaintext  
+- Treat the tablet as centre equipment; physical access is the outer boundary  
+- Details: [SECURITY.md](SECURITY.md)
 
 ## Media licensing
 
-Bundled gong strikes and any doha recordings are **not** MIT-licensed — see
-`LICENSE-NOTES.md` before redistributing. Release builds ship no doha audio;
-the dashboard shows **GONGS ONLY** until a centre installs a licensed pack.
+Bundled gong strikes (and any doha masters you add) are **not** covered by the MIT license. See [LICENSE-NOTES.md](LICENSE-NOTES.md) and [MEDIA.md](MEDIA.md) before Play Store or public redistribution. Release builds may show **GONGS ONLY** until a licensed doha pack is installed.
+
+## Development status
+
+MVP path **M0–M4** (domain, Room, player, scheduler, core UI) is in tree. Later work: remaining settings screens, backup/restore, first-run wizard, OEM/field hardening — tracked in `PROGRESS.md`.
 
 ## History
 
-Extracted (with history) from the `android/` tree of
-[GongDohaServer](https://github.com/kapaggar/GongDohaServer); the Pi daemon this
-app supersedes lives on in that repo.
+Extracted from the `android/` tree of [GongDohaServer](https://github.com/kapaggar/GongDohaServer). The Raspberry Pi **Gong-NG** daemon remains the behavioural reference for scheduling semantics.
+
+## Contributing
+
+1. Keep `domain/` free of Android framework APIs.  
+2. Add or update unit tests for schedule/play changes.  
+3. Run `./gradlew :app:testDebugUnitTest`.  
+4. Do not commit `local.properties`, keystores, or non-free full doha libraries.  
+
+Bug reports and PRs: [github.com/kapaggar/niyam](https://github.com/kapaggar/niyam).
+
+## License
+
+Software and documentation in this repository are under the [MIT License](LICENSE), **except** audio content described in [LICENSE-NOTES.md](LICENSE-NOTES.md).
