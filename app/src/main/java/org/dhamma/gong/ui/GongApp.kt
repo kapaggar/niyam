@@ -55,6 +55,7 @@ enum class Tab(
     SCHEDULE("Schedule", "▦", requiresPin = true),
     COURSES("Courses", "▤", requiresPin = true),
     LOGS("Logs", "≡", requiresPin = false),
+    SECURITY("PIN", "⚿", requiresPin = false),
 
     // Specified in design doc §08 but not yet designed — drawn locked.
     SOUNDS("Sounds", "♪", requiresPin = true, enabled = false),
@@ -68,21 +69,32 @@ enum class Tab(
 fun GongApp(vm: AppViewModel) {
     var tab by remember { mutableStateOf(Tab.DASHBOARD) }
     val toast by vm.toast.collectAsState()
+    val pinHash by vm.pinHash.collectAsState()
+    val unlocked by vm.unlocked.collectAsState()
 
     Box(
         Modifier
             .fillMaxSize()
             .background(Nocturne.Bg),
     ) {
-        Row(Modifier.fillMaxSize()) {
-            NavRail(current = tab, onSelect = { tab = it })
-            Box(Modifier.fillMaxSize()) {
-                when (tab) {
-                    Tab.DASHBOARD -> DashboardScreen(vm)
-                    Tab.COURSES -> CoursesScreen(vm)
-                    Tab.SCHEDULE -> ScheduleScreen(vm)
-                    Tab.LOGS -> LogsScreen(vm)
-                    else -> LockedScreen(tab)
+        when {
+            // Not yet read from the DB: show nothing rather than flash the
+            // dashboard at someone who should be seeing the lock.
+            pinHash == null -> Unit
+
+            org.dhamma.gong.domain.PinCode.isSet(pinHash) && !unlocked -> PinLockScreen(vm)
+
+            else -> Row(Modifier.fillMaxSize()) {
+                NavRail(current = tab, onSelect = { tab = it })
+                Box(Modifier.fillMaxSize()) {
+                    when (tab) {
+                        Tab.DASHBOARD -> DashboardScreen(vm)
+                        Tab.COURSES -> CoursesScreen(vm)
+                        Tab.SCHEDULE -> ScheduleScreen(vm)
+                        Tab.LOGS -> LogsScreen(vm)
+                        Tab.SECURITY -> SecurityScreen(vm)
+                        else -> LockedScreen(tab)
+                    }
                 }
             }
         }
