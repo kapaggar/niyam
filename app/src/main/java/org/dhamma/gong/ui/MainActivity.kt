@@ -26,15 +26,22 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         GongService.start(this)
+        // Optional deep-link for docs/screenshots: -e tab COURSES|SCHEDULE|LOGS|SECURITY|DASHBOARD
+        val initialTab = intent?.getStringExtra(EXTRA_TAB)
+            ?.let { runCatching { Tab.valueOf(it) }.getOrNull() }
         setContent {
             GongTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = Nocturne.Bg) {
                     val vm: AppViewModel = viewModel()
                     RequestNotifications()
-                    GongApp(vm)
+                    GongApp(vm, initialTab = initialTab)
                 }
             }
         }
+    }
+
+    companion object {
+        const val EXTRA_TAB = "tab"
     }
 }
 
