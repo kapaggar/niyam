@@ -49,6 +49,9 @@ Paths: repo `skills/`, project `.grok/skills/`, and for Claude on this machine *
 8. Deshna jukebox server is **out of scope** until gong/doha field MVP is stable.
 9. Prefer small milestones; update `PROGRESS.md` when you finish a milestone slice.
 10. Run `./gradlew :app:testDebugUnitTest` before claiming done.
+11. **Bump the APK version whenever a substantive change lands.** `versionCode`
+    +1 and a new `versionName` in `app/build.gradle.kts`, in the same commit as
+    the change. See "Versioning the test APK" below.
 
 ## Layout (agent map)
 
@@ -73,6 +76,35 @@ The **service** owns scheduler + player. The **activity** is a client; closing t
 ```
 
 Requires JDK 17+, Android SDK in `local.properties` (`sdk.dir=…`).
+
+## Versioning the test APK
+
+Every build that could reach a tester carries a version, and it is the only
+way anyone can tell two APKs apart once they are on a tablet. So:
+
+**Bump `versionCode` by 1 and set a new `versionName` in
+`app/build.gradle.kts` in the same commit as any substantive change.**
+
+Substantive means: a new or unlocked screen, a behaviour change, a media
+swap, a permission added, a fix to anything on the QA checklist. It does not
+mean comment-only edits, doc-only edits, or a test-only refactor — those ride
+along on the next real bump.
+
+`versionName` follows `0.MINOR.PATCH-betaN`; increment `N` for an ordinary
+slice and move the numeral for a milestone.
+
+Why this is a hard rule and not a nicety: a tester installs over the top. An
+*equal* `versionCode` lets Android keep the old code in place on some
+installs, and a *lower* one is refused outright — so a stale APK presents as
+"the bug you fixed came back", and a real morning of QA gets spent chasing it.
+
+With the bump, in the same commit:
+
+- update the version line at the top of `docs/BETA-QA-CHECKLIST.md`
+- name the new version in `PROGRESS.md`
+
+The running build is shown on the **Setup** screen ("Build"), so a tester can
+confirm what they are holding without a cable.
 
 ## Current product gaps (do not pretend they are done)
 

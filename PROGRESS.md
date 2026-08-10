@@ -2,8 +2,9 @@
 
 Standalone repo **`kapaggar/niyam`** (branch `main`), extracted with history from the gongserver monorepo's `android/` tree.
 
-Last updated: 2026-08-10, **Audio out and Network** — the last two locked
-screens shipped, so the nav rail has no padlocks left. Audio out also made the
+Last updated: 2026-08-10, **Audio out and Network** (`0.2.0-beta3`,
+`versionCode` 4) — the last two locked screens shipped, so the nav rail has no
+padlocks left. Audio out also made the
 route *real*: the resolved device now reaches ExoPlayer instead of only
 labelling the log. Prior: doha download pipeline (`0.2.0-beta2`), gong
 recording swap, beta screen review (`0.2.0-beta1`), doha SAF folder, Shelly
@@ -23,7 +24,7 @@ cd /Users/wizops/DIPI/niyam
 Environment used: JDK 20, AGP 8.7.2, Kotlin 2.0.21, Gradle 8.9, compileSdk 35
 (auto-downloaded on first build), minSdk 29.
 
-**Next milestone: human tablet beta.** Hand `app-debug.apk` (`0.2.0-beta2`,
+**Next milestone: human tablet beta.** Hand `app-debug.apk` (`0.2.0-beta3`,
 built **with** `niyam.mediaPassphrase` in `local.properties` so downloads
 work) to a tester with `docs/BETA-QA-CHECKLIST.md`. Every screen in design doc
 §08 now exists. The two checks that most need real hardware are the Shelly
