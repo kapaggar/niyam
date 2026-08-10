@@ -188,8 +188,15 @@ class GongService : Service() {
         schedulerEngine.poke("clock confirmed")
     }
 
-    /** A staff-triggered gong. Allowed even when the clock is untrusted. */
-    suspend fun testGong() {
+    /**
+     * A staff-triggered gong. Allowed even when the clock is untrusted.
+     *
+     * @param routeKey render through this route for this burst only, leaving
+     *   the stored `audio_route` preference alone. Audio out passes it so a
+     *   device can be auditioned before it is committed to; null is the normal
+     *   dashboard test and follows the setting.
+     */
+    suspend fun testGong(routeKey: String? = null) {
         playerEngine.submit(
             PlayCommand(
                 kind = PlayKind.TEST_GONG,
@@ -197,7 +204,8 @@ class GongService : Service() {
                 repeats = TEST_STRIKES,
                 gapSeconds = repo.settingInt("gong_gap_seconds"),
                 volume = repo.settingInt("gong_volume"),
-                label = "Test gong",
+                label = if (routeKey == null) "Test gong" else "Test gong · $routeKey",
+                routeKey = routeKey,
             ),
         )
     }

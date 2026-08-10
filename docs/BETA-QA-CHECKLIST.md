@@ -158,6 +158,52 @@ the first check below.
 - [ ] `adb logcat` during a download in a release-style run: no passphrase,
       no `Salted__`, no key/iv bytes anywhere
 
+## Audio out (new)
+
+The route now genuinely steers playback — before this build the picker would
+have been decorative, because the resolved route never reached the player.
+
+- [ ] With nothing attached: one row, **Built-in speaker**, ticked, and the
+      headline reads that the chosen output is attached
+- [ ] Test on the speaker row → the gong rings, and **Last played** becomes
+      Built-in speaker
+- [ ] Plug in a USB audio interface → a **USB** row appears within a few
+      seconds without leaving the screen
+- [ ] Test the USB row **without selecting it** → sound comes out of the USB
+      device, and the ticked row is still the speaker. This is the whole point
+      of the screen; if testing silently re-points the appliance, stop and report
+- [ ] Now select USB → Test gong on the **Dashboard** also comes out of USB
+- [ ] Unplug it while USB is still selected → the row stays, marked
+      **NOT ATTACHED**, headline turns amber and reads FALLING BACK
+- [ ] **Fire a real scheduled gong in that state → it rings from the built-in
+      speaker, on time.** This is the single most important check on this page
+- [ ] That gong's Logs row says `ok`, with a detail naming the unavailable route
+- [ ] Pair a Bluetooth speaker in system settings → a Bluetooth row appears;
+      select and test it. Expect a small extra delay before the first strike —
+      note whether the burst rhythm is acceptable in a hall
+- [ ] Kill the app (service stopped) → Test buttons render inert rather than
+      failing silently
+
+## Network (new)
+
+Informational only. Nothing here should ever suggest the schedule is at risk.
+
+- [ ] On the centre Wi-Fi → mode reads **Wi-Fi**, address matches what the
+      router shows for that tablet
+- [ ] Network name shows either the real SSID or **name withheld** with the
+      explanation — never the literal `<unknown ssid>`
+- [ ] Airplane mode → **OFFLINE**, and the copy still says the schedule is
+      unaffected. Confirm a scheduled gong then fires normally in airplane mode
+- [ ] Join a Wi-Fi with a sign-in page → **NO INTERNET** amber, not green
+- [ ] On mobile data → **METERED** tag appears (matches what Sounds warns about
+      before a download)
+- [ ] Turn on the tablet's own hotspot → Hotspot card flips to **LOOKS ACTIVE**
+      within a few seconds. If it does not, that is a known-heuristic miss, not
+      a bug — note the device model
+- [ ] Both **Open Wi-Fi settings** and **Open hotspot settings** land somewhere
+      sensible; neither crashes if the OEM lacks the screen
+- [ ] Return from system settings within the PIN grace window → no re-prompt
+
 ## Overnight / soak
 
 - [ ] Schedule an event +2 min; screen off; hear the gong
@@ -180,8 +226,9 @@ These are understood and deliberately not fixed here.
    "run that one instead" — the most recent start wins.
 3. **Logs filter resets when you switch tabs.** It survives rotation and process
    death, not tab switching.
-4. **Sounds, Audio out and Network remain locked.** Their cards now say what
-   they will do. The schedule runs without them.
+4. **No screen is locked any more.** Audio out and Network have shipped, so
+   the nav rail has no padlocks left. `Tab.enabled` stays in the enum so the
+   next half-built screen is a one-line lock rather than a special case.
 5. **Not verified on real 1280×800 hardware.** Screenshots were taken on an
    emulator forced to that size at density 160. A real 10" tablet reports fewer
    dp, so please look hard at the Dashboard hero and the event columns.
@@ -214,6 +261,20 @@ These are understood and deliberately not fixed here.
     truncation, HTML soft-fail and checksum rejection against a local
     server; an on-device MockWebServer run was skipped to keep the
     dependency count at zero.
+13. **No audio route has met real hardware.** The fallback rule and the
+    picker's row logic are unit-tested, and the resolved device id is now
+    passed to ExoPlayer's `setPreferredAudioDevice` — but no Bluetooth amp or
+    USB DAC has been on the bench. Bluetooth burst latency in particular is an
+    open number the design doc flags as a risk; measure it before recommending
+    Bluetooth to a hall.
+14. **Hotspot detection is a heuristic.** Android removed the public "am I
+    tethering" API in Android 9, so the screen reads its own interface names
+    (`ap0`, `softap0`, `wlan1`, …). A device using a name outside that list
+    reports no hotspot. Nothing in the app acts on the answer.
+15. **The Wi-Fi network name is usually withheld.** Naming an SSID on API 29+
+    requires a location permission the appliance deliberately does not
+    request, so most devices show "name withheld" and point staff at system
+    settings. This is the intended trade, not a defect.
 
 ## Failures / notes
 

@@ -1,6 +1,8 @@
 package org.dhamma.gong.player
 
 import android.content.Context
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
 import android.net.Uri
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -21,8 +23,15 @@ import kotlin.coroutines.resume
  * carry the Pi daemon's guarantees — can be tested without an audio device.
  */
 interface AudioSink {
-    /** Suspends until playback ends. Cancellation must stop the output. */
-    suspend fun play(uri: Uri, volume: Int)
+    /**
+     * Suspends until playback ends. Cancellation must stop the output.
+     *
+     * @param preferredDeviceId an `AudioDeviceInfo` id to render through, or
+     *   null for whatever Android would pick. A device that has gone away
+     *   between resolution and here must not fail the play — the fallback is
+     *   the system default, because a gong from the wrong speaker beats no gong.
+     */
+    suspend fun play(uri: Uri, volume: Int, preferredDeviceId: Int? = null)
 
     /** Open the device early so the first strike is not eaten by link setup. */
     suspend fun warmUp() = Unit
@@ -39,9 +48,10 @@ class ExoAudioSink(private val context: Context) : AudioSink {
         ensurePlayer()
     }
 
-    override suspend fun play(uri: Uri, volume: Int) {
+    override suspend fun play(uri: Uri, volume: Int, preferredDeviceId: Int?) {
         val p = ensurePlayer()
         withContext(Dispatchers.Main.immediate) {
+            p.setPreferredAudioDevice(findDevice(preferredDeviceId))
             p.volume = volume.coerceIn(0, 100) / 100f
             p.setMediaItem(MediaItem.fromUri(uri))
             p.repeatMode = Player.REPEAT_MODE_OFF
@@ -82,6 +92,23 @@ class ExoAudioSink(private val context: Context) : AudioSink {
             .setHandleAudioBecomingNoisy(false)
             .build()
             .also { player = it }
+    }
+
+    /**
+     * Look the id up again at play time rather than holding the
+     * `AudioDeviceInfo` from resolution.
+     *
+     * Between the scheduler resolving a route and the burst starting, a
+     * Bluetooth amp can drop or a USB DAC can be unplugged. Passing a stale
+     * device to ExoPlayer is how a gong goes silent; passing null puts it out
+     * of the built-in speaker instead, which is the documented fallback.
+     */
+    private fun findDevice(deviceId: Int?): AudioDeviceInfo? {
+        val id = deviceId ?: return null
+        val am = context.getSystemService(AudioManager::class.java) ?: return null
+        return runCatching {
+            am.getDevices(AudioManager.GET_DEVICES_OUTPUTS).firstOrNull { it.id == id }
+        }.getOrNull()
     }
 
     private suspend fun awaitEnded(p: ExoPlayer) = withContext(Dispatchers.Main.immediate) {

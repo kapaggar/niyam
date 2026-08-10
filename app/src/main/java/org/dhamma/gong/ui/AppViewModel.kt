@@ -35,8 +35,12 @@ import org.dhamma.gong.domain.AudioAsset
 import org.dhamma.gong.domain.ApplianceZone
 import org.dhamma.gong.domain.Course
 import org.dhamma.gong.domain.DohaPackMapper
+import org.dhamma.gong.domain.NetworkFacts
 import org.dhamma.gong.domain.PinCode
+import org.dhamma.gong.domain.RoutePlan
 import org.dhamma.gong.domain.SettingsDefaults
+import org.dhamma.gong.net.NetworkProbe
+import org.dhamma.gong.player.AudioRouter
 import org.dhamma.gong.relay.RelayController
 import org.dhamma.gong.schedule.SchedulerEngine
 import org.dhamma.gong.service.AppliancePermissions
@@ -622,6 +626,111 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun scanStorageForMedia() {
         assetManager.scanStorage()
         toast("Scanning storage for doha files…")
+    }
+
+    // ------------------------------------------------------------ audio out
+
+    private val router by lazy { AudioRouter(getApplication()) }
+
+    /** One row of the route picker: a rule from [RoutePlan] plus real devices. */
+    data class RouteRow(
+        val key: String,
+        /** The product name Android reports, or a generic name when absent. */
+        val label: String,
+        /** Every device currently answering to this route key. */
+        val devices: List<String>,
+        val available: Boolean,
+        val selected: Boolean,
+        val lastOk: Boolean,
+    )
+
+    private val _audioRoutes = MutableStateFlow<List<RouteRow>>(emptyList())
+    val audioRoutes: StateFlow<List<RouteRow>> = _audioRoutes.asStateFlow()
+
+    /** What a fire *right now* would actually use, fallback included. */
+    private val _routeChoice = MutableStateFlow(
+        RoutePlan.Choice(RoutePlan.SPEAKER, RoutePlan.SPEAKER, fellBack = false),
+    )
+    val routeChoice: StateFlow<RoutePlan.Choice> = _routeChoice.asStateFlow()
+
+    /**
+     * Re-read the attached output devices.
+     *
+     * Polled by the screen rather than pushed: an appliance that is asleep on a
+     * wall should not be waking to service an `AudioDeviceCallback` nobody is
+     * looking at, and staff plugging in a DAC are standing at the tablet.
+     */
+    fun refreshAudioRoutes() {
+        viewModelScope.launch {
+            val devices = withContext(Dispatchers.IO) { runCatching { router.available() } }
+                .getOrDefault(listOf(org.dhamma.gong.player.AudioRoute.Speaker))
+            val preferred = repo.setting(org.dhamma.gong.player.AudioRoute.SETTING_KEY)
+            val lastOk = repo.stateGet(org.dhamma.gong.player.AudioRoute.LAST_OK_KEY)
+            val byKey = devices.groupBy { it.key }
+
+            _audioRoutes.value = RoutePlan
+                .rows(byKey.keys, preferred, lastOk)
+                .map { row ->
+                    val found = byKey[row.key].orEmpty()
+                    RouteRow(
+                        key = row.key,
+                        label = found.firstOrNull()?.label ?: RoutePlan.genericLabel(row.key),
+                        devices = found.map { it.label },
+                        available = row.available,
+                        selected = row.selected,
+                        lastOk = row.lastOk,
+                    )
+                }
+            _routeChoice.value = RoutePlan.choose(byKey.keys, preferred)
+        }
+    }
+
+    /** Commit a route as the appliance's preference. Saved immediately. */
+    fun selectAudioRoute(key: String) {
+        viewModelScope.launch {
+            repo.putSetting(org.dhamma.gong.player.AudioRoute.SETTING_KEY, key)
+            refreshAudioRoutes()
+            toast("Output set to ${RoutePlan.genericLabel(key)}")
+        }
+    }
+
+    /**
+     * Ring the test gong through one route without committing to it.
+     *
+     * Auditioning a Bluetooth amp must not mean pointing the whole appliance at
+     * it and remembering to point it back — that is how a centre ends up with
+     * every 04:00 gong going to a switched-off speaker.
+     */
+    fun testAudioRoute(key: String) {
+        val svc = service.value
+        if (svc == null) {
+            toast("Appliance service is not running")
+            return
+        }
+        viewModelScope.launch {
+            svc.testGong(key)
+            // The route is only "last known good" once a play has finished, so
+            // give the burst a moment before re-reading the indicator.
+            toast("Testing ${RoutePlan.genericLabel(key)}…")
+        }
+    }
+
+    // ------------------------------------------------------------ network
+
+    private val networkProbe by lazy { NetworkProbe(getApplication()) }
+
+    private val _network = MutableStateFlow(NetworkFacts.Facts())
+    val network: StateFlow<NetworkFacts.Facts> = _network.asStateFlow()
+
+    /** False until the first probe lands, so the screen never guesses "offline". */
+    private val _networkProbed = MutableStateFlow(false)
+    val networkProbed: StateFlow<Boolean> = _networkProbed.asStateFlow()
+
+    fun refreshNetwork() {
+        viewModelScope.launch {
+            _network.value = withContext(Dispatchers.IO) { networkProbe.read() }
+            _networkProbed.value = true
+        }
     }
 
     // ------------------------------------------------------------ toasts

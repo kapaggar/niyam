@@ -29,6 +29,14 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Doha downloads check connectivity and metering before spending data. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!--
+      Network reads the SSID for the informational Network screen. Both are
+      normal permissions with no runtime prompt. ACCESS_FINE_LOCATION is
+      deliberately NOT requested: it is what Android really wants before it will
+      name a WiFi network on API 29+, and a location grant to caption an
+      informational screen is a bad trade. The screen says the name is withheld.
+    -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
 
     <application
         android:allowBackup="false"

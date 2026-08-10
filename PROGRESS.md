@@ -2,12 +2,12 @@
 
 Standalone repo **`kapaggar/niyam`** (branch `main`), extracted with history from the gongserver monorepo's `android/` tree.
 
-Last updated: 2026-08-09, **doha download pipeline** — on-demand CDN download
-→ verify → decrypt → verify → play for the 11 doha tracks, wired into Sounds;
-version bumped to **`0.2.0-beta2`** (`versionCode` 3). Prior same day: beta
-screen review (six screens polished, PIN expiry, Time/Setup, `0.2.0-beta1`),
-doha SAF folder, Shelly relay. Prior: M0–M4, B1–B9/B13/B14, app-open PIN,
-standalone scrub.
+Last updated: 2026-08-10, **Audio out and Network** — the last two locked
+screens shipped, so the nav rail has no padlocks left. Audio out also made the
+route *real*: the resolved device now reaches ExoPlayer instead of only
+labelling the log. Prior: doha download pipeline (`0.2.0-beta2`), gong
+recording swap, beta screen review (`0.2.0-beta1`), doha SAF folder, Shelly
+relay, M0–M4, B1–B9/B13/B14, app-open PIN, standalone scrub.
 
 ---
 
@@ -25,9 +25,10 @@ Environment used: JDK 20, AGP 8.7.2, Kotlin 2.0.21, Gradle 8.9, compileSdk 35
 
 **Next milestone: human tablet beta.** Hand `app-debug.apk` (`0.2.0-beta2`,
 built **with** `niyam.mediaPassphrase` in `local.properties` so downloads
-work) to a tester with `docs/BETA-QA-CHECKLIST.md`. Time, Setup, doha folder,
-Amp power and doha downloads have shipped; Audio out / Network remain locked
-and still need design.
+work) to a tester with `docs/BETA-QA-CHECKLIST.md`. Every screen in design doc
+§08 now exists. The two checks that most need real hardware are the Shelly
+relay and an audio route — no Bluetooth amp or USB DAC has been on the bench,
+so Bluetooth burst latency is still an unmeasured number.
 
 ---
 
@@ -256,6 +257,50 @@ Doha files auto-map by `D01`…`D11` prefix into `media_slots`; unmatched files
 are listed as "unassigned", never guessed. Debug builds already ship 11
 synthetic tones at `app/src/debug/assets/media/doha-test/`
 (regenerate with `python3 tools/make_test_tones.py`).
+
+### Audio out and Network (2026-08-10)
+
+The last two screens from design doc §08, and with them the end of the nav
+rail's padlocks.
+
+**Audio out** is a route picker, a test per route, and a last-known-good
+indicator. The substantive part was not the screen: `AudioRouter.resolve()`
+already computed a route, but its answer only ever reached the log — nothing
+was passed to the sink, so playback went wherever Android chose. A picker on
+top of that would have been decorative. The resolved device id now travels
+`PlayerEngine → AudioSink.play → ExoPlayer.setPreferredAudioDevice`, looked up
+again at play time so a Bluetooth amp that dropped since resolution falls back
+to the speaker rather than failing the burst.
+
+Two rules the screen exists to make visible:
+
+- **Chosen and effective are different things.** A route that is not attached
+  when an alarm fires falls back to the built-in speaker (a gong from the wrong
+  speaker beats no gong, §06/§10). The unattached row keeps its place in the
+  picker and the headline turns amber — the failure being prevented is a centre
+  discovering in week three that every morning gong came out of the tablet.
+- **Testing a route does not select it.** `PlayCommand.routeKey` renders one
+  burst through a named route without touching the `audio_route` setting.
+  Auditioning an amp by pointing the whole appliance at it, and forgetting to
+  point it back, is how the above happens.
+
+The fallback rule itself moved into pure `domain/RoutePlan.kt`; `AudioRouter`
+now only supplies what Android reports and maps the answer back to a device.
+
+**Network** is informational and says so repeatedly — the appliance runs in
+airplane mode indefinitely, and only doha downloads want a connection, so every
+red state on the screen is written to reassure rather than alarm. It reports
+mode, address, metered and validated state, and refuses to guess about the two
+things Android will not tell it: the SSID (withheld without a location
+permission this app deliberately does not request) and tethering state (no
+public API since Android 9, so the hotspot card reads interface names and is
+labelled a guess). Parsing lives in pure `domain/NetworkFacts.kt`;
+`net/NetworkProbe.kt` only fetches, and every lookup is wrapped — a probe that
+throws is a blank row, never a missed gong.
+
+Suite 334 green (+33). New: `domain/RoutePlan.kt`, `domain/NetworkFacts.kt`,
+`net/NetworkProbe.kt`, `ui/AudioOutScreen.kt`, `ui/NetworkScreen.kt`.
+`ACCESS_WIFI_STATE` added; `ACCESS_FINE_LOCATION` deliberately not.
 
 ### Doha download pipeline (2026-08-09, `0.2.0-beta2`)
 

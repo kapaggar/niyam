@@ -75,17 +75,19 @@ enum class Tab(
     LOGS("Logs", "≡", requiresPin = false),
     SECURITY("PIN", "⚿", requiresPin = false),
 
-    // Design doc §08. Audio out and Network are still undesigned and drawn
-    // locked; the rest have shipped. Sounds currently holds only the doha
-    // slot mapping — volumes, burst gap and doha time are still to come.
+    // Design doc §08. Every screen has now shipped; `enabled` stays on the
+    // enum because the nav rail is the only routing there is, and a future
+    // half-built screen must be lockable without a special case. Sounds
+    // currently holds the doha slot mapping and downloads — volumes, burst gap
+    // and doha time are still to come.
     SOUNDS("Sounds", "♪", requiresPin = true),
-    AUDIO_OUT("Audio out", "⊳", requiresPin = true, enabled = false),
+    AUDIO_OUT("Audio out", "⊳", requiresPin = true),
     // Mains switching is not "where sound goes", so it gets its own entry
     // rather than hiding behind Audio out (relay design, "Screen").
     // U+23FB POWER SYMBOL is not in the platform font and drew as tofu.
     POWER("Amp power", "⊙", requiresPin = true),
     TIME("Time", "◷", requiresPin = true),
-    NETWORK("Network", "⌁", requiresPin = true, enabled = false),
+    NETWORK("Network", "⌁", requiresPin = true),
     SETUP("Setup", "✓", requiresPin = true),
 }
 
@@ -163,7 +165,12 @@ fun GongApp(
                         Tab.SECURITY -> SecurityScreen(vm)
                         Tab.POWER -> RelayScreen(vm)
                         Tab.TIME -> TimeScreen(vm)
+                        Tab.AUDIO_OUT -> AudioOutScreen(vm)
+                        Tab.NETWORK -> NetworkScreen(vm)
                         Tab.SETUP -> SetupScreen(vm)
+                        // Nothing is locked today. The branch stays so that
+                        // adding a half-built screen is a one-line `enabled =
+                        // false` and not a crash.
                         else -> LockedScreen(tab)
                     }
                 }
@@ -297,17 +304,9 @@ private fun LockedScreen(tab: Tab) {
     ) {
         ScreenTitle(tab.label)
         Text(
-            when (tab) {
-                // Only tabs with enabled = false reach here. Sounds, Time,
-                // Setup and Amp power have all shipped and are routed above.
-                Tab.AUDIO_OUT ->
-                    "Will hold the output route, a test for each route, and the " +
-                        "last known-good route."
-                Tab.NETWORK ->
-                    "Will show whether the appliance is on its own hotspot or the " +
-                        "centre Wi-Fi, with SSID and IP. Informational only."
-                else -> "This screen is not available yet."
-            },
+            // Unreachable while every tab is enabled; kept as the honest
+            // landing for whatever gets locked next.
+            "This screen is not available yet.",
             fontSize = 13.5.sp,
             color = Nocturne.Neutral500,
         )

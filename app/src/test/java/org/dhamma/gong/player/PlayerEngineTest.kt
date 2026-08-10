@@ -43,14 +43,17 @@ class PlayerEngineTest {
     private class FakeSink(private val durationMs: Long = 100) : AudioSink {
         val played = CopyOnWriteArrayList<String>()
         val volumes = CopyOnWriteArrayList<Int>()
+        /** The device id each play was steered to; null means system default. */
+        val devices = CopyOnWriteArrayList<Int?>()
         var warmedUp = false
         var released = false
         /** When set, play() suspends on this instead of delaying. */
         var block: CompletableDeferred<Unit>? = null
 
-        override suspend fun play(uri: Uri, volume: Int) {
+        override suspend fun play(uri: Uri, volume: Int, preferredDeviceId: Int?) {
             played += uri.toString()
             volumes += volume
+            devices += preferredDeviceId
             block?.await() ?: delay(durationMs)
         }
 
@@ -321,7 +324,7 @@ class PlayerEngineTest {
     fun aSinkErrorMidBurstIsLoggedWithTheStrikesThatDidPlay() = runTest {
         val sink = object : AudioSink {
             var n = 0
-            override suspend fun play(uri: Uri, volume: Int) {
+            override suspend fun play(uri: Uri, volume: Int, preferredDeviceId: Int?) {
                 if (++n == 3) error("device disappeared")
                 delay(10)
             }
@@ -379,6 +382,39 @@ class PlayerEngineTest {
         assertEquals("the gong still rings", PlayResult.OK, row.result)
         assertEquals(2, row.repeats)
         assertTrue(row.detail.contains("unavailable"))
+    }
+
+    @Test
+    fun aCommandsOwnRouteOverridesTheStoredPreference() = runTest {
+        // Audio out auditions a device without committing the appliance to it.
+        // The setting says speaker, which would resolve cleanly, so a detail
+        // naming bluetooth can only have come from the command itself.
+        repo.putSetting(AudioRoute.SETTING_KEY, AudioRoute.Speaker.key)
+        val engine = engine(FakeSink())
+        engine.submit(gong(repeats = 1).copy(routeKey = "bluetooth"))
+        advanceUntilIdle()
+
+        val row = db.playLog().recent().single()
+        assertEquals(PlayResult.OK, row.result)
+        assertTrue(row.detail.contains("bluetooth"))
+        assertEquals(
+            "the audition must not rewrite the appliance's preference",
+            AudioRoute.Speaker.key,
+            repo.setting(AudioRoute.SETTING_KEY),
+        )
+    }
+
+    @Test
+    fun theSpeakerRouteAsksForNoParticularDevice() = runTest {
+        // Null is deliberate: naming the built-in device by id and missing
+        // would be worse than accepting whatever Android would have picked.
+        val sink = FakeSink()
+        val engine = engine(sink)
+        engine.submit(gong(repeats = 2))
+        advanceUntilIdle()
+
+        assertEquals(2, sink.devices.size)
+        assertTrue(sink.devices.all { it == null })
     }
 
     // ------------------------------------------------------------ queue cap
