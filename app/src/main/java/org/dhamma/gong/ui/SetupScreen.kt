@@ -194,6 +194,24 @@ fun SetupScreen(vm: AppViewModel) {
                         "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
                         Nocturne.Neutral600,
                     )
+                    Spacer(Modifier.height(8.dp))
+                    // Presence only — never the key, never its length. Two APKs
+                    // can share a version and differ here, which is exactly the
+                    // confusion this row exists to end: "downloads are disabled"
+                    // is a property of the build, not a fault on the tablet.
+                    StateRow(
+                        "Media key",
+                        if (BuildConfig.MEDIA_PASSPHRASE.isEmpty()) {
+                            "absent — doha downloads off"
+                        } else {
+                            "present"
+                        },
+                        if (BuildConfig.MEDIA_PASSPHRASE.isEmpty()) {
+                            Nocturne.Neutral600
+                        } else {
+                            Nocturne.Ok
+                        },
+                    )
                     Spacer(Modifier.height(12.dp))
                     Text(
                         "The scheduler lives in the service, not in this screen. " +

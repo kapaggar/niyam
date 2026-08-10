@@ -129,3 +129,29 @@ See `PROGRESS.md` for the live checklist.
 ## Security / privacy
 
 Follow `SECURITY.md` and `PRIVACY.md`. Do not log PINs or dump full databases into chat transcripts.
+
+### Media key
+
+The legacy CDN media passphrase decrypts the downloaded doha ciphertext. It
+lives in **`media.properties`** at the repo root — gitignored, never committed,
+never printed. `media.properties.example` is the committed template.
+
+Resolution order at build time, first hit wins: `media.properties` →
+`local.properties` → `NIYAM_MEDIA_PASSPHRASE` (CI) → empty. It reaches the app
+only as `BuildConfig.MEDIA_PASSPHRASE`.
+
+It has its own file rather than another line in `local.properties` because
+Android Studio regenerates that file when the SDK path changes and silently
+drops everything else in it — and a build that quietly loses its key is
+indistinguishable from one that never had it.
+
+Rules, unchanged:
+
+- Never in source control, logs, crash reports, analytics or UI. The build
+  prints only `media key present` / `media key ABSENT`, never the value or its
+  length — build output ends up pasted into issues.
+- **A keyless build is valid, not broken.** Sounds shows the no-media-key state
+  and downloads stay disabled; that path is the first item on the QA checklist.
+  Never "fix" a missing key by hardcoding a default or committing one.
+- Test fixtures use their own throwaway passphrase and must never use the real
+  one.

@@ -1,0 +1,25 @@
+# Legacy CDN media passphrase — template. Committed; the real file is not.
+#
+# Copy this to `media.properties` (gitignored) and put the passphrase after
+# the `=`. It is read at build time into BuildConfig.MEDIA_PASSPHRASE and
+# decrypts the doha ciphertext downloaded from apt.vridhamma.org.
+#
+#     cp media.properties.example media.properties
+#     # then edit media.properties and paste the passphrase
+#
+# To avoid leaving it in your shell history, prefer an editor over `echo`.
+# If you must use the shell, a leading space keeps it out of history on a
+# default bash/zsh setup:
+#
+#      printf 'niyam.mediaPassphrase=%s\n' 'THE-PASSPHRASE' > media.properties
+#
+# Verify without revealing it — the build prints presence only:
+#
+#     ./gradlew :app:assembleDebug | grep "media key"
+#
+# Rules (docs/… and AGENTS.md "Media key"):
+#   - never commit it, never log it, never show it in the UI
+#   - a build with no key is valid: Sounds shows the no-media-key state and
+#     downloads stay disabled. Do not "fix" that by hardcoding a default.
+
+niyam.mediaPassphrase=
