@@ -1,6 +1,7 @@
 # On-demand doha asset pipeline — multi-agent plan
 
 **Date:** 2026-08-09 · **Branch:** `beta/screen-review` · **Lead:** orchestrator session
+**Status:** COMPLETE — all six agents shipped; suite 292 green; integrated as `0.2.0-beta2`
 
 ## Mission (condensed)
 
@@ -251,3 +252,28 @@ hash compare is case-insensitive in both verify functions, not just ready.
 corrupt/missing as empty. One addition: `atomicMove` also drops index
 entries for both paths (move preserves mtime, so a stale cache hit at the
 destination could serve a wrong hash). Details: `asset-pipeline-reports/A4.md`.
+
+### B1 — done (2026-08-09)
+
+`assets/AudioAssetManager.kt` (pinned API exact) + `assets/AudioAssets.kt`
+singleton + `assets/DownloadedSlotRegistrar.kt`; locked edits:
+`MediaSlotSource.DOWNLOADED`, `DohaPackMapper.classify` lets a folder pack
+claim `downloaded` slots (manual/bundled untouched, +1 test), GongService
+wiring (get + refreshFromDisk + registrar), `ACCESS_NETWORK_STATE` in the
+manifest. 9 new tests; full suite 292 green, 0 failures. Details:
+`asset-pipeline-reports/B1.md`.
+
+### B2 — done
+
+Downloads UI landed: `ui/AppViewModel.kt` gained a "doha downloads" section
+(lazy `AudioAssets.get`, `downloadStates`/`downloadCatalog` proxies,
+`downloadDoha`, `downloadAllDohas`, `rescanDownloads`, `scanStorageForMedia`,
+`downloadsMetered`); `ui/DohaMediaScreen.kt` gained a Downloads card — 11
+rows sorted by filename (D-tag + derived title + state chip/progress/Retry),
+NoKey banner once above the list, first-use size note, Download-all with
+metered AlertDialog confirm (470 MB / 45 MB variants), scan-storage action,
+and `rescanDownloads()` on screen entry. Compiled against B1's pinned API
+exactly; `compileDebugKotlin` and full `testDebugUnitTest` green. No ui unit
+tests exist. One note: no dialog idiom existed anywhere in `ui/`, so the
+metered confirm is M3 `AlertDialog` on `Nocturne.SurfaceHigh` with
+`PackButton`s. Details: `asset-pipeline-reports/B2.md`.

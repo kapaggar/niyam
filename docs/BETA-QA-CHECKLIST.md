@@ -119,6 +119,40 @@ does not do BLE setup. Give it a DHCP reservation so the IP is stable.
 - [ ] Set a device password on the Shelly, enter it in Niyam → Test still passes,
       and the password is never displayed back
 
+## Doha downloads — CDN pipeline (new)
+
+The QA build must be made with the media passphrase present
+(`niyam.mediaPassphrase=…` in `local.properties` before `assembleDebug`).
+Without it every track shows the "no media key" banner — that state is itself
+the first check below.
+
+- [ ] Build **without** the passphrase → Sounds shows one banner "This build
+      has no media key", rows read Unavailable, and nothing crashes
+- [ ] Build **with** it → 11 rows D01…D11 with titles, all "Not downloaded"
+      on a cold install, plus the first-use note about download size
+- [ ] Download one track on WiFi → progress counts up in MB → "Preparing…" →
+      "Ready", and its slot appears in the doha slot list as source
+      `downloaded`
+- [ ] Play a test doha for that slot → you hear the downloaded track
+- [ ] Kill the app mid-download → reopen → retry → completes (it should
+      resume, not restart from zero — watch the starting MB figure)
+- [ ] Switch to mobile data → per-track Download asks before spending ~45 MB;
+      "Download all" asks about ~470 MB; declining does nothing
+- [ ] Airplane mode + not downloaded → clear "No connection" error, no crash,
+      and an already-Ready track still plays
+- [ ] "Download all dohas" on WiFi → all 11 reach Ready (long; leave it
+      plugged in) — this is acceptance for the live CDN
+- [ ] Reboot → Sounds still shows Ready without re-downloading (startup
+      re-index)
+- [ ] Truncate test if you can shell in: delete a few KB off a ready file →
+      request it again → it repairs without redownloading (re-decrypts from
+      the kept ciphertext)
+- [ ] Copy one catalog mp3 to `/sdcard/common-general/` → "Scan storage for
+      existing media" finds and imports it (may legitimately find nothing
+      under scoped storage — note which)
+- [ ] `adb logcat` during a download in a release-style run: no passphrase,
+      no `Salted__`, no key/iv bytes anywhere
+
 ## Overnight / soak
 
 - [ ] Schedule an event +2 min; screen off; hear the gong
@@ -160,8 +194,21 @@ These are understood and deliberately not fixed here.
    CIDR, and the relay host is typed at setup, so the narrowing lives in code —
    `ShellyClient` is the app's only networking. Worth tightening if the relay
    ever gets a fixed address.
-9. **Sounds is partial.** It holds the doha slot mapping only; track choice,
-   volumes, burst gap, doha time and no-course mode are still unbuilt.
+9. **Sounds is partial.** It holds the doha slot mapping and CDN downloads;
+   track choice, volumes, burst gap, doha time and no-course mode are still
+   unbuilt.
+10. **The download pipeline has not met the live CDN from a device.** Every
+    layer is unit-tested against fixtures and a local fake server with the
+    real catalog hashes, but "Download all dohas" against
+    `apt.vridhamma.org` is a manual QA item, above.
+11. **Depth-2 storage scan is best-effort on API 29+.** Scoped storage means
+    `/sdcard` may be unreadable without extra permissions the app
+    deliberately does not request; the SAF folder picker in Sounds remains
+    the reliable route for user-supplied files.
+12. **No instrumentation test for the downloader.** JVM tests cover resume,
+    truncation, HTML soft-fail and checksum rejection against a local
+    server; an on-device MockWebServer run was skipped to keep the
+    dependency count at zero.
 
 ## Failures / notes
 

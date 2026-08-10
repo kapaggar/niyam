@@ -116,4 +116,5 @@ object MediaSlotSource {
     const val AUTO = "auto"
     const val MANUAL = "manual"
     const val BUNDLED = "bundled"
+    const val DOWNLOADED = "downloaded"
 }

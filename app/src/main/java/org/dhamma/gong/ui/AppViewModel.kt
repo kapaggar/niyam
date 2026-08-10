@@ -28,7 +28,10 @@ import org.dhamma.gong.data.ScheduleEventEntity
 import org.dhamma.gong.data.toDomain
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.dhamma.gong.assets.AudioAssetManager
+import org.dhamma.gong.assets.AudioAssets
 import org.dhamma.gong.domain.ActiveCourse
+import org.dhamma.gong.domain.AudioAsset
 import org.dhamma.gong.domain.ApplianceZone
 import org.dhamma.gong.domain.Course
 import org.dhamma.gong.domain.DohaPackMapper
@@ -575,6 +578,51 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         } ?: return null
         files to dirs
     }.getOrNull()
+
+    // ------------------------------------------------------------ doha downloads
+
+    /**
+     * The on-demand download pipeline. Lazy on purpose: the manager indexes
+     * disk state when created, and only the Sounds screen asks about
+     * downloads, so nothing pays that cost until staff open the screen.
+     */
+    private val assetManager: AudioAssetManager by lazy {
+        AudioAssets.get(getApplication())
+    }
+
+    /** Per-asset pipeline state, keyed by [AudioAsset.id]. */
+    val downloadStates: StateFlow<Map<String, AudioAssetManager.TrackState>>
+        get() = assetManager.states
+
+    /** The downloadable doha catalog (11 assets), unordered. */
+    val downloadCatalog: List<AudioAsset>
+        get() = assetManager.catalog
+
+    /** True when the current network is metered (mobile data). */
+    fun downloadsMetered(): Boolean = assetManager.isMetered()
+
+    /**
+     * Download (or repair) one asset. Metering consent is the screen's job —
+     * by the time this is called the user has already said yes if it matters.
+     */
+    fun downloadDoha(id: String) {
+        assetManager.request(id)
+    }
+
+    fun downloadAllDohas(allowMetered: Boolean) {
+        assetManager.requestAll(allowMetered)
+    }
+
+    /** Re-index what is actually on disk. Safe to call on every screen entry. */
+    fun rescanDownloads() {
+        assetManager.refreshFromDisk()
+    }
+
+    /** Look for already-downloaded doha files elsewhere on this device. */
+    fun scanStorageForMedia() {
+        assetManager.scanStorage()
+        toast("Scanning storage for doha files…")
+    }
 
     // ------------------------------------------------------------ toasts
 

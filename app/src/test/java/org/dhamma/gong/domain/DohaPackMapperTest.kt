@@ -115,6 +115,20 @@ class DohaPackMapperTest {
     }
 
     @Test
+    fun `rescan replaces downloaded rows - a folder pack outranks the pipeline`() {
+        val held = mapOf(2 to "downloaded", 3 to "manual", 4 to "bundled")
+        val m = DohaPackMapper.classify(
+            listOf(f("D02 new.mp3"), f("D03 new.mp3"), f("D04 new.mp3")),
+            held,
+        )
+        // slot 2 was filled by the download pipeline — a staff-chosen pack takes it.
+        assertEquals("D02 new.mp3", m.assigned[2]?.name)
+        assertEquals(setOf(2), m.assigned.keys)
+        // manual and bundled stay protected exactly as before.
+        assertEquals(listOf(3, 4), m.skipped.map { it.slot }.sorted())
+    }
+
+    @Test
     fun `an empty slot is writable`() {
         val m = DohaPackMapper.classify(listOf(f("D09 x.mp3")), mapOf(1 to "manual"))
         assertEquals(setOf(9), m.assigned.keys)

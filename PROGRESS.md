@@ -2,10 +2,12 @@
 
 Standalone repo **`kapaggar/niyam`** (branch `main`), extracted with history from the gongserver monorepo's `android/` tree.
 
-Last updated: 2026-08-09, **beta screen review** — all six shipped screens
-polished for tablet field use, PIN session now expires, Time and Setup screens
-added, version bumped to **`0.2.0-beta1`** (`versionCode` 2) for human tablet
-testing. Prior: M0–M4, B1–B9/B13/B14, app-open PIN, standalone scrub.
+Last updated: 2026-08-09, **doha download pipeline** — on-demand CDN download
+→ verify → decrypt → verify → play for the 11 doha tracks, wired into Sounds;
+version bumped to **`0.2.0-beta2`** (`versionCode` 3). Prior same day: beta
+screen review (six screens polished, PIN expiry, Time/Setup, `0.2.0-beta1`),
+doha SAF folder, Shelly relay. Prior: M0–M4, B1–B9/B13/B14, app-open PIN,
+standalone scrub.
 
 ---
 
@@ -21,9 +23,11 @@ cd /Users/wizops/DIPI/niyam
 Environment used: JDK 20, AGP 8.7.2, Kotlin 2.0.21, Gradle 8.9, compileSdk 35
 (auto-downloaded on first build), minSdk 29.
 
-**Next milestone: human tablet beta.** Hand `app-debug.apk` (`0.2.0-beta1`) to a
-tester with `docs/BETA-QA-CHECKLIST.md`. Time and Setup shipped in the beta
-review; Sounds / Audio out / Network remain locked and still need design.
+**Next milestone: human tablet beta.** Hand `app-debug.apk` (`0.2.0-beta2`,
+built **with** `niyam.mediaPassphrase` in `local.properties` so downloads
+work) to a tester with `docs/BETA-QA-CHECKLIST.md`. Time, Setup, doha folder,
+Amp power and doha downloads have shipped; Audio out / Network remain locked
+and still need design.
 
 ---
 
@@ -252,6 +256,35 @@ Doha files auto-map by `D01`…`D11` prefix into `media_slots`; unmatched files
 are listed as "unassigned", never guessed. Debug builds already ship 11
 synthetic tones at `app/src/debug/assets/media/doha-test/`
 (regenerate with `python3 tools/make_test_tones.py`).
+
+### Doha download pipeline (2026-08-09, `0.2.0-beta2`)
+
+The app ships no doha audio; on request it downloads ciphertext from the
+legacy CDN (`apt.vridhamma.org/updates/v2/`), verifies it against a bundled
+dual-checksum catalog (`assets/doha_manifest.json`, 11 assets), decrypts the
+OpenSSL `Salted__` AES-256-CBC envelope (EVP_BytesToKey MD5 — compatibility
+with the existing distribution format, owner holds the rights), verifies the
+plaintext (size + SHA-256 + ID3/MPEG magic) and only then promotes it to
+`{appFiles}/audio/ready/`, the sole place playback reads from. Half-broken
+files repair themselves: truncated downloads resume with `Range`, corrupt
+ready files re-decrypt from the kept ciphertext, misplaced ciphertext in
+`ready/` is moved home, junk is quarantined. All decisions live in pure
+`domain/AssetResolve.kt` (42 JVM tests); IO lives in `assets/` (`AssetStore`,
+`CdnDownloader`, `OpenSslSaltedAes`, `StorageLocator` depth-2 scan,
+`AudioAssetManager` single-flight orchestrator — 64 more tests).
+
+Ready tracks register into empty `media_slots` rows as source `downloaded`;
+precedence is manual > bundled > folder pack (`auto`) > `downloaded`, so a
+staff-picked SAF folder always outranks downloads and nothing ever
+auto-overwrites a manual assignment. Sounds gained a Downloads card: per-track
+progress, retry, "Download all dohas (~470 MB)" with a mobile-data confirm,
+storage scan, and a "no media key" banner when the build lacks the passphrase.
+
+The media passphrase is injected at build time from `local.properties`
+(`niyam.mediaPassphrase`) or `NIYAM_MEDIA_PASSPHRASE` into
+`BuildConfig.MEDIA_PASSPHRASE`; it is never committed, logged, or shown.
+A keyless build still plays already-verified files. Live-CDN "download all"
+remains a manual QA item (`docs/BETA-QA-CHECKLIST.md`).
 
 ### M7 — hardening before any Play upload
 Battery-optimisation guidance, R8 rules, privacy stub, permission rationale

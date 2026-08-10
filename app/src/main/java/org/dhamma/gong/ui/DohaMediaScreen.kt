@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -35,7 +37,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import org.dhamma.gong.assets.AudioAssetManager
 import org.dhamma.gong.data.MediaSlotSource
+import org.dhamma.gong.domain.AudioAsset
 import org.dhamma.gong.domain.DohaPackMapper
 import org.dhamma.gong.domain.DohaSlots
 
@@ -55,6 +59,7 @@ fun DohaMediaScreen(vm: AppViewModel) {
     val pack by vm.dohaPack.collectAsStateWithLifecycle()
     val slots by vm.mediaSlots.collectAsStateWithLifecycle()
     val treeUri by vm.dohaTreeUri.collectAsStateWithLifecycle()
+    val downloadStates by vm.downloadStates.collectAsStateWithLifecycle()
 
     val picker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree(),
@@ -62,8 +67,12 @@ fun DohaMediaScreen(vm: AppViewModel) {
 
     // Re-read the folder on every entry: an SD card can be pulled between visits,
     // and stale rows that claim to be verified are the failure this screen exists
-    // to prevent.
-    LaunchedEffect(Unit) { vm.rescanDohaFolder(announce = false) }
+    // to prevent. The download index gets the same treatment — a chip claiming
+    // "Ready" for a file someone deleted is the same lie.
+    LaunchedEffect(Unit) {
+        vm.rescanDohaFolder(announce = false)
+        vm.rescanDownloads()
+    }
 
     val bySlot = remember(slots) { slots.associateBy { it.slot } }
     var expanded by remember { mutableStateOf<Int?>(null) }
@@ -164,6 +173,16 @@ fun DohaMediaScreen(vm: AppViewModel) {
                 }
             }
         }
+
+        // -------------------------------------------------------- downloads
+        DownloadsCard(
+            catalog = vm.downloadCatalog,
+            states = downloadStates,
+            isMetered = vm::downloadsMetered,
+            onDownload = vm::downloadDoha,
+            onDownloadAll = vm::downloadAllDohas,
+            onScanStorage = vm::scanStorageForMedia,
+        )
     }
 }
 
@@ -429,4 +448,251 @@ private fun PackButton(
             color = if (enabled) tint else Nocturne.Neutral600,
         )
     }
+}
+
+// ---------------------------------------------------------------- downloads
+
+/** What a metered-network confirm dialog is asking permission for. */
+private sealed interface MeteredConfirm {
+    data object All : MeteredConfirm
+    data class One(val id: String) : MeteredConfirm
+}
+
+/**
+ * The on-demand download pipeline's face. Every row is one catalog asset;
+ * the chip is the pipeline's state verbatim — except that error text is
+ * already plain words by contract, and nothing else (paths, hashes, headers)
+ * is ever rendered here.
+ */
+@Composable
+private fun DownloadsCard(
+    catalog: List<AudioAsset>,
+    states: Map<String, AudioAssetManager.TrackState>,
+    isMetered: () -> Boolean,
+    onDownload: (String) -> Unit,
+    onDownloadAll: (Boolean) -> Unit,
+    onScanStorage: () -> Unit,
+) {
+    val rows = remember(catalog) { catalog.sortedBy { it.filename } }
+    val noKey = states.values.any { it is AudioAssetManager.TrackState.NoKey }
+    // First use = nothing downloaded, nothing in flight, nothing failed.
+    val firstUse = !noKey && rows.isNotEmpty() && rows.all {
+        stateOf(states, it) is AudioAssetManager.TrackState.NotDownloaded
+    }
+    var confirm by remember { mutableStateOf<MeteredConfirm?>(null) }
+
+    SurfaceCard {
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Column(Modifier.weight(1f)) {
+                Eyebrow("Downloads")
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Fetch the doha recordings straight to this device — no pack folder needed.",
+                    fontSize = 12.5.sp,
+                    color = Nocturne.Neutral400,
+                )
+            }
+            PackButton(
+                "Download all dohas (~470 MB)",
+                accent = true,
+                enabled = !noKey,
+                onClick = {
+                    if (isMetered()) confirm = MeteredConfirm.All else onDownloadAll(false)
+                },
+            )
+        }
+
+        if (noKey) {
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "This build has no media key — downloads are disabled.",
+                fontSize = 13.sp,
+                color = Nocturne.Warning,
+            )
+        } else if (firstUse) {
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "These recordings are large — about 45 MB each, ~470 MB for all " +
+                    "eleven. WiFi is recommended. Downloaded files stay on this device.",
+                fontSize = 12.5.sp,
+                color = Nocturne.Neutral500,
+            )
+        }
+
+        Spacer(Modifier.height(10.dp))
+        Hairline()
+        for (asset in rows) {
+            DownloadRow(
+                asset = asset,
+                state = if (noKey) null else stateOf(states, asset),
+                onDownload = {
+                    if (isMetered()) confirm = MeteredConfirm.One(asset.id)
+                    else onDownload(asset.id)
+                },
+            )
+            Hairline()
+        }
+
+        Spacer(Modifier.height(12.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            PackButton("Scan storage for existing media", onClick = onScanStorage)
+            Text(
+                "Looks for already-downloaded doha files in common folders on this device.",
+                fontSize = 12.5.sp,
+                color = Nocturne.Neutral500,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+
+    confirm?.let { asking ->
+        MeteredConfirmDialog(
+            sizeLabel = when (asking) {
+                MeteredConfirm.All -> "about 470 MB"
+                is MeteredConfirm.One -> "about 45 MB"
+            },
+            onConfirm = {
+                when (asking) {
+                    MeteredConfirm.All -> onDownloadAll(true)
+                    is MeteredConfirm.One -> onDownload(asking.id)
+                }
+                confirm = null
+            },
+            onDismiss = { confirm = null },
+        )
+    }
+}
+
+/** A missing entry means the manager has not looked yet — same as not downloaded. */
+private fun stateOf(
+    states: Map<String, AudioAssetManager.TrackState>,
+    asset: AudioAsset,
+): AudioAssetManager.TrackState =
+    states[asset.id] ?: AudioAssetManager.TrackState.NotDownloaded
+
+@Composable
+private fun DownloadRow(
+    asset: AudioAsset,
+    state: AudioAssetManager.TrackState?,
+    onDownload: () -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = Nocturne.MIN_TOUCH_DP.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            slotTag(asset.filename),
+            fontSize = 14.sp,
+            fontFamily = Nocturne.Mono,
+            fontWeight = FontWeight.Medium,
+            color = Nocturne.Text,
+            modifier = Modifier.width(56.dp),
+        )
+        Text(
+            dohaTitle(asset.filename),
+            fontSize = 13.5.sp,
+            color = Nocturne.Neutral300,
+            maxLines = 1,
+            modifier = Modifier.weight(1f),
+        )
+        Box(Modifier.width(200.dp)) { DownloadStateCell(state) }
+        when (state) {
+            is AudioAssetManager.TrackState.NotDownloaded ->
+                PackButton("Download", modifier = Modifier.width(104.dp), onClick = onDownload)
+            is AudioAssetManager.TrackState.Error ->
+                PackButton("Retry", modifier = Modifier.width(104.dp), onClick = onDownload)
+            else -> Spacer(Modifier.width(104.dp))
+        }
+    }
+}
+
+/** null state = the build has no key; the row is simply unavailable. */
+@Composable
+private fun DownloadStateCell(state: AudioAssetManager.TrackState?) {
+    when (state) {
+        null -> Text("Unavailable", fontSize = 12.5.sp, color = Nocturne.Neutral500)
+        is AudioAssetManager.TrackState.NotDownloaded -> StateLabel("Not downloaded", Nocturne.Neutral600)
+        is AudioAssetManager.TrackState.Preparing -> StateLabel("Preparing…", Nocturne.Warning)
+        is AudioAssetManager.TrackState.Ready -> StateLabel("Ready", Nocturne.Ok, textColor = Nocturne.Ok)
+        is AudioAssetManager.TrackState.NoKey ->
+            Text("Unavailable", fontSize = 12.5.sp, color = Nocturne.Neutral500)
+        is AudioAssetManager.TrackState.Error -> Text(
+            state.message,
+            fontSize = 12.5.sp,
+            color = Nocturne.Error,
+            modifier = Modifier.padding(vertical = 6.dp),
+        )
+        is AudioAssetManager.TrackState.Downloading -> Column(Modifier.padding(vertical = 6.dp)) {
+            Text(
+                "${mb(state.received)} / ${mb(state.total)} MB",
+                fontSize = 12.5.sp,
+                fontFamily = Nocturne.Mono,
+                color = Nocturne.Neutral300,
+            )
+            if (state.total > 0) {
+                Spacer(Modifier.height(5.dp))
+                LinearProgressIndicator(
+                    progress = {
+                        (state.received.toFloat() / state.total).coerceIn(0f, 1f)
+                    },
+                    color = Nocturne.Accent,
+                    trackColor = Nocturne.Neutral800,
+                    modifier = Modifier.fillMaxWidth().height(4.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StateLabel(text: String, dot: Color, textColor: Color = Nocturne.Neutral400) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(7.dp),
+    ) {
+        Dot(dot)
+        Text(text, fontSize = 12.5.sp, color = textColor)
+    }
+}
+
+@Composable
+private fun MeteredConfirmDialog(
+    sizeLabel: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Nocturne.SurfaceHigh,
+        text = {
+            Text(
+                "You are on mobile data. Download $sizeLabel now?",
+                fontSize = 15.sp,
+                color = Nocturne.Text,
+            )
+        },
+        confirmButton = { PackButton("Download", accent = true, onClick = onConfirm) },
+        dismissButton = { PackButton("Cancel", onClick = onDismiss) },
+    )
+}
+
+/** Whole decimal megabytes, no decimals — "12 / 43 MB" territory. */
+private fun mb(bytes: Long): String = (bytes / 1_000_000).toString()
+
+/** "D06_0632_Doha-Samatha-_NA_NA.mp3" → "D06". */
+private fun slotTag(filename: String): String = filename.substringBefore('_')
+
+/** "D06_0632_Doha-Samatha-_NA_NA.mp3" → "Samatha"; "D01_…Doha-Hin-1…" → "Hin 1". */
+private fun dohaTitle(filename: String): String {
+    val mid = filename.removeSuffix(".mp3").split('_').getOrNull(2) ?: return filename
+    return mid.removePrefix("Doha-").trim('-').replace('-', ' ').ifBlank { filename }
 }
