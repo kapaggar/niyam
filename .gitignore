@@ -1,6 +1,9 @@
 *.iml
 .gradle/
 /local.properties
+# The legacy CDN media passphrase. Never commit it — see media.properties.example
+# for the shape and AGENTS.md "Media key" for why it lives in its own file.
+/media.properties
 /.idea/
 .DS_Store
 /build/

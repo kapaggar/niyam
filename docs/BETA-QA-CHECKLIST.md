@@ -1,10 +1,14 @@
-# Niyam 0.2.0-beta3 — human QA
+# Niyam 0.2.0-beta4 — human QA
 
-Device: ________  Android: ________  Build: debug APK (`versionCode` 4)
+Device: ________  Android: ________  Build: debug APK (`versionCode` 5)
 
-Check **Setup → Appliance state → Build** on the tablet before you start. If it
-does not read `0.2.0-beta3 (4)`, the install did not take — reinstall before
-reporting anything.
+Check **Setup → Appliance state** on the tablet before you start:
+
+- **Build** must read `0.2.0-beta4 (5)`. If it does not, the install did not
+  take — reinstall before reporting anything.
+- **Media key** tells you which doha-download section applies. `present` means
+  downloads should work; `absent — doha downloads off` is a deliberate build
+  state, not a fault on the tablet.
 
 APK: `app/build/outputs/apk/debug/app-debug.apk`
 
@@ -130,10 +134,12 @@ does not do BLE setup. Give it a DHCP reservation so the IP is stable.
 
 ## Doha downloads — CDN pipeline (new)
 
-The QA build must be made with the media passphrase present
-(`niyam.mediaPassphrase=…` in `local.properties` before `assembleDebug`).
-Without it every track shows the "no media key" banner — that state is itself
-the first check below.
+The QA build must be made with the media passphrase present: copy
+`media.properties.example` to `media.properties` (gitignored), fill in
+`niyam.mediaPassphrase=`, then `assembleDebug`. The build prints
+`niyam: media key present` and Setup reads `Media key: present`. Without it
+every track shows the "no media key" banner — that state is itself the first
+check below.
 
 - [ ] Build **without** the passphrase → Sounds shows one banner "This build
       has no media key", rows read Unavailable, and nothing crashes
