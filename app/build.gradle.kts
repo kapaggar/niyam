@@ -1,9 +1,23 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
+}
+
+// Legacy CDN media passphrase. Lives in local.properties (untracked) or the
+// NIYAM_MEDIA_PASSPHRASE env var on CI — never in source control. An empty
+// value builds fine: downloads are disabled at runtime with a plain message.
+val mediaPassphrase: String = run {
+    val props = Properties()
+    val local = rootProject.file("local.properties")
+    if (local.exists()) local.inputStream().use { props.load(it) }
+    props.getProperty("niyam.mediaPassphrase")
+        ?: System.getenv("NIYAM_MEDIA_PASSPHRASE")
+        ?: ""
 }
 
 android {
@@ -19,6 +33,12 @@ android {
         versionCode = 2
         versionName = "0.2.0-beta1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField(
+            "String",
+            "MEDIA_PASSPHRASE",
+            "\"${mediaPassphrase.replace("\\", "\\\\").replace("\"", "\\\"")}\"",
+        )
     }
 
     buildTypes {
@@ -39,6 +59,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     testOptions {
         unitTests {
