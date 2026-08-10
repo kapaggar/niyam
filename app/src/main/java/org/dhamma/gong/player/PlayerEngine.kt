@@ -201,7 +201,9 @@ class PlayerEngine(
             return
         }
         val ok = resolved as MediaResolver.Resolved.Ok
-        val route = router.resolve(repo.setting(AudioRoute.SETTING_KEY))
+        // A command may name its own route (Audio out auditioning a device);
+        // everything the scheduler emits leaves it null and follows the setting.
+        val route = router.resolve(command.routeKey ?: repo.setting(AudioRoute.SETTING_KEY))
 
         var played = 0
         var result = PlayResult.OK
@@ -234,7 +236,7 @@ class PlayerEngine(
                     strike = GongTracks.hitsAfterPlays(i, command.repeats, command.trackStem) + 1,
                 )
                 _strikes.tryEmit(i + 1)
-                sink.play(ok.uri, command.volume)
+                sink.play(ok.uri, command.volume, route.route.deviceId)
                 played = GongTracks.hitsAfterPlays(i + 1, command.repeats, command.trackStem)
             }
         } catch (e: CancellationException) {

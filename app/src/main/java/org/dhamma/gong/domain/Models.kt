@@ -113,6 +113,16 @@ data class PlayCommand(
     /** 0..100 app-level gain. */
     val volume: Int = 90,
     val label: String = "",
+    /**
+     * Render through this route for this play only, ignoring the stored
+     * `audio_route` preference. Null — always, for anything the scheduler
+     * emits — means "use the setting".
+     *
+     * It exists so Audio out can test a route staff have not committed to yet.
+     * Auditioning a Bluetooth amp must not require first pointing the whole
+     * appliance at it and remembering to point it back.
+     */
+    val routeKey: String? = null,
 )
 
 /** A row to append to play_log. */
