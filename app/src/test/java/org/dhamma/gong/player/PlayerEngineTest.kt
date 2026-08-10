@@ -115,6 +115,21 @@ class PlayerEngineTest {
     }
 
     @Test
+    fun sikkimGongPlaysOncePerThreeHits() = runTest {
+        // The drum stem's recording contains three hits per play (GongTracks),
+        // so repeats=6 hits means the file plays exactly twice — and the log
+        // still reports the burst in hits, not plays.
+        val sink = FakeSink()
+        val engine = engine(sink)
+        engine.submit(gong(repeats = 6).copy(trackStem = "drum"))
+        advanceUntilIdle()
+
+        assertEquals(2, sink.played.size)
+        assertTrue(sink.played.all { it == "asset:///media/gongs/drum.mp3" })
+        assertEquals(6, db.playLog().recent(1).first().repeats)
+    }
+
+    @Test
     fun gapIsCountedAfterTheStrikeEnds() = runTest {
         // Pi parity (B3): each strike plays to the end, then gap_seconds of
         // silence. Four 900 ms strikes with 4 s gaps.

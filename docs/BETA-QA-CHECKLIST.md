@@ -23,6 +23,8 @@ changed or is a known gap — please try to break them in that order.
 - [ ] No course → "add a course to start the schedule" **and the timezone** are
       both shown
 - [ ] Test gong: hear strikes; bell rings; **Stop is fully visible, not cut off**
+- [ ] The test gong is now the **Single_Gong recording** — one clean ring per
+      strike, not the old ting
 - [ ] Double-tap Test gong while it is ringing — it should be **ignored**, not
       restart the burst
 - [ ] GONGS ONLY chip visible when no doha pack
@@ -51,6 +53,9 @@ changed or is a known gap — please try to break them in that order.
       on the left
 - [ ] Select a cell → inspector; set gap/track to "—" (inherit), reopen, still "—"
 - [ ] Adding a time that already exists is refused with a message
+- [ ] Track chips read **single gong / sikkim gong**; pick sikkim gong on a
+      6-repeat row → the file plays **twice** (3 hits per play = 6 hits), with
+      the gap between the two plays
 - [ ] Remove event asks twice
 
 ## Logs

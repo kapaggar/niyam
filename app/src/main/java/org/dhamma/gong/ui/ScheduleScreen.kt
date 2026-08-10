@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import org.dhamma.gong.data.ScheduleEventEntity
+import org.dhamma.gong.domain.GongTracks
 import java.time.LocalTime
 
 /** Narrowest a day column may ever be; it grows to fill the pane (handoff `minmax(46px, 1fr)`). */
@@ -570,16 +571,20 @@ private fun Inspector(
             Chip("—", event.track == null, "Inherit track from settings") {
                 onChange(event.copy(track = null))
             }
-            for (t in listOf("ting", "drum")) {
-                Chip(t, event.track == t, "Play the $t track") {
+            // Stems stay the stored ids; staff see what the recording is.
+            for (t in listOf(GongTracks.SINGLE, GongTracks.SIKKIM)) {
+                Chip(GongTracks.label(t), event.track == t, "Play the ${GongTracks.label(t)} track") {
                     onChange(event.copy(track = t))
                 }
             }
         }
 
         val gap = event.gapSeconds ?: settings["gong_gap_seconds"]?.toIntOrNull() ?: 4
+        // Gaps sit between plays of the file, and the sikkim recording rings
+        // three hits per play — so the gap count follows plays, not repeats.
+        val plays = GongTracks.playsFor(event.repeats, event.track ?: settings["gong_track"])
         Text(
-            "burst ≈ ${(event.repeats - 1) * gap}s" +
+            "burst ≈ ${(plays - 1).coerceAtLeast(0) * gap}s of gaps" +
                 if (event.gapSeconds == null) " (inherited gap)" else "",
             fontSize = 12.5.sp,
             fontFamily = Nocturne.Mono,

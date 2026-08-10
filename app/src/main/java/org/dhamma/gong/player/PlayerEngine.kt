@@ -18,6 +18,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.dhamma.gong.data.GongRepository
+import org.dhamma.gong.domain.GongTracks
 import org.dhamma.gong.domain.PlayCommand
 import org.dhamma.gong.domain.PlayKind
 import org.dhamma.gong.domain.PlayLogEntry
@@ -222,12 +223,19 @@ class PlayerEngine(
 
         try {
             val gapMs = command.gapSeconds * 1000L
-            for (i in 0 until command.repeats) {
+            // `repeats` counts audible hits, but one play of a multi-hit
+            // recording delivers several (the Sikkim gong rings three times
+            // per file). GongTracks does the division; strike/played numbers
+            // stay in hits so "n of repeats" in the log keeps meaning it.
+            val plays = GongTracks.playsFor(command.repeats, command.trackStem)
+            for (i in 0 until plays) {
                 if (i > 0 && gapMs > 0) delay(gapMs)
-                _status.value = _status.value.copy(strike = i + 1)
+                _status.value = _status.value.copy(
+                    strike = GongTracks.hitsAfterPlays(i, command.repeats, command.trackStem) + 1,
+                )
                 _strikes.tryEmit(i + 1)
                 sink.play(ok.uri, command.volume)
-                played = i + 1
+                played = GongTracks.hitsAfterPlays(i + 1, command.repeats, command.trackStem)
             }
         } catch (e: CancellationException) {
             result = PlayResult.STOPPED
