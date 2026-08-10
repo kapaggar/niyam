@@ -19,6 +19,10 @@ object DohaPackMapper {
      *  `domain/` need not see the Room entity. */
     const val SOURCE_AUTO = "auto"
 
+    /** A slot filled by the download pipeline. Auto-managed like [SOURCE_AUTO]:
+     *  a staff-chosen folder pack outranks it (manual > bundled > auto > downloaded). */
+    const val SOURCE_DOWNLOADED = "downloaded"
+
     /** The one extension staff may use in v1 — a finite list keeps "why didn't
      *  my file appear" answerable. */
     const val AUDIO_EXT = ".mp3"
@@ -104,8 +108,8 @@ object DohaPackMapper {
      * Classify a scanned listing against what the slots already hold.
      *
      * @param heldSources slot → current `media_slots.source`, for mapped slots only.
-     *   A slot held by anything other than `auto` is protected: a file claiming
-     *   it is reported [Skipped], never applied.
+     *   A slot held by anything other than `auto` or `downloaded` is protected:
+     *   a file claiming it is reported [Skipped], never applied.
      */
     fun classify(
         files: List<ScannedFile>,
@@ -137,10 +141,13 @@ object DohaPackMapper {
             }
             val file = claimants.first()
             val holder = heldSources[slot]
-            if (holder != null && !holder.equals(SOURCE_AUTO, ignoreCase = true)) {
-                skipped += Skipped(file, slot, holder)
-            } else {
+            val claimable = holder == null ||
+                holder.equals(SOURCE_AUTO, ignoreCase = true) ||
+                holder.equals(SOURCE_DOWNLOADED, ignoreCase = true)
+            if (claimable) {
                 assigned[slot] = file
+            } else {
+                skipped += Skipped(file, slot, holder!!)
             }
         }
 

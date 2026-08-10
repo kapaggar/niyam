@@ -21,6 +21,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.dhamma.gong.R
+import org.dhamma.gong.assets.AudioAssets
+import org.dhamma.gong.assets.DownloadedSlotRegistrar
 import org.dhamma.gong.data.GongDatabase
 import org.dhamma.gong.data.GongRepository
 import org.dhamma.gong.data.SeedLoader
@@ -98,6 +100,12 @@ class GongService : Service() {
                 )
             },
         )
+        // The doha download pipeline, like the relay: optional, fire-and-forget,
+        // never in the play path. Ready files register into empty media slots.
+        val audioAssets = AudioAssets.get(this)
+        audioAssets.refreshFromDisk()
+        DownloadedSlotRegistrar(db, audioAssets, scope).start()
+
         instance.value = this
 
         createChannel()
