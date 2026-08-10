@@ -37,6 +37,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
+import org.dhamma.gong.BuildConfig
 import org.dhamma.gong.service.AppliancePermissions
 import java.time.format.DateTimeFormatter
 
@@ -182,6 +183,16 @@ fun SetupScreen(vm: AppViewModel) {
                         "Course today",
                         state.course?.let { "day ${it.day}" } ?: "none",
                         if (state.course != null) Nocturne.Ok else Nocturne.Neutral600,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    // The one place a tester can answer "which build is this?"
+                    // without a cable. Every substantive change bumps it
+                    // (AGENTS.md hard rule 11), so a bug that reappears can be
+                    // told apart from an APK that never actually installed.
+                    StateRow(
+                        "Build",
+                        "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                        Nocturne.Neutral600,
                     )
                     Spacer(Modifier.height(12.dp))
                     Text(

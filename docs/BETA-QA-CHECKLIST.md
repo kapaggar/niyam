@@ -1,6 +1,10 @@
-# Niyam 0.2.0-beta1 — human QA
+# Niyam 0.2.0-beta3 — human QA
 
-Device: ________  Android: ________  Build: debug APK (`versionCode` 2)
+Device: ________  Android: ________  Build: debug APK (`versionCode` 4)
+
+Check **Setup → Appliance state → Build** on the tablet before you start. If it
+does not read `0.2.0-beta3 (4)`, the install did not take — reinstall before
+reporting anything.
 
 APK: `app/build/outputs/apk/debug/app-debug.apk`
 
