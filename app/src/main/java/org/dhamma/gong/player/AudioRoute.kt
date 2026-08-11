@@ -46,6 +46,13 @@ sealed interface AudioRoute {
 
         /** `state` key recording the last route that actually rendered a fire. */
         const val LAST_OK_KEY = "route_last_ok"
+
+        /**
+         * When that happened, ISO-8601. "Bluetooth worked" is a much weaker
+         * claim than "Bluetooth worked this morning" — a timestamp from three
+         * weeks ago is how staff spot an amp that has been quietly dead.
+         */
+        const val LAST_OK_AT_KEY = "route_last_ok_at"
     }
 }
 

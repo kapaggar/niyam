@@ -10,7 +10,6 @@ import org.junit.Test
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZonedDateTime
-import kotlin.random.Random
 
 /**
  * Behavioural oracle ported from ng/tests/test_scheduler.py.
@@ -37,7 +36,6 @@ class SchedulerCoreTest {
         ),
         firedGuard = state::wasFired,
         clockTrusted = clockTrusted,
-        random = Random(7),
     )
 
     // ---------------------------------------------------------------- firing
@@ -201,7 +199,6 @@ class SchedulerCoreTest {
             now = Fixtures.ist(day, 6, 30),
             snapshot = Fixtures.snapshot(courses = courses),
             firedGuard = { _, _ -> false },
-            random = Random(1),
         )
         val gong = out.fired.single { it.kind == PlayKind.GONG }
         assertEquals(3, gong.repeats)

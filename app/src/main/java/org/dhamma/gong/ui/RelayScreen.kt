@@ -548,80 +548,8 @@ private fun TimingCard(vm: AppViewModel, settings: Map<String, String>) {
 
 // ---------------------------------------------------------------- pieces
 
-/**
- * A −/+ pair around a monospace value. Steppers rather than text fields for the
- * numbers: they save immediately with no keyboard and no save button, which is
- * what the design asked for, and each half clears 44 dp.
- */
-@Composable
-private fun Stepper(
-    label: String,
-    value: Int,
-    min: Int,
-    max: Int,
-    unit: String,
-    onChange: (Int) -> Unit,
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Text(label, fontSize = 12.5.sp, color = Nocturne.Neutral500, modifier = Modifier.width(64.dp))
-        StepButton("−", "Decrease $label", value > min) {
-            if (value > min) onChange(value - 1)
-        }
-        Text(
-            "$value$unit",
-            fontSize = 15.sp,
-            fontFamily = Nocturne.Mono,
-            color = Nocturne.Text,
-            modifier = Modifier.width(46.dp),
-        )
-        StepButton("+", "Increase $label", value < max) {
-            if (value < max) onChange(value + 1)
-        }
-    }
-}
 
-@Composable
-private fun StepButton(
-    glyph: String,
-    description: String,
-    enabled: Boolean,
-    onClick: () -> Unit,
-) {
-    Box(
-        Modifier
-            .size(Nocturne.MIN_TOUCH_DP.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(Nocturne.SurfaceHigh)
-            .border(1.dp, Nocturne.Neutral700, RoundedCornerShape(8.dp))
-            .semantics {
-                contentDescription = description
-                if (!enabled) disabled()
-            }
-            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
-            .alpha(if (enabled) 1f else 0.42f),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(glyph, fontSize = 17.sp, fontFamily = Nocturne.Mono, color = Nocturne.Text)
-    }
-}
 
-@Composable
-private fun OutlineButton(label: String, color: Color, onClick: () -> Unit) {
-    Box(
-        Modifier
-            .height(Nocturne.MIN_TOUCH_DP.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .border(1.dp, Nocturne.Neutral700, RoundedCornerShape(8.dp))
-            .clickable(role = Role.Button, onClick = onClick)
-            .padding(horizontal = 16.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(label, fontSize = 13.5.sp, color = color)
-    }
-}
 
 /** The same pill, drawn dead: no host, so there is nothing honest to do. */
 @Composable

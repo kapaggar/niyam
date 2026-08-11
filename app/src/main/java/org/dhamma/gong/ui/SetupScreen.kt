@@ -37,7 +37,11 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.delay
 import org.dhamma.gong.BuildConfig
+import org.dhamma.gong.domain.Liveness
+import org.dhamma.gong.domain.PinCode
+import org.dhamma.gong.domain.Readiness
 import org.dhamma.gong.service.AppliancePermissions
 import java.time.format.DateTimeFormatter
 
@@ -57,6 +61,8 @@ fun SetupScreen(vm: AppViewModel) {
     val permissions by vm.permissionStatus.collectAsStateWithLifecycle()
     val state by vm.schedulerState.collectAsStateWithLifecycle()
     val zone by vm.applianceZone.collectAsStateWithLifecycle()
+    val pinHash by vm.pinHash.collectAsStateWithLifecycle()
+    val now = rememberNow()
     val context = LocalContext.current
 
     // Staff leave for a system settings page and come back. Re-read on every
@@ -64,7 +70,13 @@ fun SetupScreen(vm: AppViewModel) {
     val lifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-            vm.refreshPermissionStatus()
+            // Re-poll rather than read once. A grant can land asynchronously
+            // after the OEM's own dialog closes, and a checklist that still
+            // says "denied" sends staff round the loop a second time.
+            while (true) {
+                vm.refreshPermissionStatus()
+                delay(1_000)
+            }
         }
     }
 
@@ -88,21 +100,26 @@ fun SetupScreen(vm: AppViewModel) {
                     "three weeks. Amber rows are not fatal — they are unreliable.",
             )
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                if (permissions.allOk) {
-                    Tag("ALL GRANTED", Nocturne.Ok)
-                } else {
-                    Tag("ACTION NEEDED", Nocturne.Warning)
-                }
+            // One honest verdict. Grants alone are not enough — a tablet with
+            // every permission and a frozen scheduler is not ready, and that is
+            // exactly the state an OEM battery killer leaves behind.
+            val checks = Readiness.Checks(
+                notificationsGranted = permissions.notificationsGranted,
+                exactAlarmsAllowed = exactOk,
+                batteryUnrestricted = permissions.batteryUnrestricted,
+                serviceAlive = Liveness.isAlive(state.lastTick, now),
+                pinSet = PinCode.isSet(pinHash),
+            )
+            val ready = Readiness.isReady(checks)
+            Banner(
+                text = (if (ready) "READY — " else "NOT READY — ") + Readiness.summary(checks)
+                    .removePrefix("Not ready — ")
+                    .replaceFirstChar { it.uppercase() },
+                color = if (ready) Nocturne.Ok else Nocturne.Warning,
+            )
+            if (!ready) {
                 Text(
-                    if (permissions.allOk) {
-                        "Nothing left to grant on this device."
-                    } else {
-                        "Tap an amber row to open the matching system page."
-                    },
+                    "Tap an amber row below to open the matching system page.",
                     fontSize = 12.5.sp,
                     color = Nocturne.Neutral500,
                 )
@@ -164,13 +181,20 @@ fun SetupScreen(vm: AppViewModel) {
                         if (state.running) Nocturne.Ok else Nocturne.Error,
                     )
                     Spacer(Modifier.height(8.dp))
+                    // Age, not just a timestamp. A clock reading 04:12:31 tells
+                    // nobody whether the loop is alive; "6s ago" does, and a
+                    // healthy appliance never exceeds the 30 s heartbeat by much.
                     StateRow(
                         "Last tick",
-                        state.lastTick
-                            ?.withZoneSameInstant(zone)
-                            ?.format(timeFmt)
-                            ?: "—",
-                        if (state.lastTick != null) Nocturne.Ok else Nocturne.Neutral600,
+                        state.lastTick?.let {
+                            "${it.withZoneSameInstant(zone).format(timeFmt)} " +
+                                "· ${Liveness.ageLabel(state.lastTick, now)}"
+                        } ?: "never",
+                        when (Liveness.health(state.lastTick, now)) {
+                            Liveness.Health.ALIVE -> Nocturne.Ok
+                            Liveness.Health.STALE -> Nocturne.Error
+                            Liveness.Health.UNKNOWN -> Nocturne.Neutral600
+                        },
                     )
                     Spacer(Modifier.height(8.dp))
                     StateRow(

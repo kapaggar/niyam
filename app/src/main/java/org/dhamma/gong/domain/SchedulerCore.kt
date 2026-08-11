@@ -3,7 +3,6 @@ package org.dhamma.gong.domain
 import java.time.Duration
 import java.time.LocalDate
 import java.time.ZonedDateTime
-import kotlin.random.Random
 
 /**
  * The scheduler, as a pure function of (now, snapshot, fired-guard).
@@ -25,7 +24,6 @@ object SchedulerCore {
      *   Must be read from the same transaction the caller writes
      *   [TickOutcome.marks] into.
      * @param clockTrusted result of [ClockTrust.isTrusted].
-     * @param random used only for `no_course_doha=random`.
      */
     fun tick(
         clock: GongClock,
@@ -34,7 +32,6 @@ object SchedulerCore {
         firedGuard: (key: String, date: LocalDate) -> Boolean,
         clockTrusted: Boolean = true,
         graceSeconds: Long = SettingsDefaults.FIRE_GRACE_SECONDS,
-        random: Random = Random.Default,
     ): TickOutcome {
         // §05: untrusted clock suppresses automatic playback entirely. The Pi daemon
         // returns no deadline at all, so the loop falls back to its heartbeat.
@@ -76,7 +73,7 @@ object SchedulerCore {
 
                 FireDecision.FIRE -> {
                     marks += FiredMark(occ.key, occ.localDate)
-                    val dispatched = dispatch(occ, snapshot, random)
+                    val dispatched = dispatch(occ, snapshot)
                     dispatched.log?.let { logs += it }
                     dispatched.command?.let { fired += it }
                 }
@@ -92,7 +89,6 @@ object SchedulerCore {
     private fun dispatch(
         occ: Occurrence,
         snapshot: ScheduleSnapshot,
-        random: Random,
     ): Dispatched {
         val master = snapshot.settingBool("enabled")
         val course = occ.ctx?.label ?: "No course"
@@ -123,7 +119,10 @@ object SchedulerCore {
                 val slot = DohaSlots.pickSlot(
                     ctx = occ.ctx,
                     noCourseDoha = snapshot.setting("no_course_doha"),
-                    random = random,
+                    // Same calendar day must always resolve to the same doha,
+                    // or a re-materialize after a restart contradicts the
+                    // fired-guard and the log.
+                    date = occ.localDate,
                 ) ?: return Dispatched(null, null)
 
                 // Missing media is an error log, never a crash (design doc §05).

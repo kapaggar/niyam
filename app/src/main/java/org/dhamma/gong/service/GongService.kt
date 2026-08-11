@@ -108,6 +108,12 @@ class GongService : Service() {
 
         instance.value = this
 
+        // Third keep-alive belt. Registered from inside the service so it is
+        // re-asserted on every start — including the kickstart that this very
+        // worker triggered, which is how the appliance heals repeatedly rather
+        // than once.
+        LivenessWorker.ensureScheduled(this)
+
         createChannel()
         startForegroundCompat(buildNotification("Starting…", ""))
 

@@ -647,6 +647,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val _audioRoutes = MutableStateFlow<List<RouteRow>>(emptyList())
     val audioRoutes: StateFlow<List<RouteRow>> = _audioRoutes.asStateFlow()
 
+    /** When a route last carried a finished burst, ISO-8601, or "". */
+    private val _routeLastOkAt = MutableStateFlow("")
+    val routeLastOkAt: StateFlow<String> = _routeLastOkAt.asStateFlow()
+
     /** What a fire *right now* would actually use, fallback included. */
     private val _routeChoice = MutableStateFlow(
         RoutePlan.Choice(RoutePlan.SPEAKER, RoutePlan.SPEAKER, fellBack = false),
@@ -666,6 +670,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 .getOrDefault(listOf(org.dhamma.gong.player.AudioRoute.Speaker))
             val preferred = repo.setting(org.dhamma.gong.player.AudioRoute.SETTING_KEY)
             val lastOk = repo.stateGet(org.dhamma.gong.player.AudioRoute.LAST_OK_KEY)
+            _routeLastOkAt.value =
+                repo.stateGet(org.dhamma.gong.player.AudioRoute.LAST_OK_AT_KEY).orEmpty()
             val byKey = devices.groupBy { it.key }
 
             _audioRoutes.value = RoutePlan

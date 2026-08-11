@@ -58,6 +58,48 @@ open class AlarmScheduler(private val context: Context) {
         manager?.cancel(wakeIntent())
     }
 
+    /**
+     * Arm a near-term alarm whose only job is to start the service.
+     *
+     * This is the **third** keep-alive belt, behind the next-fire alarm and the
+     * 30 s in-service heartbeat. Both of those assume the service is alive; an
+     * OEM battery killer breaks that assumption, and the tablet then sits there
+     * looking fine until nothing rings at 04:00.
+     *
+     * It has to go through a broadcast receiver rather than
+     * `PendingIntent.getService`. A [org.dhamma.gong.service.LivenessWorker]
+     * runs in the background, where starting a `mediaPlayback` foreground
+     * service is refused outright on modern Android — but the delivery of an
+     * exact alarm grants a short allowlist window, and
+     * [org.dhamma.gong.service.KickstartReceiver] spends it on exactly one
+     * `startForegroundService` call.
+     *
+     * @param delayMs how far ahead to arm. Small on purpose — this is a
+     *   resurrection, not a schedule.
+     */
+    open fun armKickstart(delayMs: Long = 3_000) {
+        val am = manager ?: return
+        val at = System.currentTimeMillis() + delayMs
+        try {
+            if (canScheduleExact()) {
+                am.setAlarmClock(AlarmManager.AlarmClockInfo(at, showIntent()), kickstartIntent())
+            } else {
+                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, kickstartIntent())
+            }
+            Log.i(TAG, "kickstart armed in ${delayMs}ms")
+        } catch (e: SecurityException) {
+            Log.e(TAG, "kickstart refused", e)
+        }
+    }
+
+    private fun kickstartIntent(): PendingIntent = PendingIntent.getBroadcast(
+        context,
+        REQUEST_KICKSTART,
+        Intent(context, org.dhamma.gong.service.KickstartReceiver::class.java)
+            .setAction(org.dhamma.gong.service.KickstartReceiver.ACTION_KICKSTART),
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+    )
+
     private fun wakeIntent(): PendingIntent = PendingIntent.getService(
         context,
         REQUEST_WAKE,
@@ -77,5 +119,6 @@ open class AlarmScheduler(private val context: Context) {
         const val TAG = "AlarmScheduler"
         const val REQUEST_WAKE = 100
         const val REQUEST_SHOW = 101
+        const val REQUEST_KICKSTART = 102
     }
 }

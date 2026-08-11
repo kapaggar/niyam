@@ -85,6 +85,20 @@
             </intent-filter>
         </receiver>
 
+        <!--
+          The third keep-alive belt's landing point. Not exported: the only
+          thing that may trigger it is our own kickstart alarm, armed by
+          LivenessWorker or BootReceiver. Alarm delivery grants the short
+          allowlist window in which a mediaPlayback FGS may be started.
+        -->
+        <receiver
+            android:name=".service.KickstartReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="org.dhamma.gong.KICKSTART" />
+            </intent-filter>
+        </receiver>
+
         <!-- Any of these invalidates the materialized day; the scheduler re-resolves. -->
         <receiver
             android:name=".service.TimeChangeReceiver"

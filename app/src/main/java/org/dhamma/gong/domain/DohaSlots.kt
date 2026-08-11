@@ -1,6 +1,6 @@
 package org.dhamma.gong.domain
 
-import kotlin.random.Random
+import java.time.LocalDate
 
 /**
  * Port of the Pi daemon's doha.py — byte-for-byte legacy_modular algorithm
@@ -9,6 +9,8 @@ import kotlin.random.Random
 object DohaSlots {
 
     val SLOTS: IntRange = 1..11
+
+    private val SLOT_COUNT = SLOTS.last - SLOTS.first + 1
 
     /**
      * Slot 1..11 for an in-course day.
@@ -35,12 +37,33 @@ object DohaSlots {
     }
 
     /**
+     * The between-courses slot for [date] when `no_course_doha = random`.
+     *
+     * Deterministic on purpose. A real random number generator here means the
+     * scheduler can materialize the same calendar day twice — after a restart,
+     * a re-seed, a settings poke — and pick a *different* doha each time, so
+     * the fired-guard and the log disagree about what "today's doha" was. Same
+     * date must always mean the same slot.
+     *
+     * The stride is 9 (31 mod 11) and 9 is coprime with 11, so consecutive days
+     * walk every slot exactly once before repeating. Over any eleven-day
+     * stretch between courses a centre hears all eleven dohas and no duplicate
+     * — better than true random, which would happily play the same one twice
+     * running.
+     */
+    fun randomSlotFor(date: LocalDate): Int =
+        Math.floorMod(date.toEpochDay() * 31 + 7, SLOT_COUNT.toLong()).toInt() + SLOTS.first
+
+    /**
+     * @param date the occurrence's local date, used only when
+     *   `no_course_doha = random`. In-course days ignore it — they are decided
+     *   by [legacyModular], which is the verified PHP port and must not change.
      * @return slot 1..11 or null for no doha today.
      */
     fun pickSlot(
         ctx: CourseCtx?,
         noCourseDoha: String,
-        random: Random = Random.Default,
+        date: LocalDate,
     ): Int? {
         if (ctx != null && ctx.day > 0 && ctx.day <= ctx.totalDays) {
             return legacyModular(ctx.day, ctx.totalDays, ctx.anapanaDays)
@@ -51,7 +74,7 @@ object DohaSlots {
                 val n = noCourseDoha.removePrefix("slot:").toIntOrNull()
                 if (n != null && n in SLOTS) n else null
             }
-            else -> random.nextInt(SLOTS.first, SLOTS.last + 1) // random
+            else -> randomSlotFor(date)
         }
     }
 }

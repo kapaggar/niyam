@@ -269,6 +269,7 @@ class PlayerEngine(
         repo.log(PlayLogEntry(command.kind, media.displayName, played, result, detail))
         if (result == PlayResult.OK) {
             repo.statePut(AudioRoute.LAST_OK_KEY, route.route.key)
+            repo.statePut(AudioRoute.LAST_OK_AT_KEY, java.time.Instant.now().toString())
         }
         _status.value = _status.value.copy(
             playing = false, strike = 0, ofStrikes = 0, label = "",
