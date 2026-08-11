@@ -1,10 +1,10 @@
-# Niyam 0.2.0-beta5 — human QA
+# Niyam 0.2.0-beta6 — human QA
 
-Device: ________  Android: ________  Build: debug APK (`versionCode` 6)
+Device: ________  Android: ________  Build: debug APK (`versionCode` 7)
 
 Check **Setup → Appliance state** on the tablet before you start:
 
-- **Build** must read `0.2.0-beta5 (6)`. If it does not, the install did not
+- **Build** must read `0.2.0-beta6 (7)`. If it does not, the install did not
   take — reinstall before reporting anything.
 - **Media key** tells you which doha-download section applies. `present` means
   downloads should work; `absent — doha downloads off` is a deliberate build
@@ -266,6 +266,47 @@ service is alive; this section attacks that assumption.
       not field-ready)
 - [ ] Change a grant in system settings and come straight back → the banner
       flips **without** force-reopening the app (it re-polls every second)
+
+## Course calendar seeded at install (new)
+
+This build ships **Dhamma Sudha's** calendar, 39 courses from 15 Jul 2026 to
+15 Dec 2027 (`seed/courses-sudha-2026-2027.sql`). If the tablet is for a
+different centre, say so before it goes out — the calendar is centre-specific.
+
+- [ ] **Fresh install** → Courses already lists 39 courses without anyone
+      entering one, and the Dashboard resolves today's course day if today
+      falls inside a window
+- [ ] Spot-check three rows against dhamma.org/schedules/schsudha: a 10-Day,
+      the Satipatthana (21 Oct 2026), and a 3-Day (30 Jul 2026)
+- [ ] Add a course by hand, then reinstall over the top → **your course
+      survives and 39 are not added again**
+- [ ] Delete every course, force-stop, reopen → **the calendar does not come
+      back**. Staff who emptied it meant it
+- [ ] No two courses share an arrival date (no permanent OVERLAP badge)
+
+## Backup and restore (new)
+
+Setup → Backup. The file is settings, courses, schedule and slot mapping — it
+deliberately carries **no** PIN, relay password, doha folder grant, play log or
+fired-guard record.
+
+- [ ] **Save a backup** → choose a location → a `niyam-backup-YYYY-MM-DD.json`
+      file appears and opens in any text viewer
+- [ ] Open it and confirm by eye: no `admin_pin_hash`, no `relay_auth_pass`,
+      no `fired:` keys anywhere
+- [ ] Change the gong volume and delete a course, then **Restore from file** →
+      the confirm sheet states *both* counts ("on this tablet now: N" vs "in
+      the backup: M") before you commit
+- [ ] Confirm → volume and course come back; a toast names what was restored
+- [ ] **Cancel** on that sheet → nothing changes
+- [ ] Pick a non-backup file (any .txt) → refused with a clear message and
+      **nothing is changed**
+- [ ] Restore a backup taken on a *different* tablet → doha slots appear but
+      read **unverified**; rescanning the folder in Sounds re-verifies them
+- [ ] After restore, the PIN on this tablet is still the PIN you set here —
+      not one from the backup
+- [ ] After restore, a scheduled gong still fires correctly the same day
+      (the fired-guards were not overwritten)
 
 ## Fire correctness — power and grace
 
