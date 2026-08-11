@@ -89,11 +89,25 @@ used by default instead. Do this WITHOUT breaking the scheduler:
 - [x] Suite 389 green; `0.2.0-beta7` / versionCode 8; QA checklist + PROGRESS
       updated.
 
-## Still open after this session
+## Follow-up session: the Schedule grid was genuinely broken
 
-1. **Schedule** — user called it "totally wrong"; I could not reproduce a
-   structural mismatch against the screenshot. Needs their specifics, or an
-   emulator screenshot comparison.
+My earlier "it already matches" was wrong — I compared code structure instead of
+running the app. Screenshotting it showed the grid drawing **nothing**, with 335
+seeded rows in the database.
+
+Two faults. (1) The beta7 subtitle went inside the header `Row` via
+`ScreenTitle`; its unconstrained subtitle `Text` took the whole row width and
+squeezed the course-type picker to zero. (2) The left column's fixed-height
+children — title, paragraph, add-a-time form — claimed all ~411 dp, so the
+grid's `weight(1f)` resolved to zero height. `heightIn(min=)` does not rescue
+this: a min above the parent's max is coerced away. Fixed by moving the
+add-time form into the right rail and cutting the paragraph to one line.
+
+**Lesson worth keeping: 389 unit tests were green throughout.** No JVM test can
+see a Compose layout that computes to zero height. Screenshot the running app
+before claiming a screen works.
+
+## Still open after this session
 2. **Centres asset not generated** — the tool exists, the JSON does not.
 3. **Runtime calendar fetch** — designed, not built. Open question in the spec:
    are non-centre (gypsy course) venues in scope for the centre picker?

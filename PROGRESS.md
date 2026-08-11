@@ -2,8 +2,9 @@
 
 Standalone repo **`kapaggar/niyam`** (branch `main`), extracted with history from the gongserver monorepo's `android/` tree.
 
-Last updated: 2026-08-11, **screen simplification** (`0.2.0-beta7`,
-`versionCode` 8) — the app now follows the tablet's timezone, the PIN moved
+Last updated: 2026-08-11, **Schedule grid fix** (`0.2.0-beta8`,
+`versionCode` 9) — the grid was drawing nothing at all; see below. Prior:
+screen simplification (`0.2.0-beta7`, `versionCode` 8) — the app now follows the tablet's timezone, the PIN moved
 onto Setup, and Logs/Network/Sounds shed detail nobody acts on. Prior same day:
 course calendar + backup/restore (`0.2.0-beta6`, `versionCode` 7) — Dhamma Sudha's 39-course calendar seeds
 itself at install, and settings/courses/schedule can be exported and restored.
@@ -31,7 +32,7 @@ cd /Users/wizops/DIPI/niyam
 Environment used: JDK 20, AGP 8.7.2, Kotlin 2.0.21, Gradle 8.9, compileSdk 35
 (auto-downloaded on first build), minSdk 29.
 
-**Next milestone: human tablet beta.** Hand `app-debug.apk` (`0.2.0-beta7`,
+**Next milestone: human tablet beta.** Hand `app-debug.apk` (`0.2.0-beta8`,
 built **with** `media.properties` filled in so downloads work — check
 Setup shows `Media key: present`) to a tester with `docs/BETA-QA-CHECKLIST.md`. Every screen in design doc
 §08 now exists. The two checks that most need real hardware are the Shelly
@@ -265,6 +266,35 @@ Doha files auto-map by `D01`…`D11` prefix into `media_slots`; unmatched files
 are listed as "unassigned", never guessed. Debug builds already ship 11
 synthetic tones at `app/src/debug/assets/media/doha-test/`
 (regenerate with `python3 tools/make_test_tones.py`).
+
+### Schedule grid fix (2026-08-11, `0.2.0-beta8`)
+
+**The Schedule grid was drawing nothing** — 335 seeded rows in the database and
+a blank pane. Two faults, and the second is the one worth remembering.
+
+First, the explanatory subtitle added in beta7 went inside the header `Row`
+via `ScreenTitle`. Its subtitle is an unconstrained `Text`, which in a `Row`
+takes the whole width, so the course-type picker was squeezed to nothing and
+vanished. The title is now a plain `Text` in the row and the subtitle sits
+below it.
+
+Second, and the real one: the left column held a title, a three-line paragraph,
+the grid at `weight(1f)`, and an add-a-time form. On a 1280x800 tablet that
+column is about 411 dp tall, and the fixed-height children claimed all of it —
+so the weighted grid resolved to **zero height** and rendered nothing, silently.
+A `heightIn(min = 220.dp)` did not help, because a min larger than the parent's
+max is coerced away. The fix was to stop competing for the height: the add-time
+form moved into the right rail under the inspector, and the paragraph is now one
+line. The grid is the screen; a form is not.
+
+Worth stating plainly: **the whole suite was green through all of this.** 389
+unit tests cover the schedule domain and none of them can see a Compose layout
+that computes to zero height. This was found by screenshotting the running app,
+which is the only thing that would have found it.
+
+Logs also had columns clipped off the right edge — RESULT and DETAIL, which are
+most of the reason anyone opens that screen. Cell type is down to 11 sp, headers
+to 9.5 sp, and every column is narrower; all six now fit.
 
 ### Screen simplification (2026-08-11, `0.2.0-beta7`)
 

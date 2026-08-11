@@ -59,8 +59,8 @@ android {
         // dependable LocalOnlyHotspot, still covers recycled centre hardware.
         minSdk = 29
         targetSdk = 35
-        versionCode = 8
-        versionName = "0.2.0-beta7"
+        versionCode = 9
+        versionName = "0.2.0-beta8"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField(

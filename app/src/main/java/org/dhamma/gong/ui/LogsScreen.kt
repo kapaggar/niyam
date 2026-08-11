@@ -50,14 +50,14 @@ private val COL_GAP = 8.dp
 // still what the database stores and orders by — it is simply not something a
 // server standing at a wall tablet can read, and showing both invited the
 // reader to reconcile two numbers that always mean the same instant.
-private val LOCAL_W = 150.dp
-private val KIND_W = 96.dp
-private val FILE_W = 150.dp
-private val STRIKES_W = 46.dp
-private val RESULT_W = 110.dp
+private val LOCAL_W = 104.dp
+private val KIND_W = 82.dp
+private val FILE_W = 132.dp
+private val STRIKES_W = 34.dp
+private val RESULT_W = 92.dp
 
 /** DETAIL grows into whatever is left, but never shrinks past this. */
-private val DETAIL_MIN_W = 300.dp
+private val DETAIL_MIN_W = 220.dp
 
 private val FIXED_W = LOCAL_W + KIND_W + FILE_W + STRIKES_W + RESULT_W + COL_GAP * 5
 
@@ -218,8 +218,8 @@ private fun Empty(text: String) {
 private fun Head(text: String, width: Dp, description: String? = null) {
     Text(
         text.uppercase(),
-        fontSize = 11.sp,
-        letterSpacing = 1.1.sp,
+        fontSize = 9.5.sp,
+        letterSpacing = 0.6.sp,
         color = Nocturne.Neutral500,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
@@ -239,7 +239,12 @@ private fun Head(text: String, width: Dp, description: String? = null) {
 private fun Mono(text: String, width: Dp, color: Color) {
     Text(
         text,
-        fontSize = 12.5.sp,
+        // 11 sp, not the 12.5 sp the rest of the app uses. This is the one
+        // table with six columns competing for a phone-width pane, and losing
+        // RESULT and DETAIL off the right edge costs more than the extra
+        // legibility of a larger glyph — those two columns are the whole reason
+        // someone opens Logs.
+        fontSize = 11.sp,
         fontFamily = Nocturne.Mono,
         color = color,
         maxLines = 1,
