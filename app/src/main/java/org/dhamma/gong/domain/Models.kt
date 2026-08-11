@@ -198,7 +198,8 @@ object SettingsDefaults {
     /** Android-only additions (no Pi counterpart). */
     val androidExtras: Map<String, String> = mapOf(
         "audio_route" to "speaker",
-        "timezone" to ApplianceZone.DEFAULT_ID,
+        // Blank = follow the device zone. A centre may pin an IANA id.
+        "timezone" to ApplianceZone.FOLLOW_DEVICE,
         "doha_tree_uri" to "",
         // Amplifier relay (Shelly 1 Gen4) — `relay_enabled` lives in `map`
         // above for Pi parity. Empty host = not configured, relay logic inert.

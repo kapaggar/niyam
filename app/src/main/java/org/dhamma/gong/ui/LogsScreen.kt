@@ -46,8 +46,11 @@ import java.time.ZoneId
 import java.time.ZoneOffset
 
 private val COL_GAP = 8.dp
-private val TS_W = 168.dp
-private val LOCAL_W = 92.dp
+// One timestamp column, in the appliance's own zone. The UTC `ts_utc` value is
+// still what the database stores and orders by — it is simply not something a
+// server standing at a wall tablet can read, and showing both invited the
+// reader to reconcile two numbers that always mean the same instant.
+private val LOCAL_W = 150.dp
 private val KIND_W = 96.dp
 private val FILE_W = 150.dp
 private val STRIKES_W = 46.dp
@@ -56,16 +59,16 @@ private val RESULT_W = 110.dp
 /** DETAIL grows into whatever is left, but never shrinks past this. */
 private val DETAIL_MIN_W = 300.dp
 
-private val FIXED_W = TS_W + LOCAL_W + KIND_W + FILE_W + STRIKES_W + RESULT_W + COL_GAP * 6
+private val FIXED_W = LOCAL_W + KIND_W + FILE_W + STRIKES_W + RESULT_W + COL_GAP * 5
 
 /**
  * `play_log`, read-only, so no PIN.
  *
- * **`ts_utc` is the canonical column and stays UTC.** The LOCAL column is paint
- * only: the same instant rendered in the *appliance* zone (the `timezone`
- * setting, never the raw device TZ), because a 05:50 IST gong logged as
- * `00:20:00Z` is otherwise unreadable at 2 m. The detail column still carries
- * the local scheduled instant for a missed fire (design handoff §4).
+ * `ts_utc` is still what the database stores and orders by; the column shown is
+ * that instant rendered in the appliance's zone, because a 05:50 gong logged as
+ * `00:20:00Z` is unreadable at two metres. Showing both asked the reader to
+ * reconcile two numbers that always mean the same moment. The detail column
+ * still carries the local scheduled instant for a missed fire (handoff §4).
  *
  * The table is wider than a phone pane, so the header and every row share one
  * horizontal scroll state — the house pattern from `ScheduleScreen` — instead
@@ -99,8 +102,7 @@ fun LogsScreen(vm: AppViewModel) {
     ) {
         ScreenTitle(
             "Logs",
-            "Timestamps are UTC; LOCAL is ${zone.id}. " +
-                "Showing ${visible.size} of the latest ${rows.size}.",
+            "Times are ${zone.id}. Showing ${visible.size} of the latest ${rows.size}.",
         )
 
         Row(
@@ -120,8 +122,7 @@ fun LogsScreen(vm: AppViewModel) {
                     Modifier.fillMaxWidth().padding(top = 4.dp).horizontalScroll(hScroll),
                     horizontalArrangement = Arrangement.spacedBy(COL_GAP),
                 ) {
-                    Head("When (UTC)", TS_W)
-                    Head("Local", LOCAL_W)
+                    Head("When", LOCAL_W)
                     Head("What", KIND_W)
                     Head("File", FILE_W)
                     Head("×", STRIKES_W, description = "strikes")
@@ -152,8 +153,7 @@ fun LogsScreen(vm: AppViewModel) {
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(COL_GAP),
                                 ) {
-                                    Mono(row.tsUtc, TS_W, Nocturne.Neutral400)
-                                    Mono(localStamp(row.tsUtc, zone), LOCAL_W, Nocturne.Neutral500)
+                                    Mono(localStamp(row.tsUtc, zone), LOCAL_W, Nocturne.Neutral300)
                                     Mono(row.kind, KIND_W, Nocturne.Neutral300)
                                     Mono(row.file, FILE_W, Nocturne.Neutral400)
                                     Mono(row.repeats.toString(), STRIKES_W, Nocturne.Neutral400)

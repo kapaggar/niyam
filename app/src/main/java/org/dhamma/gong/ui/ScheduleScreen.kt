@@ -143,7 +143,12 @@ fun ScheduleScreen(vm: AppViewModel) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                ScreenTitle("Schedule")
+                ScreenTitle(
+                    "Schedule",
+                    "Days across, wall-clock times down. DEF is the mid-course " +
+                        "default pattern used when a day has no rows of its own. " +
+                        "Gap and track blank means \"use the setting\".",
+                )
                 Spacer(Modifier.weight(1f))
                 if (types.isEmpty() && typeId != null) {
                     // Room has not emitted course types yet — do not flash "No course".

@@ -64,7 +64,7 @@ class GongService : Service() {
      * scheduler through the clock's zone provider.
      */
     @Volatile
-    private var applianceZone = ApplianceZone.DEFAULT
+    private var applianceZone = ApplianceZone.deviceZone()
 
     override fun onCreate() {
         super.onCreate()

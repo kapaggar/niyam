@@ -48,19 +48,19 @@ import org.dhamma.gong.domain.GongTracks
 import org.dhamma.gong.domain.ScheduleMaterializer
 
 /**
- * Sounds (design doc §08) — the whole audio settings surface.
+ * Sounds — what rings, how loud, when the doha plays, and where the doha
+ * recordings come from.
  *
- * Four things in reading order: what the gong sounds like, when the doha plays,
- * where the doha recordings come from, and what can still be downloaded.
+ * The eleven-row slot table that used to sit here is gone. It exposed the
+ * internals of `DohaSlots.legacyModular` — which slot serves which course day —
+ * to people who have no decision to make about it: the mapping is the verified
+ * PHP port and is not theirs to change. What staff actually do is point the
+ * appliance at a folder or download the tracks, and the folder count on the
+ * card already says whether that worked.
+ *
  * Everything writes straight through to the settings rows the scheduler and
- * player already read — there is no save button and no separate state to fall
- * out of sync.
- *
- * **No "day it serves" column, deliberately.** `DohaSlots.legacyModular` maps a
- * course day to a slot through modular cycles, so one slot serves several days.
- * Such a column would state something false, so rows carry a *role* (metta,
- * homage, day pattern) instead — enough for staff to sanity-check a mapping
- * without implying a one-to-one day relationship that does not exist.
+ * player already read, so there is no save button and no second copy of the
+ * state to fall out of sync.
  */
 @Composable
 fun DohaMediaScreen(vm: AppViewModel) {
@@ -82,9 +82,6 @@ fun DohaMediaScreen(vm: AppViewModel) {
         vm.rescanDohaFolder(announce = false)
         vm.rescanDownloads()
     }
-
-    val bySlot = remember(slots) { slots.associateBy { it.slot } }
-    var expanded by remember { mutableStateOf<Int?>(null) }
 
     Column(
         Modifier
@@ -117,74 +114,6 @@ fun DohaMediaScreen(vm: AppViewModel) {
             onPick = { picker.launch(null) },
             onRescan = { vm.rescanDohaFolder() },
         )
-
-        // ------------------------------------------------------------ slots
-        SurfaceCard {
-            Eyebrow("Doha slots")
-            Spacer(Modifier.height(10.dp))
-            SlotHeaderRow()
-            Hairline()
-            for (slot in DohaSlots.SLOTS) {
-                val row = bySlot[slot]
-                SlotRow(
-                    slot = slot,
-                    filename = row?.filename,
-                    source = row?.source,
-                    state = slotState(
-                        mapped = row != null,
-                        verified = row?.verifiedAt != null,
-                        unreadable = slot in pack.unreadable,
-                    ),
-                    canAssign = pack.files.isNotEmpty(),
-                    expanded = expanded == slot,
-                    onToggle = { expanded = if (expanded == slot) null else slot },
-                    onClear = {
-                        expanded = null
-                        vm.clearDohaSlot(slot)
-                    },
-                )
-                if (expanded == slot) {
-                    FilePickList(
-                        files = pack.files,
-                        onPick = {
-                            expanded = null
-                            vm.assignDohaSlot(slot, it)
-                        },
-                    )
-                }
-                Hairline()
-            }
-        }
-
-        if (pack.skipped.isNotEmpty()) {
-            ReportCard("Skipped — slot held by staff or bundled media", Nocturne.Warning) {
-                for (s in pack.skipped) {
-                    ReportLine(
-                        "Slot %02d".format(s.slot),
-                        "${s.file.name} — not applied, slot is ${s.heldBy}",
-                    )
-                }
-            }
-        }
-
-        if (pack.conflicts.isNotEmpty()) {
-            ReportCard("Conflicts — nothing was auto-assigned", Nocturne.Error) {
-                for (c in pack.conflicts) {
-                    ReportLine(
-                        "Slot %02d".format(c.slot),
-                        c.files.joinToString("  ·  ") { it.name },
-                    )
-                }
-            }
-        }
-
-        if (pack.unassigned.isNotEmpty()) {
-            ReportCard("In the folder but not named D01…D11", Nocturne.Neutral400) {
-                for (f in pack.unassigned) {
-                    ReportLine("—", f.name)
-                }
-            }
-        }
 
         // -------------------------------------------------------- downloads
         DownloadsCard(
@@ -396,27 +325,8 @@ private fun DohaScheduleCard(vm: AppViewModel, settings: Map<String, String>) {
 
 // ---------------------------------------------------------------- pieces
 
-/** What a slot is *for*, so staff can sanity-check a mapping at a glance. */
-private fun slotRole(slot: Int): String = when (slot) {
-    10 -> "metta"
-    11 -> "homage"
-    else -> "day pattern"
-}
 
-private enum class SlotState(val label: String, val color: Color) {
-    VERIFIED("verified", Nocturne.Ok),
-    UNREADABLE("unreadable", Nocturne.Error),
-    UNVERIFIED("unverified", Nocturne.Warning),
-    EMPTY("empty", Nocturne.Neutral600),
-}
 
-/** "Mapped" is not the same claim as "will play" — keep the two apart. */
-private fun slotState(mapped: Boolean, verified: Boolean, unreadable: Boolean): SlotState = when {
-    !mapped -> SlotState.EMPTY
-    unreadable -> SlotState.UNREADABLE
-    verified -> SlotState.VERIFIED
-    else -> SlotState.UNVERIFIED
-}
 
 @Composable
 private fun BannerCard(text: String, onRepick: () -> Unit, onDismiss: () -> Unit) {
@@ -489,157 +399,11 @@ private fun FolderCard(
     }
 }
 
-@Composable
-private fun SlotHeaderRow() {
-    Row(
-        Modifier.fillMaxWidth().padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Eyebrow("Slot", Modifier.width(78.dp))
-        Eyebrow("Role", Modifier.width(88.dp))
-        Eyebrow("File", Modifier.weight(1f))
-        Eyebrow("Source", Modifier.width(92.dp))
-        Eyebrow("State", Modifier.width(120.dp))
-        Spacer(Modifier.width(196.dp))
-    }
-}
 
-@Composable
-private fun SlotRow(
-    slot: Int,
-    filename: String?,
-    source: String?,
-    state: SlotState,
-    canAssign: Boolean,
-    expanded: Boolean,
-    onToggle: () -> Unit,
-    onClear: () -> Unit,
-) {
-    Row(
-        Modifier.fillMaxWidth().heightIn(min = Nocturne.MIN_TOUCH_DP.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(
-            "Slot %02d".format(slot),
-            fontSize = 14.sp,
-            fontFamily = Nocturne.Mono,
-            fontWeight = FontWeight.Medium,
-            color = Nocturne.Text,
-            modifier = Modifier.width(70.dp),
-        )
-        Text(
-            slotRole(slot),
-            fontSize = 12.5.sp,
-            color = Nocturne.Neutral500,
-            maxLines = 1,
-            modifier = Modifier.width(88.dp),
-        )
-        Text(
-            filename ?: "—",
-            fontSize = 13.5.sp,
-            color = if (filename == null) Nocturne.Neutral600 else Nocturne.Neutral300,
-            maxLines = 1,
-            modifier = Modifier.weight(1f),
-        )
-        Box(Modifier.width(84.dp)) {
-            if (source != null) Tag(source.uppercase(), sourceColor(source))
-        }
-        Row(
-            Modifier.width(112.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(7.dp),
-        ) {
-            Dot(state.color)
-            Text(state.label, fontSize = 12.5.sp, color = Nocturne.Neutral400)
-        }
-        PackButton(
-            if (expanded) "Cancel" else "Reassign",
-            enabled = canAssign || expanded,
-            modifier = Modifier.width(104.dp),
-            onClick = onToggle,
-        )
-        PackButton(
-            "Clear",
-            enabled = filename != null,
-            color = Nocturne.Error,
-            modifier = Modifier.width(84.dp),
-            onClick = onClear,
-        )
-    }
-}
 
-private fun sourceColor(source: String): Color = when (source) {
-    MediaSlotSource.MANUAL -> Nocturne.Accent300
-    MediaSlotSource.BUNDLED -> Nocturne.Neutral400
-    else -> Nocturne.Ok
-}
 
-@Composable
-private fun FilePickList(
-    files: List<DohaPackMapper.ScannedFile>,
-    onPick: (DohaPackMapper.ScannedFile) -> Unit,
-) {
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .padding(start = 70.dp, bottom = 8.dp),
-    ) {
-        Text(
-            "Assigning by hand marks the slot manual — a rescan will not overwrite it.",
-            fontSize = 12.5.sp,
-            color = Nocturne.Neutral500,
-            modifier = Modifier.padding(vertical = 6.dp),
-        )
-        for (f in files) {
-            Text(
-                f.name,
-                fontSize = 13.5.sp,
-                color = Nocturne.Accent200,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = Nocturne.MIN_TOUCH_DP.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .clickable(role = Role.Button) { onPick(f) }
-                    .padding(horizontal = 10.dp, vertical = 13.dp),
-            )
-        }
-    }
-}
 
-@Composable
-private fun ReportCard(
-    title: String,
-    accent: Color,
-    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
-) {
-    SurfaceCard {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Dot(accent)
-            Spacer(Modifier.width(8.dp))
-            Eyebrow(title)
-        }
-        Spacer(Modifier.height(8.dp))
-        content()
-    }
-}
 
-@Composable
-private fun ReportLine(lead: String, detail: String) {
-    Row(
-        Modifier.fillMaxWidth().padding(vertical = 5.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Text(
-            lead,
-            fontSize = 13.sp,
-            fontFamily = Nocturne.Mono,
-            color = Nocturne.Neutral400,
-            modifier = Modifier.width(70.dp),
-        )
-        Text(detail, fontSize = 13.sp, color = Nocturne.Neutral300, modifier = Modifier.weight(1f))
-    }
-}
 
 @Composable
 private fun PackButton(

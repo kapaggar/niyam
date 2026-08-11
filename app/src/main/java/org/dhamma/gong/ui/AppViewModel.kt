@@ -154,7 +154,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** The appliance's zone — the `timezone` setting, never the device TZ. */
     val applianceZone: StateFlow<ZoneId> = settings
         .map { ApplianceZone.resolve(it["timezone"]) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ApplianceZone.DEFAULT)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ApplianceZone.deviceZone())
 
     val events: StateFlow<List<ScheduleEventEntity>> = db.scheduleEvents().observeAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
