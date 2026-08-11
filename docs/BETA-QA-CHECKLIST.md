@@ -1,10 +1,10 @@
-# Niyam 0.2.0-beta7 — human QA
+# Niyam 0.2.0-beta8 — human QA
 
-Device: ________  Android: ________  Build: debug APK (`versionCode` 8)
+Device: ________  Android: ________  Build: debug APK (`versionCode` 9)
 
 Check **Setup → Appliance state** on the tablet before you start:
 
-- **Build** must read `0.2.0-beta7 (8)`. If it does not, the install did not
+- **Build** must read `0.2.0-beta8 (9)`. If it does not, the install did not
   take — reinstall before reporting anything.
 - **Media key** tells you which doha-download section applies. `present` means
   downloads should work; `absent — doha downloads off` is a deliberate build
@@ -52,6 +52,11 @@ changed or is a known gap — please try to break them in that order.
 
 ## Schedule
 
+- [ ] **The grid actually draws.** Days 0…N plus DEF across the top, wall-clock
+      times down the left, `xN` in the cells. A blank grid is the bug that
+      shipped in beta7 and it must not come back
+- [ ] The course-type picker sits beside the title and switches the whole grid
+- [ ] "Add a time" is in the right rail under the inspector, not under the grid
 - [ ] Grid shows days 0…N plus DEF
 - [ ] **Days with no rows of their own show their inherited rows dimmed** —
       they are not blank
@@ -70,6 +75,9 @@ changed or is a known gap — please try to break them in that order.
 
 - [ ] Test gong appears as `ok`
 - [ ] **One time column**, in the appliance zone — the old UTC column is gone
+- [ ] **All six columns fit without scrolling** on the tablet: WHEN, WHAT, FILE,
+      x, RESULT, DETAIL. RESULT being clipped off the right edge was the beta7
+      bug — that column is half the reason anyone opens this screen
 - [ ] Filters work; with `missed` selected and nothing matching, the message
       says so rather than "Nothing logged yet"
 - [ ] Columns do not vanish when the window is narrower

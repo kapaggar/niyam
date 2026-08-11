@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -143,11 +144,14 @@ fun ScheduleScreen(vm: AppViewModel) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                ScreenTitle(
+                // Title only — NOT ScreenTitle. Its subtitle is an unconstrained
+                // Text, which in a Row takes the whole width and squeezes the
+                // course-type picker to nothing. The subtitle goes below.
+                Text(
                     "Schedule",
-                    "Days across, wall-clock times down. DEF is the mid-course " +
-                        "default pattern used when a day has no rows of its own. " +
-                        "Gap and track blank means \"use the setting\".",
+                    fontSize = 23.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Nocturne.Text,
                 )
                 Spacer(Modifier.weight(1f))
                 if (types.isEmpty() && typeId != null) {
@@ -173,6 +177,12 @@ fun ScheduleScreen(vm: AppViewModel) {
                     }
                 }
             }
+
+            Text(
+                "Days across, times down. DEF is the default pattern.",
+                fontSize = 12.5.sp,
+                color = Nocturne.Neutral500,
+            )
 
             Grid(
                 times = times,
@@ -218,17 +228,18 @@ fun ScheduleScreen(vm: AppViewModel) {
                 },
                 modifier = Modifier.weight(1f),
             )
-
-            AddRow(
-                typeId = typeId,
-                selectedDay = selected?.dayNo,
-                events = events,
-                onAdd = vm::addEvent,
-                vm = vm,
-            )
         }
 
-        Inspector(
+        InspectorColumn(
+            addRow = {
+                AddRow(
+                    typeId = typeId,
+                    selectedDay = selected?.dayNo,
+                    events = events,
+                    onAdd = vm::addEvent,
+                    vm = vm,
+                )
+            },
             event = selected?.let { byCell[it.dayNo to it.time] },
             typeName = if (typeId == null) "No course" else type?.name ?: "",
             settings = settings,
@@ -495,8 +506,17 @@ private fun AddRow(
  * setting"** — this nullability is load-bearing and survives into the data
  * model (design handoff §3).
  */
+/**
+ * The right rail: what the selected cell is, and the form for adding a new time.
+ *
+ * The add-row used to sit under the grid. On a 1280x800 tablet the left column
+ * is about 411 dp tall, and a title, a paragraph and a form left the weighted
+ * grid with zero height — 335 seeded rows and a blank screen. The grid is the
+ * screen; the form is not, so the form moved.
+ */
 @Composable
-private fun Inspector(
+private fun InspectorColumn(
+    addRow: @Composable () -> Unit,
     event: ScheduleEventEntity?,
     typeName: String,
     settings: Map<String, String>,
@@ -510,7 +530,27 @@ private fun Inspector(
             .fillMaxHeight()
             .background(Nocturne.NavRail)
             .verticalScroll(rememberScrollState())
-            .padding(20.dp),
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Inspector(event, typeName, settings, emptyHint, onChange, onDelete)
+        Hairline()
+        Eyebrow("Add a time")
+        addRow()
+    }
+}
+
+@Composable
+private fun Inspector(
+    event: ScheduleEventEntity?,
+    typeName: String,
+    settings: Map<String, String>,
+    emptyHint: String?,
+    onChange: (ScheduleEventEntity) -> Unit,
+    onDelete: (Long) -> Unit,
+) {
+    Column(
+        Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         if (event == null) {
