@@ -81,7 +81,7 @@ class MainActivity : ComponentActivity() {
 
         /**
          * Optional deep-link for docs/screenshots:
-         * `-e tab DASHBOARD|SCHEDULE|COURSES|LOGS|SECURITY`.
+         * `-e tab DASHBOARD|SCHEDULE|COURSES|LOGS|SOUNDS|SETUP`.
          *
          * Case-insensitive: `-e tab courses` used to fail [Tab.valueOf] and fall
          * back to the Dashboard without saying so.

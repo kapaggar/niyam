@@ -1,42 +1,49 @@
 package org.dhamma.gong.domain
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 
 /**
- * FABLE-REVIEW B1: the appliance timezone comes from the `timezone` setting,
- * never from the phone's travel TZ. Pi parity: the Pi daemon's config.py defaults
- * `timezone = "Asia/Kolkata"`.
+ * The schedule fires in the device's own zone unless a centre pins one.
+ *
+ * The appliance used to force `Asia/Kolkata`. That was one more thing to get
+ * wrong on install day, and getting it wrong moves every gong — whereas a
+ * tablet bought and installed at the centre already knows where it is and keeps
+ * knowing across DST and government changes without anyone touching the app.
+ * The pin remains as the escape hatch for a donated phone that insists it is
+ * still somewhere else.
  */
 class ApplianceZoneTest {
 
     @Test
-    fun validIdResolvesToThatZone() {
+    fun aPinnedZoneWins() {
         assertEquals(ZoneId.of("Europe/London"), ApplianceZone.resolve("Europe/London"))
         assertEquals(ZoneId.of("Asia/Kolkata"), ApplianceZone.resolve("Asia/Kolkata"))
     }
 
     @Test
-    fun blankFallsBackToKolkata() {
-        // Devices seeded before this fix have a persisted `timezone` row of ""
-        // (SeedLoader insertMissing never clobbers) — blank must mean default.
-        assertEquals(ZoneId.of("Asia/Kolkata"), ApplianceZone.resolve(""))
-        assertEquals(ZoneId.of("Asia/Kolkata"), ApplianceZone.resolve("   "))
+    fun blankFollowsTheDevice() {
+        assertEquals(ApplianceZone.deviceZone(), ApplianceZone.resolve(""))
+        assertEquals(ApplianceZone.deviceZone(), ApplianceZone.resolve("   "))
     }
 
     @Test
-    fun nullFallsBackToKolkata() {
-        assertEquals(ZoneId.of("Asia/Kolkata"), ApplianceZone.resolve(null))
+    fun nullFollowsTheDevice() {
+        assertEquals(ApplianceZone.deviceZone(), ApplianceZone.resolve(null))
     }
 
     @Test
-    fun invalidIdFallsBackToKolkata() {
-        // A corrupt setting must never crash the appliance or silently pick UTC.
-        assertEquals(ZoneId.of("Asia/Kolkata"), ApplianceZone.resolve("Mars/Olympus_Mons"))
-        assertEquals(ZoneId.of("Asia/Kolkata"), ApplianceZone.resolve("not a zone"))
+    fun anUnparseableIdFollowsTheDeviceRatherThanAHardcodedZone() {
+        // A corrupt row should leave the appliance on the tablet's own idea of
+        // local time — very likely right — instead of silently moving every
+        // gong to a zone nobody chose.
+        assertEquals(ApplianceZone.deviceZone(), ApplianceZone.resolve("Mars/Olympus_Mons"))
+        assertEquals(ApplianceZone.deviceZone(), ApplianceZone.resolve("not a zone"))
     }
 
     @Test
@@ -45,9 +52,24 @@ class ApplianceZoneTest {
     }
 
     @Test
-    fun settingsDefaultIsKolkataNotEmpty() {
-        // Fresh installs must seed the Pi default, not "unset".
-        assertEquals("Asia/Kolkata", SettingsDefaults.all["timezone"])
+    fun pinnedIsTrueOnlyForARealId() {
+        assertFalse(ApplianceZone.isPinned(null))
+        assertFalse(ApplianceZone.isPinned(""))
+        assertFalse(ApplianceZone.isPinned("   "))
+        assertTrue(ApplianceZone.isPinned("Europe/London"))
+    }
+
+    @Test
+    fun freshInstallsSeedFollowTheDevice() {
+        assertEquals(ApplianceZone.FOLLOW_DEVICE, SettingsDefaults.all["timezone"])
+    }
+
+    @Test
+    fun anAlreadySeededKolkataRowKeepsWorking() {
+        // Tablets seeded before this change persist "Asia/Kolkata".
+        // `insertMissing` never rewrites a seeded setting, so those devices must
+        // keep firing in IST rather than silently jumping to the device zone.
+        assertEquals(ZoneId.of("Asia/Kolkata"), ApplianceZone.resolve("Asia/Kolkata"))
     }
 
     @Test

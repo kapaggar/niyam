@@ -1,10 +1,10 @@
-# Niyam 0.2.0-beta6 — human QA
+# Niyam 0.2.0-beta7 — human QA
 
-Device: ________  Android: ________  Build: debug APK (`versionCode` 7)
+Device: ________  Android: ________  Build: debug APK (`versionCode` 8)
 
 Check **Setup → Appliance state** on the tablet before you start:
 
-- **Build** must read `0.2.0-beta6 (7)`. If it does not, the install did not
+- **Build** must read `0.2.0-beta7 (8)`. If it does not, the install did not
   take — reinstall before reporting anything.
 - **Media key** tells you which doha-download section applies. `present` means
   downloads should work; `absent — doha downloads off` is a deliberate build
@@ -69,14 +69,15 @@ changed or is a known gap — please try to break them in that order.
 ## Logs
 
 - [ ] Test gong appears as `ok`
-- [ ] LOCAL column matches the appliance zone; WHEN stays UTC
+- [ ] **One time column**, in the appliance zone — the old UTC column is gone
 - [ ] Filters work; with `missed` selected and nothing matching, the message
       says so rather than "Nothing logged yet"
 - [ ] Columns do not vanish when the window is narrower
 
-## PIN
+## PIN (now on Setup, no longer its own tab)
 
-- [ ] Set PIN → digits are **masked** while typing
+- [ ] There is **no PIN entry in the nav rail**; PIN lives on Setup
+- [ ] Setup → PIN card: set a PIN → digits are **masked** while typing
 - [ ] Kill app → reopen → lock shows, **no dashboard flash**
 - [ ] Wrong PIN rejected; repeated wrong attempts get slower
 - [ ] **Unlock, press Home, wait over a minute, return → it asks for the PIN again**
@@ -85,27 +86,34 @@ changed or is a known gap — please try to break them in that order.
 - [ ] Remove PIN asks twice and is styled as destructive
 - [ ] On a phone in landscape, the keypad scrolls — the OK key is reachable
 
-## Time / Setup (new in this build)
+## Time — now follows the tablet (changed in this build)
 
-- [ ] Time shows appliance zone and device zone side by side
-- [ ] Changing the zone saves immediately and moves the Dashboard "today"
+- [ ] Time shows **one clock**, tagged with the zone, and says it is taken from
+      the tablet
+- [ ] Change the tablet's timezone in Android settings → the Time screen and the
+      Dashboard "today" follow it, with **no app setting to touch**
+- [ ] "Override the zone" → pin `Europe/London` → the tag reads PINNED and the
+      clock moves; "Follow the tablet" puts it back
 - [ ] A nonsense zone id is rejected, not silently accepted
+- [ ] **A tablet upgraded from an older build keeps firing in `Asia/Kolkata`** —
+      the seeded row is not rewritten. Only fresh installs follow the device
 - [ ] Confirm clock works when the clock is untrusted
+
+## Setup
 - [ ] Setup checklist matches the real permission state — an amber row must
       never be green when the grant is actually missing
 
-## Sounds — doha pack folder (new)
+## Sounds — doha pack folder
+
+The eleven-row slot table is gone; the folder card's mapped count is now the
+signal that a scan worked.
 
 - [ ] Sounds → pick the folder that **directly contains** `D01…D11` mp3s →
-      all 11 slots map and the Dashboard GONGS ONLY chip clears
+      the card reads 11 of 11 mapped and the Dashboard GONGS ONLY chip clears
 - [ ] Pick a *parent* folder instead → empty state naming the `D01…D11`
       convention, not a silent no-op
 - [ ] Pick a folder whose only match is inside a single `doha/` subfolder →
       still maps (one level down only)
-- [ ] Reassign a file to a different slot, then Rescan → **the manual
-      assignment survives**
-- [ ] Put two files with the same `D03` prefix in the folder → shown as a
-      **conflict**, neither is assigned
 - [ ] Re-pick a different folder → remaps cleanly, no stale path shown
 - [ ] Reboot the tablet → the folder is still readable, slots still mapped
 - [ ] Play a test doha → the mapped file is what you hear
@@ -194,9 +202,10 @@ have been decorative, because the resolved route never reached the player.
 - [ ] Kill the app (service stopped) → Test buttons render inert rather than
       failing silently
 
-## Network (new)
+## Network (simplified)
 
 Informational only. Nothing here should ever suggest the schedule is at risk.
+The "what needs a connection" table and the hotspot caveat box are gone.
 
 - [ ] On the centre Wi-Fi → mode reads **Wi-Fi**, address matches what the
       router shows for that tablet

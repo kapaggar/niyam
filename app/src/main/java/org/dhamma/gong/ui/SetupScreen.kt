@@ -263,6 +263,11 @@ fun SetupScreen(vm: AppViewModel) {
                 applianceState()
             }
 
+            // PIN lives here rather than in its own nav entry: it is an
+            // install-day decision, made once by the same person working
+            // through the grants above, not something staff visit.
+            SecurityCard(vm)
+
             BackupCard(vm, zone)
         }
     }

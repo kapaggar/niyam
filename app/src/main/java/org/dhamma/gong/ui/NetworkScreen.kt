@@ -90,23 +90,7 @@ fun NetworkScreen(vm: AppViewModel) {
 
             HeadlineRow(facts, probed)
 
-            val connection: @Composable () -> Unit = { ConnectionCard(facts, probed) }
-            val dependsOn: @Composable () -> Unit = { DependsOnCard(facts) }
-
-            if (wide) {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(22.dp),
-                ) {
-                    Box(Modifier.weight(1f)) { connection() }
-                    Box(Modifier.width(394.dp)) { dependsOn() }
-                }
-            } else {
-                connection()
-                dependsOn()
-            }
-
-            HotspotCard(facts)
+            ConnectionCard(facts, probed)
 
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 PrimaryButton("Open Wi-Fi settings") { NetworkSettings.openWifi(context) }
@@ -257,103 +241,5 @@ private fun InfoRow(label: String, value: String, color: Color = Nocturne.Text) 
             modifier = Modifier.width(84.dp),
         )
         Text(value, fontSize = 12.5.sp, fontFamily = Nocturne.Mono, color = color)
-    }
-}
-
-// ---------------------------------------------------------------- depends on
-
-@Composable
-private fun DependsOnCard(facts: NetworkFacts.Facts) {
-    SurfaceCard(Modifier.fillMaxWidth()) {
-        Eyebrow("What needs a connection")
-        Spacer(Modifier.height(12.dp))
-
-        NeedRow("Gong schedule", false)
-        Spacer(Modifier.height(8.dp))
-        NeedRow("Morning doha", false)
-        Spacer(Modifier.height(8.dp))
-        NeedRow("Course day and clock", false)
-        Spacer(Modifier.height(8.dp))
-        NeedRow("Amp power relay", true, "centre LAN only, never the internet")
-        Spacer(Modifier.height(8.dp))
-        NeedRow("Doha downloads", true, "one time, per track")
-
-        Spacer(Modifier.height(14.dp))
-        Text(
-            if (facts.online) {
-                "Nothing above is at risk. If this connection drops the schedule " +
-                    "keeps running exactly as it is."
-            } else {
-                "Nothing above is at risk. The appliance is designed to run in " +
-                    "airplane mode indefinitely; the schedule, the clock and the " +
-                    "course day are all local."
-            },
-            fontSize = 12.5.sp,
-            color = Nocturne.Neutral400,
-        )
-    }
-}
-
-@Composable
-private fun NeedRow(label: String, needsNetwork: Boolean, note: String = "") {
-    Row(
-        Modifier.fillMaxWidth().heightIn(min = 24.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Box(Modifier.width(74.dp)) {
-            if (needsNetwork) Tag("NEEDS", Nocturne.Warning) else Tag("OFFLINE", Nocturne.Ok)
-        }
-        Column(Modifier.weight(1f)) {
-            Text(label, fontSize = 12.5.sp, color = Nocturne.Text)
-            if (note.isNotBlank()) {
-                Text(note, fontSize = 11.5.sp, color = Nocturne.Neutral500)
-            }
-        }
-    }
-}
-
-// ---------------------------------------------------------------- hotspot
-
-@Composable
-private fun HotspotCard(facts: NetworkFacts.Facts) {
-    SurfaceCard(Modifier.fillMaxWidth()) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Eyebrow("Hotspot")
-            if (facts.hotspot) Tag("LOOKS ACTIVE", Nocturne.Warning)
-        }
-        Spacer(Modifier.height(8.dp))
-        Text(
-            if (facts.hotspot) {
-                "This tablet appears to be serving its own hotspot as well as, or " +
-                    "instead of, joining the centre network."
-            } else {
-                "No sign that this tablet is serving its own hotspot."
-            },
-            fontSize = 12.5.sp,
-            color = Nocturne.Neutral400,
-        )
-        Spacer(Modifier.height(10.dp))
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp))
-                .background(Nocturne.SurfaceHigh)
-                .border(1.dp, Nocturne.Neutral800, RoundedCornerShape(8.dp))
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-        ) {
-            Text(
-                "This one is a guess, and it is worth saying so. Android has given " +
-                    "apps no way to ask whether tethering is on since Android 9, so " +
-                    "the appliance is reading the names of its own network " +
-                    "interfaces — a convention, not a guarantee. Treat a wrong " +
-                    "answer here as cosmetic: nothing in the app acts on it.",
-                fontSize = 12.5.sp,
-                color = Nocturne.Neutral500,
-            )
-        }
     }
 }

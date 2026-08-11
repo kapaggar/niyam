@@ -43,7 +43,9 @@ Paths: repo `skills/`, project `.grok/skills/`, and for Claude on this machine *
 2. Persist double-fire guards **before** dispatching play.
 3. Never fire early; late only within grace (default 120 s); else log `missed`.
 4. Calendar day math only — never `seconds/86400` for course day.
-5. Appliance timezone comes from settings (`timezone`, default `Asia/Kolkata`), not casual device TZ for travel phones.
+5. Appliance timezone: the `timezone` setting **may pin** an IANA id, and a pin always wins.
+   **Blank means follow the device** — a tablet installed at the centre already knows where it
+   is and tracks DST without anyone touching the app. Do not reintroduce a hardcoded IST fallback.
 6. Do not commit `local.properties`, keystores, secrets, or full copyrighted doha libraries.
 7. Do not add analytics, ads, or a required cloud backend for core operation.
 8. Deshna jukebox server is **out of scope** until gong/doha field MVP is stable.

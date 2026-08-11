@@ -222,11 +222,15 @@ private fun KeypadButton(
 }
 
 /**
- * Set, change, or remove the app-open PIN. Reachable only once unlocked, so
- * "reset from inside the app" always means "prove the current PIN first".
+ * Set, change, or remove the app-open PIN.
+ *
+ * Lives on **Setup** rather than its own nav entry: it is an install-day
+ * decision made once by the same person working through the OS grants, not
+ * something staff visit. Reachable only once unlocked, so "reset from inside
+ * the app" always means "prove the current PIN first".
  */
 @Composable
-fun SecurityScreen(vm: AppViewModel) {
+fun SecurityCard(vm: AppViewModel) {
     val pinHash by vm.pinHash.collectAsState()
     val pinIsSet = PinCode.isSet(pinHash)
 
@@ -244,24 +248,28 @@ fun SecurityScreen(vm: AppViewModel) {
         confirm = ""
     }
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(32.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp),
-    ) {
-        ScreenTitle(
-            "PIN",
+    SurfaceCard(Modifier.fillMaxWidth()) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Eyebrow("PIN")
+            if (pinIsSet) Tag("SET", Nocturne.Ok) else Tag("NOT SET", Nocturne.Warning)
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
             if (pinIsSet) {
-                "A PIN is set. The app asks for it every time it opens."
+                "The app asks for it every time it opens."
             } else {
-                "No PIN set — the app opens without asking. Set a 4–8 digit PIN " +
-                    "to keep casual fingers off the schedule."
+                "The app opens without asking. Set a 4–8 digit PIN to keep " +
+                    "casual fingers off the schedule."
             },
+            fontSize = 12.5.sp,
+            color = Nocturne.Neutral500,
         )
+        Spacer(Modifier.height(14.dp))
 
-        SurfaceCard(modifier = Modifier.width(430.dp)) {
+        Box(Modifier.width(430.dp)) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (pinIsSet) {
                     Eyebrow("Current PIN")

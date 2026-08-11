@@ -2,8 +2,10 @@
 
 Standalone repo **`kapaggar/niyam`** (branch `main`), extracted with history from the gongserver monorepo's `android/` tree.
 
-Last updated: 2026-08-11, **course calendar + backup/restore**
-(`0.2.0-beta6`, `versionCode` 7) — Dhamma Sudha's 39-course calendar seeds
+Last updated: 2026-08-11, **screen simplification** (`0.2.0-beta7`,
+`versionCode` 8) — the app now follows the tablet's timezone, the PIN moved
+onto Setup, and Logs/Network/Sounds shed detail nobody acts on. Prior same day:
+course calendar + backup/restore (`0.2.0-beta6`, `versionCode` 7) — Dhamma Sudha's 39-course calendar seeds
 itself at install, and settings/courses/schedule can be exported and restored.
 Prior same day: Fable gap iteration (`0.2.0-beta5`) — deterministic
 between-courses doha, a third keep-alive belt, a complete Sounds panel, and
@@ -29,7 +31,7 @@ cd /Users/wizops/DIPI/niyam
 Environment used: JDK 20, AGP 8.7.2, Kotlin 2.0.21, Gradle 8.9, compileSdk 35
 (auto-downloaded on first build), minSdk 29.
 
-**Next milestone: human tablet beta.** Hand `app-debug.apk` (`0.2.0-beta6`,
+**Next milestone: human tablet beta.** Hand `app-debug.apk` (`0.2.0-beta7`,
 built **with** `media.properties` filled in so downloads work — check
 Setup shows `Media key: present`) to a tester with `docs/BETA-QA-CHECKLIST.md`. Every screen in design doc
 §08 now exists. The two checks that most need real hardware are the Shelly
@@ -263,6 +265,61 @@ Doha files auto-map by `D01`…`D11` prefix into `media_slots`; unmatched files
 are listed as "unassigned", never guessed. Debug builds already ship 11
 synthetic tones at `app/src/debug/assets/media/doha-test/`
 (regenerate with `python3 tools/make_test_tones.py`).
+
+### Screen simplification (2026-08-11, `0.2.0-beta7`)
+
+Six screens lost material that looked informative but gave staff nothing to act
+on. The theme: an appliance screen should either answer a question or offer a
+decision, and anything else is noise a server has to read past at 04:00.
+
+**Time now follows the tablet.** `ApplianceZone` forced `Asia/Kolkata` and made
+install day include picking a zone from a list — one more thing to get wrong,
+and getting it wrong moves every gong by hours. Blank now means "follow the
+device", which a tablet installed at the centre already knows and keeps knowing
+across DST without anyone touching the app. An unparseable id also defers to the
+device rather than to a hardcoded fallback: a corrupt row should leave the
+appliance on the tablet's own local time, very likely right, instead of silently
+relocating the schedule. The pin survives as the escape hatch for a donated
+phone that insists it is elsewhere, and it is deliberately the last card on the
+screen — putting it first invites people to set it "just in case". **Tablets
+already seeded with `Asia/Kolkata` keep it**, because `insertMissing` never
+rewrites a seeded setting; only fresh installs follow the device. AGENTS.md
+hard rule 5 was rewritten to match rather than left contradicting the code.
+
+**Logs** dropped the `WHEN (UTC)` column. `ts_utc` is still what the database
+stores and orders by; showing it beside the local time asked the reader to
+reconcile two numbers that always mean the same instant.
+
+**Network** dropped the "what needs a connection" table and the paragraph
+explaining that hotspot detection is a heuristic. Both were true and neither
+changed what anyone would do.
+
+**Sounds** dropped the eleven-row doha slot table. It exposed the internals of
+`DohaSlots.legacyModular` — which slot serves which course day — to people who
+have no decision to make about it: that mapping is the verified PHP port and is
+not theirs to change. What staff actually do is point the appliance at a folder
+or download the tracks, and the folder card's mapped count already says whether
+that worked. About 200 lines of now-dead table code went with it.
+
+**PIN** is no longer a nav entry; it is a card on Setup. It is an install-day
+decision made once by the same person working through the OS grants, not
+somewhere staff visit. The nav rail is down to nine entries.
+
+**Schedule** gained the explanatory subtitle it was missing (days across, times
+down, what DEF means, what a blank gap/track means). The grid, the DEF column
+and the cell inspector already matched the target design.
+
+**Groundwork for pulling calendars from dhamma.org.** Centre schedules are
+public and canonical, so a tablet could stay current instead of shipping one
+centre's hand-transcribed year. `tools/export_centres_json.py` turns the public
+directory HTML into a centre list (subdomain, name, place, region, schedule
+path); the design for the fetch itself is in
+`docs/superpowers/specs/2026-08-11-runtime-course-calendar-design.md`. Nothing
+fetches yet, on purpose: a misparsed start date moves day 0 and every gong with
+it, so any import must be reviewed before it fires and a parse failure must mean
+"keep what we have", never "this centre has no courses".
+
+Suite 389 green.
 
 ### Course calendar + backup/restore (2026-08-11, `0.2.0-beta6`)
 

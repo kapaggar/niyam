@@ -73,7 +73,6 @@ enum class Tab(
     SCHEDULE("Schedule", "▦", requiresPin = true),
     COURSES("Courses", "▤", requiresPin = true),
     LOGS("Logs", "≡", requiresPin = false),
-    SECURITY("PIN", "⚿", requiresPin = false),
 
     // Design doc §08. Every screen has now shipped; `enabled` stays on the
     // enum because the nav rail is the only routing there is, and a future
@@ -162,7 +161,6 @@ fun GongApp(
                         Tab.SCHEDULE -> ScheduleScreen(vm)
                         Tab.SOUNDS -> DohaMediaScreen(vm)
                         Tab.LOGS -> LogsScreen(vm)
-                        Tab.SECURITY -> SecurityScreen(vm)
                         Tab.POWER -> RelayScreen(vm)
                         Tab.TIME -> TimeScreen(vm)
                         Tab.AUDIO_OUT -> AudioOutScreen(vm)
