@@ -25,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -68,6 +69,8 @@ fun AudioOutScreen(vm: AppViewModel) {
     val choice by vm.routeChoice.collectAsStateWithLifecycle()
     val service by vm.service.collectAsStateWithLifecycle()
     val status by vm.playerStatus.collectAsStateWithLifecycle()
+    val lastOkAt by vm.routeLastOkAt.collectAsStateWithLifecycle()
+    val zone by vm.applianceZone.collectAsStateWithLifecycle()
 
     // Devices appear and vanish while someone is standing at the tablet with a
     // cable in their hand, so the list is re-read on a slow poll rather than
@@ -78,7 +81,9 @@ fun AudioOutScreen(vm: AppViewModel) {
         owner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (true) {
                 vm.refreshAudioRoutes()
-                delay(4_000)
+                // 2 s, not 4: staff plug a DAC in and look straight at the
+                // screen. A list that lags feels broken and invites a re-plug.
+                delay(2_000)
             }
         }
     }
@@ -105,7 +110,7 @@ fun AudioOutScreen(vm: AppViewModel) {
                 PickerCard(vm, rows, serviceRunning = service != null)
             }
             val effect: @Composable () -> Unit = {
-                EffectiveCard(choice, rows, service != null, status.route)
+                EffectiveCard(choice, rows, service != null, status.route, lastOkAt, zone)
             }
 
             if (wide) {
@@ -278,8 +283,19 @@ private fun EffectiveCard(
     rows: List<AppViewModel.RouteRow>,
     serviceRunning: Boolean,
     playerRoute: String,
+    lastOkAt: String,
+    zone: java.time.ZoneId,
 ) {
     val lastOk = rows.firstOrNull { it.lastOk }
+    // "Bluetooth worked" is a much weaker claim than "Bluetooth worked this
+    // morning". A stamp three weeks old is how staff spot a quietly dead amp.
+    val lastOkWhen = remember(lastOkAt, zone) {
+        runCatching {
+            java.time.Instant.parse(lastOkAt)
+                .atZone(zone)
+                .format(java.time.format.DateTimeFormatter.ofPattern("EEE d MMM · HH:mm"))
+        }.getOrNull()
+    }
 
     SurfaceCard(Modifier.fillMaxWidth()) {
         Eyebrow("At fire time")
@@ -324,6 +340,8 @@ private fun EffectiveCard(
             lastOk?.let { RoutePlan.genericLabel(it.key) } ?: "nothing yet",
         )
         Spacer(Modifier.height(8.dp))
+        InfoRow("When", lastOkWhen ?: "—")
+        Spacer(Modifier.height(8.dp))
         InfoRow("Player", playerRoute.ifBlank { "—" })
 
         if (!serviceRunning) {
@@ -340,7 +358,9 @@ private fun EffectiveCard(
         Text(
             "\"Last played\" is the last route that finished a burst — a test " +
                 "counts. It is the quickest proof that a device is not merely " +
-                "attached but actually carrying sound.",
+                "attached but actually carrying sound. The output is opened " +
+                "about 15 s before each scheduled fire, so the first strike is " +
+                "not eaten while a Bluetooth link wakes up.",
             fontSize = 12.5.sp,
             color = Nocturne.Neutral500,
         )

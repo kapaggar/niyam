@@ -1,10 +1,10 @@
-# Niyam 0.2.0-beta4 — human QA
+# Niyam 0.2.0-beta5 — human QA
 
-Device: ________  Android: ________  Build: debug APK (`versionCode` 5)
+Device: ________  Android: ________  Build: debug APK (`versionCode` 6)
 
 Check **Setup → Appliance state** on the tablet before you start:
 
-- **Build** must read `0.2.0-beta4 (5)`. If it does not, the install did not
+- **Build** must read `0.2.0-beta5 (6)`. If it does not, the install did not
   take — reinstall before reporting anything.
 - **Media key** tells you which doha-download section applies. `present` means
   downloads should work; `absent — doha downloads off` is a deliberate build
@@ -214,11 +214,88 @@ Informational only. Nothing here should ever suggest the schedule is at risk.
       sensible; neither crashes if the OEM lacks the screen
 - [ ] Return from system settings within the PIN grace window → no re-prompt
 
-## Overnight / soak
+## Service liveness — the third belt (new)
+
+The appliance now has three keep-alive paths: the exact next-fire alarm, the
+30 s in-service heartbeat, and a 15-minute WorkManager check that arms a
+kickstart alarm when the service has been killed. The first two assume the
+service is alive; this section attacks that assumption.
+
+- [ ] Setup → Appliance state → **Last tick** shows a time *and* an age
+      ("6s ago"), green
+- [ ] Leave the app on Setup for two minutes — the age never climbs past
+      about 35 s on a healthy tablet
+- [ ] **Kill the app from recents 1 min before a fire → the gong still
+      fires.** The service is separate from the activity; if this fails
+      nothing else in this section matters
+- [ ] Kill it from recents and wait — within ~15 min the notification
+      returns on its own (WorkManager → kickstart). Note how long it took
+- [ ] **Reboot 5 min before a fire** → notification returns, fire lands
+- [ ] Force-stop from App info (harsher than recents) → confirm whether it
+      comes back; on some OEMs force-stop blocks WorkManager until the app
+      is opened once. Record the device and the result
+- [ ] Dashboard health shows **Scheduler: alive · Ns ago** while running,
+      and **STALLED** if you manage to freeze it
+
+## Sounds — gong and doha settings (new)
+
+- [ ] Track chips read single gong / sikkim gong; changing it changes what
+      Test gong plays
+- [ ] Gap stepper changes the silence between strikes on a multi-strike test
+- [ ] Gong volume at 20% is audibly quieter than 90%; note that Android's
+      own media volume multiplies it
+- [ ] Doha time: type `06:37` → Save → the Dashboard "next events" doha
+      moves to match
+- [ ] Type `25:00` or `6.37` → refused with a message, nothing saved
+- [ ] Between courses → **rotate daily**: with no active course, note the
+      slot the Dashboard predicts, then re-open the app — **it must predict
+      the same slot** (this is the determinism fix; a different slot is a bug)
+- [ ] Between courses → **fixed** → pick a slot → that slot is used
+- [ ] Between courses → **off** → no doha appears in next events; gongs
+      unaffected
+- [ ] Doha volume changes Test doha loudness
+- [ ] Slot table shows roles (metta on 10, homage on 11)
+- [ ] Put a stray `notes.txt` in the doha folder → listed under "In the
+      folder but not named D01…D11", not silently ignored
+
+## Setup READY banner (new)
+
+- [ ] With everything granted and the service ticking → **READY** in green
+- [ ] Deny any one grant → **NOT READY**, naming that specific blocker
+- [ ] Remove the PIN → NOT READY says so (a public tablet with no PIN is
+      not field-ready)
+- [ ] Change a grant in system settings and come straight back → the banner
+      flips **without** force-reopening the app (it re-polls every second)
+
+## Fire correctness — power and grace
+
+- [ ] Schedule a row 3 min out; the gong fires on the minute
+- [ ] **Power the tablet off across a fire time, back on within 120 s →
+      it fires once.** Not twice, not never
+- [ ] Power on more than 120 s past the fire time → Logs show `missed` and
+      **nothing sounds**. A late blast into a silent hall is the worst
+      outcome of all
+- [ ] Press Stop during a multi-strike burst → Logs row reads `stopped`
+      with the strike count that actually rang
+
+## Clock trust
+
+- [ ] Set the device clock back 30 minutes → the Dashboard shows the
+      **CLOCK UNTRUSTED** banner and the next fire is suppressed
+- [ ] Confirm the clock (banner button or Time screen) → banner clears and
+      fires resume
+- [ ] While untrusted, tests still work — a person standing at the tablet
+      may always ring it
+
+## Overnight / soak (48 h)
 
 - [ ] Schedule an event +2 min; screen off; hear the gong
 - [ ] Reboot; after unlock the service returns and the next alarm is armed
 - [ ] Leave it overnight on charge and confirm the 04:00 gong fires
+- [ ] Over 48 h: no missed and no doubled fires in Logs
+- [ ] Over 48 h: Setup's last-tick age never exceeds ~35 s
+- [ ] Audio out → "Last played" **When** keeps advancing after each fire —
+      a stamp stuck at yesterday means the route silently stopped working
 
 ---
 

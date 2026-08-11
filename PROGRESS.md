@@ -2,9 +2,11 @@
 
 Standalone repo **`kapaggar/niyam`** (branch `main`), extracted with history from the gongserver monorepo's `android/` tree.
 
-Last updated: 2026-08-10, **Audio out and Network** (`0.2.0-beta4`,
-`versionCode` 5) — the last two locked screens shipped, so the nav rail has no
-padlocks left. Audio out also made the
+Last updated: 2026-08-11, **Fable gap iteration** (`0.2.0-beta5`,
+`versionCode` 6) — deterministic between-courses doha, a third keep-alive belt,
+a complete Sounds panel, and honest READY / service-alive surfaces. Prior:
+Audio out and Network (`0.2.0-beta4`), which shipped the last two locked screens
+so the nav rail has no padlocks left. Audio out also made the
 route *real*: the resolved device now reaches ExoPlayer instead of only
 labelling the log. Prior: doha download pipeline (`0.2.0-beta2`), gong
 recording swap, beta screen review (`0.2.0-beta1`), doha SAF folder, Shelly
@@ -24,7 +26,7 @@ cd /Users/wizops/DIPI/niyam
 Environment used: JDK 20, AGP 8.7.2, Kotlin 2.0.21, Gradle 8.9, compileSdk 35
 (auto-downloaded on first build), minSdk 29.
 
-**Next milestone: human tablet beta.** Hand `app-debug.apk` (`0.2.0-beta4`,
+**Next milestone: human tablet beta.** Hand `app-debug.apk` (`0.2.0-beta5`,
 built **with** `media.properties` filled in so downloads work — check
 Setup shows `Media key: present`) to a tester with `docs/BETA-QA-CHECKLIST.md`. Every screen in design doc
 §08 now exists. The two checks that most need real hardware are the Shelly
@@ -258,6 +260,74 @@ Doha files auto-map by `D01`…`D11` prefix into `media_slots`; unmatched files
 are listed as "unassigned", never guessed. Debug builds already ship 11
 synthetic tones at `app/src/debug/assets/media/doha-test/`
 (regenerate with `python3 tools/make_test_tones.py`).
+
+### Fable gap iteration (2026-08-11, `0.2.0-beta5`)
+
+A parallel Fable design export landed as a read-only reference. It was mined
+for UX and reliability gaps only — DIPI's verified schedule domain, Shelly
+relay, CDN download pipeline and Nocturne chrome all stayed. In particular
+`DohaSlots.legacyModular` was **not** replaced with Fable's simpler
+`floorMod(day-1, 9)`: ours is the anapana-aware PHP port with golden tests,
+theirs is a best guess.
+
+**G3 — between-courses doha is now deterministic.** `pickSlot` took a `Random`;
+the same calendar day could resolve to a different doha on every
+re-materialize, so the fired-guard and the play_log could disagree about what
+"today's doha" was. It now takes the occurrence's `LocalDate` and derives the
+slot from the epoch day. The `Random` parameter is gone from `SchedulerCore`
+entirely rather than defaulted, so non-determinism cannot creep back. Bonus
+property: the stride is coprime with 11, so eleven consecutive days walk the
+whole set with no repeat — better than true random, which happily plays the
+same doha twice running.
+
+**G1 — a third keep-alive belt.** The exact next-fire alarm and the 30 s
+in-service heartbeat both assume the service is alive; an OEM battery killer
+breaks that assumption silently, and nobody finds out until 04:00. A 15-minute
+`LivenessWorker` (WorkManager, so the OS owns the schedule) checks whether the
+service is running and, if not, arms a near-immediate kickstart alarm. It
+cannot start the service itself — background code may not start a
+`mediaPlayback` FGS — but alarm delivery opens a short allowlist window, and
+`KickstartReceiver` spends it on exactly one `startForegroundService`.
+`BootReceiver` now takes both paths, so an API 34+ boot that refuses the direct
+start costs seconds rather than a morning. Neither existing belt was touched.
+
+**Liveness is now visible.** New pure `domain/Liveness.kt`: a tick older than
+90 s (three missed heartbeats) is STALE, no tick yet is UNKNOWN, and a tick
+from the future is treated as alive because that is the clock-trust problem and
+already has its own banner. Dashboard's Scheduler row reads
+`alive · 6s ago` / `STALLED`; Setup's last-tick row shows the age, not just a
+timestamp — a clock reading 04:12:31 tells nobody whether the loop is running.
+
+**Sounds is no longer mapping-only.** Gong track, burst gap and gong volume;
+doha time, between-courses mode (rotate / fixed slot / off) and doha volume —
+all wired straight to the settings rows the scheduler and player already read.
+Volumes stayed 0–100 integers (DIPI's stored format) rather than adopting
+Fable's 0–1 floats. Steppers rather than sliders throughout: this is a wall
+tablet tapped in passing, and a −/+ pair has no drag to mis-land. Doha time is
+validated through `ScheduleMaterializer.parseHhMm`, the scheduler's own parser,
+so the screen cannot accept a string the materializer would silently ignore.
+Slot rows now carry a role (metta, homage, day pattern).
+
+**Setup answers one question honestly.** New pure `domain/Readiness.kt`
+aggregates grants **and** service liveness **and** whether a PIN is set into a
+single READY / NOT READY banner that names the first blocker rather than
+counting them. Grants alone were never enough: a tablet with every permission
+and a frozen scheduler is not field-ready, and that is exactly what an OEM
+killer leaves behind. The checklist now re-polls every second, so a grant
+changed in system settings flips the banner without reopening the app.
+
+**Audio out** polls devices every 2 s instead of 4, and records *when* a route
+last carried a finished burst (`state.route_last_ok_at`), not just which one —
+a stamp three weeks old is how staff spot an amp that has been quietly dead.
+
+Shared Nocturne controls moved into `ui/Controls.kt` (Stepper, ChoiceChip,
+Banner, `rememberNow`), replacing the private copies in RelayScreen.
+
+Suite 355 green (+21: Liveness 8, Readiness 6, DohaSlots 7).
+Residual risks are unchanged and still hardware-shaped: no Bluetooth amp or USB
+DAC has been on the bench, no real Shelly, and the WorkManager kickstart has not
+been proven against a real OEM battery killer — force-stop behaviour in
+particular is device-specific and is now a QA item.
 
 ### Audio out and Network (2026-08-10)
 

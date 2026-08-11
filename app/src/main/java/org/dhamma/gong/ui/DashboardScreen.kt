@@ -55,6 +55,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.dhamma.gong.domain.Liveness
 import org.dhamma.gong.domain.Occurrence
 import org.dhamma.gong.domain.PlayResult
 import org.dhamma.gong.service.AppliancePermissions
@@ -108,6 +109,20 @@ fun DashboardScreen(vm: AppViewModel) {
                 .padding(start = 32.dp, end = 32.dp, top = 26.dp, bottom = 26.dp),
             verticalArrangement = Arrangement.spacedBy(22.dp),
         ) {
+            // Above everything, on both layouts. A suppressed appliance looks
+            // identical to a quiet one from across the office — this is the
+            // only thing on the screen that says otherwise, so it does not get
+            // to hide in a status row.
+            if (!state.clockTrusted) {
+                Banner(
+                    text = "CLOCK UNTRUSTED — automatic gongs are suppressed. " +
+                        "Check the time on the Time screen, then confirm the clock.",
+                    color = Nocturne.Warning,
+                    actionLabel = "Confirm clock",
+                    onAction = { vm.confirmClock() },
+                )
+            }
+
             if (wide) {
                 Row(
                     Modifier.fillMaxWidth(),
@@ -390,11 +405,26 @@ private fun HealthCard(
     val context = LocalContext.current
     // Prefer live scheduler signal for exact alarms; fall back to Activity status.
     val exactOk = state.exactAlarmsAllowed && permissions.exactAlarmsAllowed
+    // The scheduler can report `running` while its loop is frozen — an OEM
+    // battery killer does exactly that. Tick age is the only honest signal.
+    val now = rememberNow()
+    val health = Liveness.health(state.lastTick, now)
     SurfaceCard {
         HealthRow(
             "Scheduler",
-            if (state.running) "running" else "stopped",
-            if (state.running) Nocturne.Ok else Nocturne.Error,
+            when {
+                !state.running -> "stopped"
+                health == Liveness.Health.STALE ->
+                    "STALLED — last tick ${Liveness.ageLabel(state.lastTick, now)}"
+                health == Liveness.Health.UNKNOWN -> "starting…"
+                else -> "alive · ${Liveness.ageLabel(state.lastTick, now)}"
+            },
+            when {
+                !state.running -> Nocturne.Error
+                health == Liveness.Health.STALE -> Nocturne.Error
+                health == Liveness.Health.UNKNOWN -> Nocturne.Neutral600
+                else -> Nocturne.Ok
+            },
         )
         Spacer(Modifier.height(7.dp))
         HealthRow("Audio route", player.route.ifBlank { "—" }, Nocturne.Ok)

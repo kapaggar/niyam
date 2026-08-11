@@ -59,8 +59,8 @@ android {
         // dependable LocalOnlyHotspot, still covers recycled centre hardware.
         minSdk = 29
         targetSdk = 35
-        versionCode = 5
-        versionName = "0.2.0-beta4"
+        versionCode = 6
+        versionName = "0.2.0-beta5"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField(
@@ -133,6 +133,9 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.common)
 
+    // Third keep-alive belt: a periodic liveness check that re-arms the
+    // service via an exact kickstart alarm when an OEM killer has taken it.
+    implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)

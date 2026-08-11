@@ -41,22 +41,31 @@ import org.dhamma.gong.assets.AudioAssetManager
 import org.dhamma.gong.data.MediaSlotSource
 import org.dhamma.gong.domain.AudioAsset
 import org.dhamma.gong.domain.DohaPackMapper
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import org.dhamma.gong.domain.DohaSlots
+import org.dhamma.gong.domain.GongTracks
+import org.dhamma.gong.domain.ScheduleMaterializer
 
 /**
- * Sounds → **doha media** (design doc §08, spec 2026-08-09).
+ * Sounds (design doc §08) — the whole audio settings surface.
  *
- * This is only the slot-mapping part of Sounds: track choice, volumes, burst
- * gap, doha time and no-course mode are still unbuilt, and the screen says so
- * rather than implying a finished settings page.
+ * Four things in reading order: what the gong sounds like, when the doha plays,
+ * where the doha recordings come from, and what can still be downloaded.
+ * Everything writes straight through to the settings rows the scheduler and
+ * player already read — there is no save button and no separate state to fall
+ * out of sync.
  *
- * **No day column, deliberately.** `DohaSlots.legacyModular` maps a course day
- * to a slot through modular cycles, so one slot serves several days. A "day it
- * serves" column would state something false, so rows are labelled by slot only.
+ * **No "day it serves" column, deliberately.** `DohaSlots.legacyModular` maps a
+ * course day to a slot through modular cycles, so one slot serves several days.
+ * Such a column would state something false, so rows carry a *role* (metta,
+ * homage, day pattern) instead — enough for staff to sanity-check a mapping
+ * without implying a one-to-one day relationship that does not exist.
  */
 @Composable
 fun DohaMediaScreen(vm: AppViewModel) {
     val pack by vm.dohaPack.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
     val slots by vm.mediaSlots.collectAsStateWithLifecycle()
     val treeUri by vm.dohaTreeUri.collectAsStateWithLifecycle()
     val downloadStates by vm.downloadStates.collectAsStateWithLifecycle()
@@ -85,10 +94,13 @@ fun DohaMediaScreen(vm: AppViewModel) {
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         ScreenTitle(
-            "Doha media",
-            "Point the appliance at a folder of D01…D11 recordings. " +
-                "Track choice, volumes and doha time are not built yet.",
+            "Sounds",
+            "What rings, how loud, and when the morning doha plays — plus where " +
+                "the doha recordings come from.",
         )
+
+        GongCard(vm, settings)
+        DohaScheduleCard(vm, settings)
 
         if (pack.banner != null) {
             BannerCard(
@@ -167,7 +179,7 @@ fun DohaMediaScreen(vm: AppViewModel) {
         }
 
         if (pack.unassigned.isNotEmpty()) {
-            ReportCard("Unassigned files", Nocturne.Neutral400) {
+            ReportCard("In the folder but not named D01…D11", Nocturne.Neutral400) {
                 for (f in pack.unassigned) {
                     ReportLine("—", f.name)
                 }
@@ -186,7 +198,210 @@ fun DohaMediaScreen(vm: AppViewModel) {
     }
 }
 
+// ---------------------------------------------------------------- gong
+
+/**
+ * The appliance-wide gong defaults.
+ *
+ * Everything here is the value a schedule row inherits when its own field is
+ * "—". Changing the gap or the track here moves every row that has not been
+ * overridden, which is the point: staff should be able to quieten the whole
+ * course from one place, not edit forty cells.
+ */
+@Composable
+private fun GongCard(vm: AppViewModel, settings: Map<String, String>) {
+    val track = settings["gong_track"].orEmpty().ifBlank { GongTracks.SINGLE }
+    val gap = settings["gong_gap_seconds"]?.toIntOrNull() ?: 4
+    val volume = settings["gong_volume"]?.toIntOrNull() ?: 90
+
+    SurfaceCard(Modifier.fillMaxWidth()) {
+        Eyebrow("Gong")
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "Defaults for every schedule row that has not overridden them.",
+            fontSize = 12.5.sp,
+            color = Nocturne.Neutral500,
+        )
+        Spacer(Modifier.height(14.dp))
+
+        ChipRow("Track") {
+            for (stem in listOf(GongTracks.SINGLE, GongTracks.SIKKIM)) {
+                ChoiceChip(
+                    label = GongTracks.label(stem),
+                    selected = track.equals(stem, ignoreCase = true),
+                    description = "Use the ${GongTracks.label(stem)} recording",
+                ) { vm.setSetting("gong_track", stem, "Track set to ${GongTracks.label(stem)}") }
+                Spacer(Modifier.width(8.dp))
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            // The sikkim recording contains three hits, so "repeats" and
+            // "plays" are not the same number. Staff who do not know that will
+            // read a 6-repeat row as six files.
+            "The sikkim gong rings three times per play, so a 6-strike burst " +
+                "plays that file twice. Strike counts always mean audible hits.",
+            fontSize = 12.5.sp,
+            color = Nocturne.Neutral500,
+        )
+
+        Spacer(Modifier.height(14.dp))
+        Stepper("Gap", gap, min = 0, max = 60, unit = "s", labelWidth = 96) {
+            vm.setSetting("gong_gap_seconds", it.toString(), "Gap set to ${it}s")
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "Silence after each strike finishes — a long recording still gets " +
+                "its full gap, so bursts never overlap.",
+            fontSize = 12.5.sp,
+            color = Nocturne.Neutral500,
+        )
+
+        Spacer(Modifier.height(14.dp))
+        Stepper("Volume", volume, min = 0, max = 100, unit = "%", step = 5, labelWidth = 96) {
+            vm.setSetting("gong_volume", it.toString(), "Gong volume ${it}%")
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "App-level gain. The tablet's own media volume multiplies this, so a " +
+                "quiet hall is worth checking in Android's volume too.",
+            fontSize = 12.5.sp,
+            color = Nocturne.Neutral500,
+        )
+
+        Spacer(Modifier.height(14.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            PrimaryButton("Test gong") { vm.testGong() }
+            OutlineButton("Stop") { vm.stop() }
+        }
+    }
+}
+
+// ---------------------------------------------------------------- doha timing
+
+/**
+ * When the morning doha plays, and which one plays between courses.
+ *
+ * The between-courses choice is the interesting one. `random` is deterministic
+ * per date (see `DohaSlots.randomSlotFor`) — the same day always resolves to
+ * the same recording, and eleven consecutive days walk the whole set without
+ * repeating.
+ */
+@Composable
+private fun DohaScheduleCard(vm: AppViewModel, settings: Map<String, String>) {
+    val stored = settings["doha_time"].orEmpty().ifBlank { "06:37" }
+    val volume = settings["doha_volume"]?.toIntOrNull() ?: 75
+    val noCourse = settings["no_course_doha"].orEmpty().ifBlank { "random" }
+    val fixedSlot = noCourse.removePrefix("slot:").toIntOrNull()?.takeIf { it in DohaSlots.SLOTS }
+
+    SurfaceCard(Modifier.fillMaxWidth()) {
+        Eyebrow("Morning doha")
+        Spacer(Modifier.height(14.dp))
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                "Time",
+                fontSize = 12.5.sp,
+                color = Nocturne.Neutral500,
+                modifier = Modifier.width(96.dp),
+            )
+            var typed by remember(stored) { mutableStateOf(stored) }
+            Field(
+                value = typed,
+                onValueChange = { typed = it },
+                placeholder = "06:37",
+                modifier = Modifier
+                    .width(120.dp)
+                    .semantics { contentDescription = "Doha time, 24 hour HH:MM" },
+            )
+            PrimaryButton("Save") {
+                // Validate through the scheduler's own parser, so the screen
+                // can never accept a string the materializer would silently
+                // fall back on.
+                val parsed = ScheduleMaterializer.parseHhMm(typed.trim())
+                if (parsed == null) {
+                    vm.toast("Doha time must be 24-hour HH:MM, e.g. 06:37")
+                } else {
+                    vm.setSetting("doha_time", typed.trim(), "Doha time set to ${typed.trim()}")
+                }
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "24-hour. Fires once a day and obeys the same 120 s grace as a gong — " +
+                "a doha missed by more than that is logged, never played late.",
+            fontSize = 12.5.sp,
+            color = Nocturne.Neutral500,
+        )
+
+        Spacer(Modifier.height(14.dp))
+        ChipRow("Between courses") {
+            ChoiceChip("rotate daily", noCourse == "random", "Rotate the doha each day") {
+                vm.setSetting("no_course_doha", "random", "Doha rotates daily between courses")
+            }
+            Spacer(Modifier.width(8.dp))
+            ChoiceChip("fixed", fixedSlot != null, "Always play one chosen doha") {
+                vm.setSetting("no_course_doha", "slot:1", "Between courses: always D01")
+            }
+            Spacer(Modifier.width(8.dp))
+            ChoiceChip("off", noCourse == "off", "No doha between courses") {
+                vm.setSetting("no_course_doha", "off", "No doha between courses")
+            }
+        }
+        if (fixedSlot != null) {
+            Spacer(Modifier.height(10.dp))
+            Stepper(
+                "Which",
+                fixedSlot,
+                min = DohaSlots.SLOTS.first,
+                max = DohaSlots.SLOTS.last,
+                unit = "",
+                labelWidth = 96,
+            ) { vm.setSetting("no_course_doha", "slot:$it", "Between courses: always D%02d".format(it)) }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            when {
+                noCourse == "off" -> "Nothing plays between courses. Gongs are unaffected."
+                fixedSlot != null -> "Always D%02d until a course starts.".format(fixedSlot)
+                else ->
+                    "A different doha each day, but the same one every time a given " +
+                        "date is resolved. Eleven days covers the whole set with no repeat."
+            },
+            fontSize = 12.5.sp,
+            color = Nocturne.Neutral500,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "During a course the day decides the doha and this setting is ignored.",
+            fontSize = 12.5.sp,
+            color = Nocturne.Neutral500,
+        )
+
+        Spacer(Modifier.height(14.dp))
+        Stepper("Volume", volume, min = 0, max = 100, unit = "%", step = 5, labelWidth = 96) {
+            vm.setSetting("doha_volume", it.toString(), "Doha volume ${it}%")
+        }
+
+        Spacer(Modifier.height(14.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            PrimaryButton("Test doha") { vm.testDoha() }
+            OutlineButton("Stop") { vm.stop() }
+        }
+    }
+}
+
 // ---------------------------------------------------------------- pieces
+
+/** What a slot is *for*, so staff can sanity-check a mapping at a glance. */
+private fun slotRole(slot: Int): String = when (slot) {
+    10 -> "metta"
+    11 -> "homage"
+    else -> "day pattern"
+}
 
 private enum class SlotState(val label: String, val color: Color) {
     VERIFIED("verified", Nocturne.Ok),
@@ -281,6 +496,7 @@ private fun SlotHeaderRow() {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Eyebrow("Slot", Modifier.width(78.dp))
+        Eyebrow("Role", Modifier.width(88.dp))
         Eyebrow("File", Modifier.weight(1f))
         Eyebrow("Source", Modifier.width(92.dp))
         Eyebrow("State", Modifier.width(120.dp))
@@ -311,6 +527,13 @@ private fun SlotRow(
             fontWeight = FontWeight.Medium,
             color = Nocturne.Text,
             modifier = Modifier.width(70.dp),
+        )
+        Text(
+            slotRole(slot),
+            fontSize = 12.5.sp,
+            color = Nocturne.Neutral500,
+            maxLines = 1,
+            modifier = Modifier.width(88.dp),
         )
         Text(
             filename ?: "—",
