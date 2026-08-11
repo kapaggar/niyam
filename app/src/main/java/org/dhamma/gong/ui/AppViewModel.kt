@@ -18,6 +18,8 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import org.dhamma.gong.BuildConfig
+import org.dhamma.gong.data.BackupManager
 import org.dhamma.gong.data.CourseTypeEntity
 import org.dhamma.gong.data.GongDatabase
 import org.dhamma.gong.data.GongRepository
@@ -33,6 +35,7 @@ import org.dhamma.gong.assets.AudioAssets
 import org.dhamma.gong.domain.ActiveCourse
 import org.dhamma.gong.domain.AudioAsset
 import org.dhamma.gong.domain.ApplianceZone
+import org.dhamma.gong.domain.BackupCheck
 import org.dhamma.gong.domain.Course
 import org.dhamma.gong.domain.DohaPackMapper
 import org.dhamma.gong.domain.NetworkFacts
@@ -736,6 +739,98 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _network.value = withContext(Dispatchers.IO) { networkProbe.read() }
             _networkProbed.value = true
+        }
+    }
+
+    // ------------------------------------------------------------ backup
+
+    private val backups = BackupManager(db)
+
+    /**
+     * What a chosen file would do if restored, or why it was refused. Null when
+     * nothing is pending — the screen shows the confirm sheet only while set.
+     */
+    private val _pendingRestore = MutableStateFlow<PendingRestore?>(null)
+    val pendingRestore: StateFlow<PendingRestore?> = _pendingRestore.asStateFlow()
+
+    data class PendingRestore(
+        val uri: Uri,
+        val check: BackupCheck.Result,
+        /** What is on the tablet right now, so staff can weigh the swap. */
+        val currentCourses: Int,
+        val currentEvents: Int,
+    )
+
+    /** Write a backup to the document the picker returned. */
+    fun exportBackup(uri: Uri?) {
+        if (uri == null) return
+        viewModelScope.launch {
+            val text = backups.encode(backups.export(BuildConfig.VERSION_NAME))
+            val ok = withContext(Dispatchers.IO) {
+                runCatching {
+                    resolver.openOutputStream(uri, "wt")?.use { it.write(text.toByteArray()) }
+                        ?: error("could not open the file for writing")
+                }
+            }
+            toast(
+                if (ok.isSuccess) {
+                    "Backup saved — settings, courses and schedule"
+                } else {
+                    "Could not write that file. Nothing was changed."
+                },
+            )
+        }
+    }
+
+    /**
+     * Read and *inspect* a chosen backup. Never applies it — restore replaces
+     * the whole schedule, so it gets an explicit second tap with the counts in
+     * front of the person tapping.
+     */
+    fun inspectBackup(uri: Uri?) {
+        if (uri == null) return
+        viewModelScope.launch {
+            val text = withContext(Dispatchers.IO) {
+                runCatching { resolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } }
+                    .getOrNull()
+            }
+            val file = text?.let { backups.decode(it) }
+            _pendingRestore.value = PendingRestore(
+                uri = uri,
+                check = BackupCheck.inspect(file),
+                currentCourses = db.courses().count(),
+                currentEvents = db.scheduleEvents().count(),
+            )
+        }
+    }
+
+    fun dismissRestore() {
+        _pendingRestore.value = null
+    }
+
+    /** Apply the inspected backup. Only reachable from the confirm sheet. */
+    fun confirmRestore() {
+        val pending = _pendingRestore.value ?: return
+        _pendingRestore.value = null
+        if (pending.check !is BackupCheck.Result.Ok) return
+        viewModelScope.launch {
+            val text = withContext(Dispatchers.IO) {
+                runCatching { resolver.openInputStream(pending.uri)?.bufferedReader()?.use { it.readText() } }
+                    .getOrNull()
+            }
+            val file = text?.let { backups.decode(it) }
+            if (file == null) {
+                toast("That file could not be re-read. Nothing was changed.")
+                return@launch
+            }
+            val summary = runCatching { backups.restore(file) }
+            if (summary.isSuccess) {
+                // The materialized day is now wrong in every particular.
+                service.value?.pokeScheduler("backup restored")
+                toast(summary.getOrDefault("Restored"))
+            } else {
+                toast("Restore failed — the tablet is unchanged.")
+            }
         }
     }
 

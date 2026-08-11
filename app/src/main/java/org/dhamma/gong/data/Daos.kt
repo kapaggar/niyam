@@ -31,11 +31,21 @@ interface CourseDao {
     @Query("SELECT * FROM courses ORDER BY start_date DESC")
     fun observeAll(): Flow<List<CourseEntity>>
 
+    @Query("SELECT COUNT(*) FROM courses")
+    suspend fun count(): Int
+
     @Insert
     suspend fun insert(row: CourseEntity): Long
 
+    @Insert
+    suspend fun insertAll(rows: List<CourseEntity>)
+
     @Query("DELETE FROM courses WHERE id = :id")
     suspend fun delete(id: Long)
+
+    /** Restore only. Course ids are referenced by `active_course_id`. */
+    @Query("DELETE FROM courses")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -70,6 +80,10 @@ interface ScheduleEventDao {
 
     @Query("DELETE FROM schedule_events WHERE id = :id")
     suspend fun delete(id: Long)
+
+    /** Restore only — the whole matrix is replaced as one unit. */
+    @Query("DELETE FROM schedule_events")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -172,4 +186,8 @@ interface MediaSlotDao {
 
     @Query("DELETE FROM media_slots WHERE source = :source")
     suspend fun deleteBySource(source: String)
+
+    /** Restore only. */
+    @Query("DELETE FROM media_slots")
+    suspend fun deleteAll()
 }

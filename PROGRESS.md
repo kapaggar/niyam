@@ -2,9 +2,12 @@
 
 Standalone repo **`kapaggar/niyam`** (branch `main`), extracted with history from the gongserver monorepo's `android/` tree.
 
-Last updated: 2026-08-11, **Fable gap iteration** (`0.2.0-beta5`,
-`versionCode` 6) — deterministic between-courses doha, a third keep-alive belt,
-a complete Sounds panel, and honest READY / service-alive surfaces. Prior:
+Last updated: 2026-08-11, **course calendar + backup/restore**
+(`0.2.0-beta6`, `versionCode` 7) — Dhamma Sudha's 39-course calendar seeds
+itself at install, and settings/courses/schedule can be exported and restored.
+Prior same day: Fable gap iteration (`0.2.0-beta5`) — deterministic
+between-courses doha, a third keep-alive belt, a complete Sounds panel, and
+honest READY / service-alive surfaces. Prior:
 Audio out and Network (`0.2.0-beta4`), which shipped the last two locked screens
 so the nav rail has no padlocks left. Audio out also made the
 route *real*: the resolved device now reaches ExoPlayer instead of only
@@ -26,7 +29,7 @@ cd /Users/wizops/DIPI/niyam
 Environment used: JDK 20, AGP 8.7.2, Kotlin 2.0.21, Gradle 8.9, compileSdk 35
 (auto-downloaded on first build), minSdk 29.
 
-**Next milestone: human tablet beta.** Hand `app-debug.apk` (`0.2.0-beta5`,
+**Next milestone: human tablet beta.** Hand `app-debug.apk` (`0.2.0-beta6`,
 built **with** `media.properties` filled in so downloads work — check
 Setup shows `Media key: present`) to a tester with `docs/BETA-QA-CHECKLIST.md`. Every screen in design doc
 §08 now exists. The two checks that most need real hardware are the Shelly
@@ -260,6 +263,52 @@ Doha files auto-map by `D01`…`D11` prefix into `media_slots`; unmatched files
 are listed as "unassigned", never guessed. Debug builds already ship 11
 synthetic tones at `app/src/debug/assets/media/doha-test/`
 (regenerate with `python3 tools/make_test_tones.py`).
+
+### Course calendar + backup/restore (2026-08-11, `0.2.0-beta6`)
+
+**The tablet arrives knowing its year.** `seed/courses-sudha-2026-2027.sql` —
+39 courses from 15 Jul 2026 to 15 Dec 2027, transcribed from Dhamma Sudha's
+published calendar — is flattened by `tools/export_courses_json.py` into
+`assets/seed/courses.json` and applied on first launch. The `.sql` stays the
+source of truth because it is what diffs against next year's schedule; the app
+does not parse SQL.
+
+Two guards, meaning different things. A `courses_seeded_at` state marker means
+"this build already offered its calendar", and it survives staff emptying the
+table — deleting all 39 is a decision, and re-adding them next launch would be
+the appliance arguing back, each row silently starting a schedule. Separately,
+a non-empty courses table blocks the calendar entirely, so it can never land on
+top of hand-entered courses and create permanent overlapping windows. Rows
+naming an unknown `course_type_id` are dropped rather than inserted: such a
+course resolves to no schedule, so it would sit in the list looking real and
+ring nothing.
+
+**Backup is configuration, not state**, and that distinction is the whole
+design. Copying `gong.db` would have been less code and much worse:
+
+- `state` holds the `fired:<key>:<date>` guards. Restoring yesterday's — or
+  another tablet's — tells the scheduler today's gongs already rang. The
+  appliance would sit through a morning in silence with nothing odd in the log.
+  This is the worst outcome available to a restore feature, and the format has
+  no field capable of expressing it.
+- `play_log` is history and belongs to the device that lived it.
+- `admin_pin_hash` is excluded so a restore cannot lock staff out with a PIN
+  nobody here remembers. `relay_auth_pass` is a credential and stays out of a
+  plaintext file. `active_course_id` and `doha_tree_uri` reference ids and SAF
+  grants that do not survive the trip.
+
+Media slots travel but arrive **unverified** — a document URI from another
+tablet is meaningless here, and a green "verified" beside an unopenable file is
+exactly the lie the Sounds screen exists to avoid. Restore runs in one Room
+transaction: a half-applied restore would leave the old schedule gone and the
+new one incomplete, with the appliance running on the wreckage.
+
+The UI is two taps with the numbers in between — the confirm sheet states both
+"on this tablet now" and "in the backup" before writing, because "replace your
+12 courses with 39" is a very different decision from "restore".
+
+Suite 387 green (+32: 13 backup domain/round-trip, 11 course seeding, plus the
+Fable slice's).
 
 ### Fable gap iteration (2026-08-11, `0.2.0-beta5`)
 

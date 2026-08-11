@@ -1,5 +1,7 @@
 package org.dhamma.gong.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -39,6 +42,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.delay
 import org.dhamma.gong.BuildConfig
+import org.dhamma.gong.domain.BackupCheck
 import org.dhamma.gong.domain.Liveness
 import org.dhamma.gong.domain.PinCode
 import org.dhamma.gong.domain.Readiness
@@ -258,6 +262,8 @@ fun SetupScreen(vm: AppViewModel) {
                 checklist()
                 applianceState()
             }
+
+            BackupCard(vm, zone)
         }
     }
 }
@@ -331,4 +337,139 @@ private fun StateRow(label: String, value: String, dot: Color) {
         Text(label, fontSize = 12.5.sp, color = Nocturne.Neutral500, modifier = Modifier.width(100.dp))
         Text(value, fontSize = 12.5.sp, fontFamily = Nocturne.Mono, color = Nocturne.Text)
     }
+}
+
+// ---------------------------------------------------------------- backup
+
+/**
+ * Backup and restore.
+ *
+ * The file is configuration only — settings, courses, schedule, slot mapping.
+ * It deliberately carries no `fired:` guards, no play log, no PIN and no relay
+ * password; [org.dhamma.gong.domain.BackupFile] explains why each of those
+ * would break an appliance rather than help it.
+ *
+ * Restore is two taps with the numbers in between. It replaces the whole
+ * schedule, and "replace your 12 courses with 39" is a different decision from
+ * "restore" — so the confirm sheet states both sides before anything is written.
+ */
+@Composable
+private fun BackupCard(vm: AppViewModel, zone: java.time.ZoneId) {
+    val pending by vm.pendingRestore.collectAsStateWithLifecycle()
+    val today = remember(zone) { java.time.LocalDate.now(zone).toString() }
+
+    val save = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri -> vm.exportBackup(uri) }
+
+    val open = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri -> vm.inspectBackup(uri) }
+
+    SurfaceCard(Modifier.fillMaxWidth()) {
+        Eyebrow("Backup")
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "Settings, courses, the schedule matrix and the doha slot mapping, " +
+                "as one readable file. Keep a copy off the tablet — a dead " +
+                "device otherwise means re-entering the whole calendar by hand.",
+            fontSize = 12.5.sp,
+            color = Nocturne.Neutral500,
+        )
+        Spacer(Modifier.height(10.dp))
+        Text(
+            "Not included, on purpose: the PIN, the relay password, the doha " +
+                "folder grant, and the record of which gongs have already " +
+                "fired. Restoring that last one would tell the appliance " +
+                "today's gongs were already rung.",
+            fontSize = 12.5.sp,
+            color = Nocturne.Neutral500,
+        )
+        Spacer(Modifier.height(14.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            PrimaryButton("Save a backup") {
+                save.launch(org.dhamma.gong.domain.BackupFile.suggestedName(today))
+            }
+            OutlineButton("Restore from file") {
+                // Some providers mislabel .json; accept anything and let the
+                // parser be the judge rather than hiding the file staff picked.
+                open.launch(arrayOf("application/json", "text/plain", "*/*"))
+            }
+        }
+    }
+
+    pending?.let { RestoreConfirm(it, onCancel = vm::dismissRestore, onConfirm = vm::confirmRestore) }
+}
+
+@Composable
+private fun RestoreConfirm(
+    pending: AppViewModel.PendingRestore,
+    onCancel: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    val check = pending.check
+    val ok = check as? BackupCheck.Result.Ok
+
+    AlertDialog(
+        onDismissRequest = onCancel,
+        containerColor = Nocturne.Surface,
+        title = {
+            Text(
+                if (ok == null) "That file cannot be restored" else "Replace this tablet's schedule?",
+                fontSize = 17.sp,
+                color = Nocturne.Text,
+            )
+        },
+        text = {
+            Column {
+                if (ok == null) {
+                    Text(
+                        (check as BackupCheck.Result.Rejected).reason,
+                        fontSize = 13.5.sp,
+                        color = Nocturne.Warning,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Nothing on the tablet has been changed.",
+                        fontSize = 12.5.sp,
+                        color = Nocturne.Neutral500,
+                    )
+                } else {
+                    Text(
+                        "On this tablet now: ${pending.currentCourses} courses, " +
+                            "${pending.currentEvents} schedule rows.",
+                        fontSize = 13.5.sp,
+                        color = Nocturne.Neutral300,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "In the backup: ${ok.courses} courses, ${ok.events} schedule rows, " +
+                            "${ok.slots} doha slots, ${ok.settings} settings.",
+                        fontSize = 13.5.sp,
+                        color = Nocturne.Accent100,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text("Saved ${ok.exportedAt}.", fontSize = 12.5.sp, color = Nocturne.Neutral500)
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        "The courses and schedule above are replaced, not merged. " +
+                            "Restored doha slots arrive unverified — rescan the " +
+                            "folder in Sounds afterwards.",
+                        fontSize = 12.5.sp,
+                        color = Nocturne.Warning,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            if (ok != null) {
+                PrimaryButton("Replace and restore", onClick = onConfirm)
+            } else {
+                PrimaryButton("Close", onClick = onCancel)
+            }
+        },
+        dismissButton = {
+            if (ok != null) OutlineButton("Cancel", Nocturne.Neutral300, onCancel)
+        },
+    )
 }
