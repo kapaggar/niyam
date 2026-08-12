@@ -268,6 +268,48 @@ are listed as "unassigned", never guessed. Debug builds already ship 11
 synthetic tones at `app/src/debug/assets/media/doha-test/`
 (regenerate with `python3 tools/make_test_tones.py`).
 
+### Light theme (2026-08-12, `0.2.0-beta10`)
+
+Setup → Appearance now offers **Dark / Light / Follow device**, applied on the
+tap with no restart. Dark stays the shipped default and the default is load
+bearing: the appliance's home is a bracket on the wall of a dim hall, and a
+tablet that turns white at 04:00 lights the room for everyone sitting in it.
+Light is for the hour the same build spends on an office desk being set up.
+
+How it was done matters more than what it looks like. Fifteen screens read
+`Nocturne.Bg`, `Nocturne.Text`, `Nocturne.Neutral500` and friends by name,
+directly. Threading a CompositionLocal through all of them would have been a
+thousand-line diff with a thousand chances to miss one and leave a dark smear
+on a white page. Instead every token in `Nocturne` became a getter over a
+single snapshot-backed `Palette` slot, written by `GongTheme` before any child
+composes. **No call site changed**, and a missed one is not possible.
+
+The ramps are semantic, not literal, which is what makes that work:
+`neutral300` always means "closest to the text colour" and `neutral800`
+"closest to the background", so the greys run dark-to-light in `LightPalette`
+where they run light-to-dark in `DarkPalette`. Same for `accent100..700` — 100
+is always the high-contrast ink, 700 always the container fill.
+
+Two things the flip exposed and fixed:
+
+- **System bar icons.** They are drawn by the OS, outside the colour scheme.
+  Left dark on a light page the clock and battery simply vanish, so
+  `MainActivity` re-applies `enableEdgeToEdge` whenever the resolved mode
+  changes.
+- **The toast.** It was a 16 % amber wash with nothing opaque behind it —
+  solid-looking over a near-black page, a smear you can read the screen
+  through over a near-white one. It now paints `Surface` first.
+
+`ThemeMode` is pure domain with its own tests, so an absent or hand-edited
+`theme` row resolves to dark rather than crashing or rendering unpainted. The
+setting rides along in backup/restore like any other.
+
+Verified on the emulator, not just in tests: Dashboard, Schedule, Courses,
+Logs, Sounds, Network and Setup all walked in Light, plus the course-type
+dropdown (the one that historically fell back to the M3 baseline browns — it
+renders white). The toast fix is the one thing screenshotted only in its broken
+state; the corrected frame proved too transient to capture.
+
 ### Gongs not firing on a real tablet (2026-08-11, `0.2.0-beta9`)
 
 Reported from a Pixel C at a centre: the app looked healthy and no gong ever

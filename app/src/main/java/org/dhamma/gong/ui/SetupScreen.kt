@@ -46,6 +46,7 @@ import org.dhamma.gong.domain.BackupCheck
 import org.dhamma.gong.domain.Liveness
 import org.dhamma.gong.domain.PinCode
 import org.dhamma.gong.domain.Readiness
+import org.dhamma.gong.domain.ThemeMode
 import org.dhamma.gong.service.AppliancePermissions
 import java.time.format.DateTimeFormatter
 
@@ -263,6 +264,8 @@ fun SetupScreen(vm: AppViewModel) {
                 applianceState()
             }
 
+            AppearanceCard(vm)
+
             // PIN lives here rather than in its own nav entry: it is an
             // install-day decision, made once by the same person working
             // through the grants above, not something staff visit.
@@ -274,6 +277,56 @@ fun SetupScreen(vm: AppViewModel) {
 }
 
 // ---------------------------------------------------------------- pieces
+
+/**
+ * Palette chooser.
+ *
+ * Dark is the shipped default and stays that way: the appliance's home is a
+ * bracket on the wall of a dim hall, and a white screen at 04:00 lights the
+ * room for everyone sitting in it. Light exists because the same build spends
+ * its first hour on an office desk under fluorescent light, being read at arm's
+ * length by whoever is setting it up.
+ *
+ * The change takes effect on the tap, with no restart — staff can see what they
+ * are choosing rather than committing to it blind.
+ */
+@Composable
+private fun AppearanceCard(vm: AppViewModel) {
+    val mode by vm.themeMode.collectAsStateWithLifecycle()
+    SurfaceCard(Modifier.fillMaxWidth()) {
+        Eyebrow("Appearance")
+        Spacer(Modifier.height(12.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ThemeMode.entries.forEach { option ->
+                ChoiceChip(
+                    label = option.label,
+                    selected = option == mode,
+                    description = "${option.label} theme. ${option.why}",
+                    onClick = { vm.setThemeMode(option) },
+                )
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(
+            mode.why,
+            fontSize = 12.5.sp,
+            color = Nocturne.Neutral500,
+        )
+        if (mode != ThemeMode.DARK) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Dark is the hall default. A tablet left on a bracket where people " +
+                    "sit should stay dark.",
+                fontSize = 12.5.sp,
+                color = Nocturne.Neutral600,
+            )
+        }
+    }
+}
 
 /**
  * One checklist item. The whole row is the tap target when the grant is

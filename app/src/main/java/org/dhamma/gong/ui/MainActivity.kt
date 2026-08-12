@@ -12,17 +12,20 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.dhamma.gong.service.AppliancePermissions
@@ -49,24 +52,42 @@ class MainActivity : ComponentActivity() {
     private val tabRequest = MutableStateFlow<Tab?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Dark scrimless bars: targetSdk 35 forces edge-to-edge anyway, and
-        // opting in explicitly keeps API 29-34 identical to API 35+.
-        enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(AndroidColor.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.dark(AndroidColor.TRANSPARENT),
-        )
+        // Scrimless bars: targetSdk 35 forces edge-to-edge anyway, and opting in
+        // explicitly keeps API 29-34 identical to API 35+. The style is set again
+        // below once the stored theme is known — this first call only avoids a
+        // frame of default chrome before Room answers.
+        applyBarStyle(dark = true)
         super.onCreate(savedInstanceState)
         GongService.start(this)
         val initialTab = parseTab(intent)
         setContent {
-            GongTheme {
+            val vm: AppViewModel = viewModel()
+            val themeMode by vm.themeMode.collectAsStateWithLifecycle()
+            val dark = themeMode.isDark(isSystemInDarkTheme())
+
+            // Status- and nav-bar icons are drawn by the OS, outside our
+            // colour scheme. Left dark on a light page they are white on white
+            // — the clock and battery simply vanish.
+            LaunchedEffect(dark) { applyBarStyle(dark) }
+
+            GongTheme(themeMode) {
                 Surface(modifier = Modifier.fillMaxSize(), color = Nocturne.Bg) {
-                    val vm: AppViewModel = viewModel()
                     RequestAppliancePermissions(vm)
                     GongApp(vm, initialTab = initialTab, tabRequest = tabRequest)
                 }
             }
         }
+    }
+
+    private fun applyBarStyle(dark: Boolean) {
+        val style = if (dark) {
+            SystemBarStyle.dark(AndroidColor.TRANSPARENT)
+        } else {
+            // The scrim argument is what API 29-34 falls back to when it cannot
+            // draw dark icons; transparent there would lose them entirely.
+            SystemBarStyle.light(AndroidColor.TRANSPARENT, AndroidColor.argb(0x40, 0, 0, 0))
+        }
+        enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
     }
 
     override fun onNewIntent(intent: Intent) {

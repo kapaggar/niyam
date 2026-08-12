@@ -42,6 +42,7 @@ import org.dhamma.gong.domain.NetworkFacts
 import org.dhamma.gong.domain.PinCode
 import org.dhamma.gong.domain.RoutePlan
 import org.dhamma.gong.domain.SettingsDefaults
+import org.dhamma.gong.domain.ThemeMode
 import org.dhamma.gong.net.NetworkProbe
 import org.dhamma.gong.player.AudioRouter
 import org.dhamma.gong.relay.RelayController
@@ -155,6 +156,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val applianceZone: StateFlow<ZoneId> = settings
         .map { ApplianceZone.resolve(it["timezone"]) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ApplianceZone.deviceZone())
+
+    /**
+     * Which palette the shell paints in. Seeded with the shipped default so the
+     * very first frame is dark rather than flashing white while Room answers.
+     */
+    val themeMode: StateFlow<ThemeMode> = settings
+        .map { ThemeMode.parse(it[ThemeMode.SETTING_KEY]) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, ThemeMode.DEFAULT)
+
+    fun setThemeMode(mode: ThemeMode) =
+        setSetting(ThemeMode.SETTING_KEY, mode.key, announce = "Theme: ${mode.label.lowercase()}")
 
     val events: StateFlow<List<ScheduleEventEntity>> = db.scheduleEvents().observeAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
