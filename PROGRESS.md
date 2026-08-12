@@ -2,8 +2,9 @@
 
 Standalone repo **`kapaggar/niyam`** (branch `main`), extracted with history from the gongserver monorepo's `android/` tree.
 
-Last updated: 2026-08-11, **Schedule grid fix** (`0.2.0-beta8`,
-`versionCode` 9) — the grid was drawing nothing at all; see below. Prior:
+Last updated: 2026-08-11, **gongs not firing on a real tablet**
+(`0.2.0-beta9`, `versionCode` 10) — two causes, one of them a real domain bug;
+see below. Prior: Schedule grid fix (`0.2.0-beta8`, `versionCode` 9) — the grid was drawing nothing at all; see below. Prior:
 screen simplification (`0.2.0-beta7`, `versionCode` 8) — the app now follows the tablet's timezone, the PIN moved
 onto Setup, and Logs/Network/Sounds shed detail nobody acts on. Prior same day:
 course calendar + backup/restore (`0.2.0-beta6`, `versionCode` 7) — Dhamma Sudha's 39-course calendar seeds
@@ -32,7 +33,7 @@ cd /Users/wizops/DIPI/niyam
 Environment used: JDK 20, AGP 8.7.2, Kotlin 2.0.21, Gradle 8.9, compileSdk 35
 (auto-downloaded on first build), minSdk 29.
 
-**Next milestone: human tablet beta.** Hand `app-debug.apk` (`0.2.0-beta8`,
+**Next milestone: human tablet beta.** Hand `app-debug.apk` (`0.2.0-beta9`,
 built **with** `media.properties` filled in so downloads work — check
 Setup shows `Media key: present`) to a tester with `docs/BETA-QA-CHECKLIST.md`. Every screen in design doc
 §08 now exists. The two checks that most need real hardware are the Shelly
@@ -266,6 +267,49 @@ Doha files auto-map by `D01`…`D11` prefix into `media_slots`; unmatched files
 are listed as "unassigned", never guessed. Debug builds already ship 11
 synthetic tones at `app/src/debug/assets/media/doha-test/`
 (regenerate with `python3 tools/make_test_tones.py`).
+
+### Gongs not firing on a real tablet (2026-08-11, `0.2.0-beta9`)
+
+Reported from a Pixel C at a centre: the app looked healthy and no gong ever
+sounded. Diagnosed against the device's own database and logs. **Two separate
+causes**, and only the second was a bug.
+
+**1. The clock was untrusted, and that is the appliance working.** `state`
+held `last_good_time = 2026-08-12T04:56:00Z` while the device clock read
+`04:13:43Z` — 42 minutes backwards, well past the 10-minute
+`ClockTrust.BACKWARDS_TOLERANCE`. `SchedulerCore.tick` returns an empty outcome
+on an untrusted clock, so nothing fires at all until someone confirms. The
+Dashboard banner and the foreground notification both said so. Confirming the
+clock on the device restored it: clock `trusted`, next gong armed.
+
+Worth watching in the field: an ordinary NTP correction can exceed ten minutes
+on a tablet whose clock has drifted, and each time it does the appliance goes
+silent until a human taps Confirm. That is the design ("silence beats a wrong
+gong") but it is now a known operational cost, not a surprise.
+
+**2. A miss consumed the double-fire guard — the real bug.** The same tablet had
+been running in `America/New_York` and its zone became `America/Los_Angeles`.
+The day re-materialized three hours earlier, every occurrence that had already
+passed was logged `missed` — correct — but the miss also wrote
+`fired:<key>:<date>`. When 21:00 *Los Angeles* genuinely arrived, that guard
+already existed, so the gong resolved to ALREADY_FIRED and was suppressed:
+no sound, no log row, nothing to see.
+
+Fixed by splitting the two marks, which answer different questions:
+
+- `fired:` means "this made a noise" and guarantees never-twice. Written only
+  when sound is dispatched. Unchanged and still sacred.
+- `missed:` means "we already logged this as missed" and exists solely to stop
+  the 30 s heartbeat flooding the log. It never blocks a fire.
+
+Anything that moves the wall clock — a timezone change, an NTP step — can make a
+missed occurrence genuinely due again, and it must be allowed to ring.
+`SchedulerCoreTest.logsMissedOneSecondPastGrace` asserted the old invariant
+("still consumes the slot, so it cannot fire later in the day") and was
+inverted, with the reason recorded inline.
+
+Suite 393 green (+4). The stale guards on the tablet were for 2026-08-11 only
+and are pruned on day rollover, so no device surgery was needed.
 
 ### Schedule grid fix (2026-08-11, `0.2.0-beta8`)
 

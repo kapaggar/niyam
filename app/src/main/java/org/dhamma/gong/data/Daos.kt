@@ -137,8 +137,21 @@ interface StateDao {
     @Query("SELECT key FROM state WHERE key LIKE 'fired:%'")
     suspend fun firedKeys(): List<String>
 
-    /** the Pi daemon's prune_fired: the date is the last 10 chars of the key. */
-    @Query("DELETE FROM state WHERE key LIKE 'fired:%' AND substr(key, -10) < :cutoffIso")
+    @Query("SELECT key FROM state WHERE key LIKE 'missed:%'")
+    suspend fun missedKeys(): List<String>
+
+    /**
+     * the Pi daemon's prune_fired: the date is the last 10 chars of the key.
+     * Covers `missed:` too — it is day-scoped bookkeeping with the same
+     * lifetime, and leaving it behind would grow `state` without bound.
+     */
+    @Query(
+        """
+        DELETE FROM state
+         WHERE (key LIKE 'fired:%' OR key LIKE 'missed:%')
+           AND substr(key, -10) < :cutoffIso
+        """,
+    )
     suspend fun pruneFired(cutoffIso: String)
 }
 

@@ -134,9 +134,34 @@ data class PlayLogEntry(
     val detail: String = "",
 )
 
-/** (occurrence key, local date) — the double-fire guard, persisted in `state`. */
+/**
+ * (occurrence key, local date) — the double-fire guard, persisted in `state`.
+ *
+ * Written **only when sound is actually dispatched**, and written before the
+ * player is touched so a process death mid-burst cannot produce a repeat.
+ */
 data class FiredMark(val key: String, val localDate: LocalDate) {
     val stateKey: String get() = "fired:$key:$localDate"
+}
+
+/**
+ * "We have already logged that this occurrence was missed."
+ *
+ * Deliberately a different row from [FiredMark], and the distinction is not
+ * cosmetic. A miss used to write the fire guard, which meant anything logged
+ * missed could never sound again that day. That is fine while the wall clock
+ * stands still and catastrophic when it moves: on a real tablet the device
+ * timezone changed from New York to Los Angeles, the day re-materialized three
+ * hours earlier, every past occurrence was logged missed — and when 21:00
+ * Los Angeles genuinely arrived the gong was suppressed as already-fired. The
+ * hall got silence and the log showed nothing at all.
+ *
+ * So the two marks answer different questions. This one exists solely to stop
+ * the 30 s heartbeat writing a fresh `missed` row every tick; it must never
+ * stop a gong that has become genuinely due.
+ */
+data class MissedMark(val key: String, val localDate: LocalDate) {
+    val stateKey: String get() = "missed:$key:$localDate"
 }
 
 /**
@@ -171,6 +196,8 @@ data class ScheduleSnapshot(
  */
 data class TickOutcome(
     val marks: List<FiredMark> = emptyList(),
+    /** Miss bookkeeping. Never blocks a fire — see [MissedMark]. */
+    val missedMarks: List<MissedMark> = emptyList(),
     val logs: List<PlayLogEntry> = emptyList(),
     val fired: List<PlayCommand> = emptyList(),
     /** Earliest un-fired occurrence still in the future; null = nothing pending. */
