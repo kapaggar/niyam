@@ -285,6 +285,10 @@ private fun Toast(message: String) {
     Box(
         Modifier
             .clip(RoundedCornerShape(8.dp))
+            // Opaque backing first, amber wash over it. The wash alone is 16%
+            // alpha, which reads as a solid pill over a near-black page and as
+            // a smear you can read the screen through over a near-white one.
+            .background(Nocturne.Surface)
             .background(Nocturne.Warning.copy(alpha = 0.16f))
             .border(1.dp, Nocturne.Warning.copy(alpha = 0.40f), RoundedCornerShape(8.dp))
             .padding(horizontal = 18.dp, vertical = 10.dp)

@@ -227,6 +227,8 @@ object SettingsDefaults {
         "audio_route" to "speaker",
         // Blank = follow the device zone. A centre may pin an IANA id.
         "timezone" to ApplianceZone.FOLLOW_DEVICE,
+        // Presentation only — nothing in the scheduler reads it.
+        ThemeMode.SETTING_KEY to ThemeMode.DEFAULT.key,
         "doha_tree_uri" to "",
         // Amplifier relay (Shelly 1 Gen4) — `relay_enabled` lives in `map`
         // above for Pi parity. Empty host = not configured, relay logic inert.

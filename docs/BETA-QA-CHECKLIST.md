@@ -1,10 +1,10 @@
-# Niyam 0.2.0-beta9 — human QA
+# Niyam 0.2.0-beta10 — human QA
 
-Device: ________  Android: ________  Build: debug APK (`versionCode` 10)
+Device: ________  Android: ________  Build: debug APK (`versionCode` 11)
 
 Check **Setup → Appliance state** on the tablet before you start:
 
-- **Build** must read `0.2.0-beta9 (10)`. If it does not, the install did not
+- **Build** must read `0.2.0-beta10 (11)`. If it does not, the install did not
   take — reinstall before reporting anything.
 - **Media key** tells you which doha-download section applies. `present` means
   downloads should work; `absent — doha downloads off` is a deliberate build
@@ -300,6 +300,27 @@ different centre, say so before it goes out — the calendar is centre-specific.
 - [ ] Delete every course, force-stop, reopen → **the calendar does not come
       back**. Staff who emptied it meant it
 - [ ] No two courses share an arrival date (no permanent OVERLAP badge)
+
+## Appearance — light and dark (new)
+
+Setup → Appearance. Dark is the shipped default and must stay so on a fresh
+install: a wall tablet that lights the hall at 04:00 is a defect, not a taste.
+
+- [ ] Fresh install (or after clearing data) → **Dark** is selected
+- [ ] Tap **Light** → the whole shell repaints on the tap, no restart, and the
+      status-bar clock and battery icons turn dark so they stay visible
+- [ ] Walk every tab in Light — Dashboard, Schedule, Courses, Logs, Sounds,
+      Audio out, Network, Time, Setup — and confirm **nothing is unreadable**:
+      no white-on-white text, no invisible borders, no dark card on a dark page
+- [ ] The Dashboard hero clock and countdown are still legible from 2 m
+- [ ] Open a dropdown (Courses → course type) in Light: the menu is light, not
+      a dark rectangle
+- [ ] Tap **Follow device**, then flip the tablet's own dark mode in Android
+      settings → the app follows without being reopened
+- [ ] Choice survives a restart: set Light, force-stop the app, reopen → Light
+- [ ] Backup taken in Light and restored → the theme comes back with it
+- [ ] The theme has **no** effect on scheduling: set Light and confirm a gong
+      still fires on time
 
 ## Backup and restore (new)
 
