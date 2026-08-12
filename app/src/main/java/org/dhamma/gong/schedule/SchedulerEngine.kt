@@ -161,9 +161,17 @@ class SchedulerEngine(
         }
 
         // Publish what the dashboard needs.
+        // Only occurrences that will actually ring. The guard check is the
+        // point: without it the dashboard counts 10, 9, 8 ... 1 down to an
+        // occurrence the tick has already been told to skip, and then nothing
+        // happens and nothing is logged. That is precisely how the "a miss
+        // consumed the fire guard" bug presented on a real tablet — the
+        // countdown lied for eighty-seven minutes and the hall got silence.
+        // A screen that cannot promise a gong must not appear to promise one.
         val upcoming = ScheduleMaterializer
             .materialize(clock, today, snapshot, days = 2)
             .filter { it.fireAt.toInstant() > now.toInstant() }
+            .filterNot { FiredMark(it.key, it.localDate).stateKey in fired }
         val course = ActiveCourse.resolve(
             snapshot.courses,
             snapshot.typesById,
