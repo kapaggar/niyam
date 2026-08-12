@@ -30,6 +30,8 @@ object SchedulerCore {
         now: ZonedDateTime,
         snapshot: ScheduleSnapshot,
         firedGuard: (key: String, date: LocalDate) -> Boolean,
+        /** True when this occurrence has already been logged as missed today. */
+        missedGuard: (key: String, date: LocalDate) -> Boolean = { _, _ -> false },
         clockTrusted: Boolean = true,
         graceSeconds: Long = SettingsDefaults.FIRE_GRACE_SECONDS,
     ): TickOutcome {
@@ -39,6 +41,7 @@ object SchedulerCore {
 
         val grace = Duration.ofSeconds(graceSeconds)
         val marks = ArrayList<FiredMark>()
+        val missedMarks = ArrayList<MissedMark>()
         val logs = ArrayList<PlayLogEntry>()
         val fired = ArrayList<PlayCommand>()
         var next: ZonedDateTime? = null
@@ -58,10 +61,13 @@ object SchedulerCore {
                     if (next == null || occ.fireAt.toInstant() < next.toInstant()) next = occ.fireAt
                 }
 
-                // Past due. The Pi daemon marks fired *before* deciding what to do with it,
-                // so a disabled toggle or a missed window still consumes the slot.
+                // Past due. Log it once, and do NOT touch the fire guard: a
+                // miss is not a fire, and treating it as one means a clock or
+                // timezone shift can permanently silence a gong that is about
+                // to become genuinely due. See MissedMark.
                 FireDecision.MISSED -> {
-                    marks += FiredMark(occ.key, occ.localDate)
+                    if (missedGuard(occ.key, occ.localDate)) continue
+                    missedMarks += MissedMark(occ.key, occ.localDate)
                     logs += PlayLogEntry(
                         kind = occ.kind.logName,
                         file = "-",
@@ -80,7 +86,13 @@ object SchedulerCore {
             }
         }
 
-        return TickOutcome(marks = marks, logs = logs, fired = fired, nextDeadline = next)
+        return TickOutcome(
+            marks = marks,
+            missedMarks = missedMarks,
+            logs = logs,
+            fired = fired,
+            nextDeadline = next,
+        )
     }
 
     private data class Dispatched(val command: PlayCommand?, val log: PlayLogEntry?)

@@ -16,6 +16,7 @@ import org.dhamma.gong.domain.ClockTrust
 import org.dhamma.gong.domain.CourseCtx
 import org.dhamma.gong.domain.FiredMark
 import org.dhamma.gong.domain.GongClock
+import org.dhamma.gong.domain.MissedMark
 import org.dhamma.gong.domain.Occurrence
 import org.dhamma.gong.domain.PlayCommand
 import org.dhamma.gong.domain.ScheduleMaterializer
@@ -141,12 +142,14 @@ class SchedulerEngine(
         val snapshot = repo.snapshot()
         // Read the guard set once, in the same pass that will write to it.
         val fired = repo.firedKeys()
+        val missed = repo.missedKeys()
 
         val outcome: TickOutcome = SchedulerCore.tick(
             clock = clock,
             now = now,
             snapshot = snapshot,
             firedGuard = { key, date -> FiredMark(key, date).stateKey in fired },
+            missedGuard = { key, date -> MissedMark(key, date).stateKey in missed },
             clockTrusted = trusted,
         )
 

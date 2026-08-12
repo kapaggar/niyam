@@ -1,10 +1,10 @@
-# Niyam 0.2.0-beta8 — human QA
+# Niyam 0.2.0-beta9 — human QA
 
-Device: ________  Android: ________  Build: debug APK (`versionCode` 9)
+Device: ________  Android: ________  Build: debug APK (`versionCode` 10)
 
 Check **Setup → Appliance state** on the tablet before you start:
 
-- **Build** must read `0.2.0-beta8 (9)`. If it does not, the install did not
+- **Build** must read `0.2.0-beta9 (10)`. If it does not, the install did not
   take — reinstall before reporting anything.
 - **Media key** tells you which doha-download section applies. `present` means
   downloads should work; `absent — doha downloads off` is a deliberate build
@@ -335,6 +335,22 @@ fired-guard record.
       outcome of all
 - [ ] Press Stop during a multi-strike burst → Logs row reads `stopped`
       with the strike count that actually rang
+
+## Clock trust — the first thing to check when nothing rings
+
+Found on a real tablet: no gongs all day, and the reason was at the top of the
+Dashboard the whole time. If the wall clock jumps **backwards more than 10
+minutes** the appliance suppresses every automatic play until a human confirms.
+An NTP correction is enough to trigger it.
+
+- [ ] Dashboard shows **CLOCK UNTRUSTED** whenever the clock has jumped back;
+      the foreground notification says it too, so it is visible without unlocking
+- [ ] Tapping **Confirm clock** clears it and the next gong arms immediately
+- [ ] After confirming, a scheduled gong **actually rings**
+- [ ] A gong logged `missed` earlier in the day does **not** stop a later gong
+      from ringing. This was the beta8 bug: a miss wrote the same `fired:` guard
+      a real fire writes, so once the wall clock moved, everything after it was
+      silently suppressed — no sound and no log row at all
 
 ## Clock trust
 

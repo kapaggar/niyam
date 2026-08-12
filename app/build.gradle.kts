@@ -55,12 +55,12 @@ android {
 
     defaultConfig {
         applicationId = "org.dhamma.gong"
-        // 29 per design doc §03: uniform scoped storage + SAF (doha folder),
-        // dependable LocalOnlyHotspot, still covers recycled centre hardware.
-        minSdk = 29
+        // TEMP for Pixel C (API 27) sideload: design floor is 29 (SAF +
+        // LocalOnlyHotspot). Raise back to 29 before centre / Play builds.
+        minSdk = 27
         targetSdk = 35
-        versionCode = 9
-        versionName = "0.2.0-beta8"
+        versionCode = 10
+        versionName = "0.2.0-beta9"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField(

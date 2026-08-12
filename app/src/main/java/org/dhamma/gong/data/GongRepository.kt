@@ -54,6 +54,9 @@ class GongRepository(private val db: GongDatabase) {
      */
     suspend fun firedKeys(): Set<String> = db.state().firedKeys().toSet()
 
+    /** Occurrences already logged as missed today; never blocks a fire. */
+    suspend fun missedKeys(): Set<String> = db.state().missedKeys().toSet()
+
     /**
      * Persist a tick's decisions. Order is load-bearing (design doc §05):
      * guards first and committed, then the log, and only then does the caller
@@ -64,6 +67,9 @@ class GongRepository(private val db: GongDatabase) {
         // leave neither (FABLE-REVIEW B2).
         db.withTransaction {
             for (mark in outcome.marks) {
+                db.state().put(StateEntity(mark.stateKey, nowUtc.toString()))
+            }
+            for (mark in outcome.missedMarks) {
                 db.state().put(StateEntity(mark.stateKey, nowUtc.toString()))
             }
             if (outcome.logs.isNotEmpty()) {

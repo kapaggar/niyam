@@ -73,8 +73,15 @@ class SchedulerCoreTest {
         assertEquals(PlayKind.GONG, missed.kind)
         assertEquals(16, missed.repeats)
         assertTrue(missed.detail.startsWith("scheduled 2026-08-03T04:00"))
-        // Still consumes the slot, so it cannot fire later in the day.
-        assertTrue(out.marks.any { it.key == "g4" || it.key.startsWith("g") })
+
+        // CHANGED 2026-08-11, from "still consumes the slot so it cannot fire
+        // later in the day". That invariant silenced a real tablet: the device
+        // timezone moved, the day re-materialized three hours earlier, every
+        // past occurrence was logged missed — and the fire guard those misses
+        // wrote then suppressed the gongs when they genuinely came due. A miss
+        // is bookkeeping, not a fire. It marks only that the miss was logged.
+        assertTrue("a miss must not write the fire guard", out.marks.isEmpty())
+        assertTrue(out.missedMarks.any { it.key.startsWith("g") })
     }
 
     // ------------------------------------------------------------ guard
