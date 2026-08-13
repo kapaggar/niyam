@@ -4,7 +4,7 @@ Device: ________  Android: ________  Build: release APK, R8-shrunk (`versionCode
 
 Check **Setup → Appliance state** on the tablet before you start:
 
-- **Build** must read `0.2.0-beta10 (11)`. If it does not, the install did not
+- **Build** must read `0.2.0-beta12 (13)`. If it does not, the install did not
   take — reinstall before reporting anything.
 - **Media key** tells you which doha-download section applies. `present` means
   downloads should work; `absent — doha downloads off` is a deliberate build
@@ -110,6 +110,35 @@ changed or is a known gap — please try to break them in that order.
 ## Setup
 - [ ] Setup checklist matches the real permission state — an amber row must
       never be green when the grant is actually missing
+
+## Simple / Advanced
+
+- [ ] Fresh install (or `adb shell pm clear org.dhamma.gong`) opens on a rail of
+      exactly five: Dashboard, Schedule, Courses, Logs, Setup
+- [ ] No Network tab, no Amp power tab, no Sounds, Audio out or Time
+- [ ] Setup shows a **Network** card with kind, address and internet, plus
+      Wi-Fi settings and Hotspot settings buttons
+- [ ] Setup shows an **Amp power** card: host/IP, Test, Amp on, Amp off, auto
+      with schedule
+- [ ] Amp card with no address: status reads NO ADDRESS, Test says "Enter the
+      Shelly's IP first.", auto toggle is dimmed
+- [ ] Amp card with a wrong IP, after Test: status reads UNREACHABLE and one
+      error line — no stack trace
+- [ ] **Gong still fires with the Shelly unplugged.** Set a schedule row a
+      minute out with a bad relay IP and auto on; the gong must ring on time
+- [ ] Setup → Screens → Advanced restores the full rail including Amp power
+- [ ] A relay host typed in Simple is still there on the Advanced Amp power
+      screen, and vice versa
+- [ ] Switch to Advanced, open Amp power, switch back to Simple from Setup —
+      the app lands on the Dashboard, not a blank pane
+- [ ] Mode survives a force-stop and relaunch
+- [ ] The ⓘ badges on Setup (permissions, network, amp, screens, appliance
+      state) each open a dialog and close again
+- [ ] Sounds → Morning doha: the time saves when you tap away, with no Save
+      button; a bad value like `25:00` toasts and does not save
+- [ ] Untrusted clock: Dashboard banner and Setup clock row both offer Confirm,
+      and neither mentions a Time screen while in Simple
+- [ ] Setup → Appliance state → Build reads `0.2.0-beta12 (13)`
 
 ## Sounds — doha pack folder
 

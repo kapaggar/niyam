@@ -24,7 +24,9 @@ adb shell am start -n org.dhamma.gong/.ui.MainActivity --es tab DASHBOARD
 ```
 
 `tab` is a `Tab` enum name (case-insensitive): `DASHBOARD`, `SCHEDULE`,
-`COURSES`, `LOGS`, `SOUNDS`, `AUDIO_OUT`, `POWER`, `TIME`, `NETWORK`, `SETUP`.
+`COURSES`, `LOGS`, `SOUNDS`, `AUDIO_OUT`, `POWER`, `TIME`, `SETUP`. `NETWORK`
+was removed when the Network screen was folded into a card on Setup — see
+"Network" below.
 
 ## Gallery
 
@@ -106,9 +108,10 @@ Appliance timezone vs device zone; clock confirm.
 
 ### Network
 
-![Network](09-network.png)
-
-Network / connectivity screen.
+Retired as a destination: `NetworkScreen` and `Tab.NETWORK` were deleted, and
+the network facts plus Wi-Fi/hotspot buttons now live in a `NetworkCard` on
+Setup instead. `09-network.png` below is kept for history but no longer shows
+a current screen — see the Setup captures for where this content lives now.
 
 ### Setup
 
@@ -125,6 +128,23 @@ Setup after scroll.
 ![Notification shade](12-notification-shade.png)
 
 System notification shade showing the Gong foreground-service notification.
+
+## Outstanding — Simple/Advanced
+
+The Simple/Advanced UI mode shipped in `0.2.0-beta12` has no captures yet.
+The Pixel C used for this gallery went off the network before this batch
+could be shot, so the following five are wanted and do not exist as PNGs
+in this folder:
+
+- `simple-01-dashboard` — Dashboard in Simple mode
+- `simple-02-setup` — Setup in Simple mode, showing the Network and Amp
+  power cards
+- `simple-03-setup-scrolled` — Setup in Simple mode, scrolled
+- `advanced-01-rail` — the full nav rail after switching to Advanced
+- `advanced-02-amp-power` — the Advanced Amp power screen
+
+Do not fabricate these; capture them from a real device once one is
+reachable, following the "Re-shoot" recipe below.
 
 ## File index
 
@@ -145,7 +165,7 @@ System notification shade showing the Gong foreground-service notification.
 | `07-amp-power.png` | Amp power |
 | `07b-amp-power-scrolled.png` | Amp power (scrolled) |
 | `08-time.png` | Time |
-| `09-network.png` | Network |
+| `09-network.png` | Network (retired — folded into a Setup card) |
 | `10-setup.png` | Setup |
 | `10b-setup-scrolled.png` | Setup (scrolled) |
 | `12-notification-shade.png` | Notification shade |

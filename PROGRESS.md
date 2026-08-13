@@ -8,7 +8,28 @@ from 17 MB to 3.6 MB. It is signed with the local Android debug key on purpose,
 so a tester upgrades over `app-debug.apk` in place and keeps their database;
 this is NOT a distribution key. Smoke-tested on the Pixel C: service foreground,
 scheduler armed, 11/11 doha slots, every `@Serializable` serializer survives R8
-(checked in `mapping.txt`). Prior: **Logs and Courses list order**
+(checked in `mapping.txt`). This same build also ships **Simple/Advanced UI
+mode** (spec-driven, seven commits): a `UiMode` domain enum (`simple`/`advanced`,
+default `simple`, setting key `ui_mode`) backfilled via `SettingsDefaults`
+with no Room migration; `Tab.railFor(UiMode)` cuts Simple's rail to five items
+— Dashboard, Schedule, Courses, Logs, Setup — hiding Sounds, Audio out, Amp
+power and Time. `NetworkScreen` and `Tab.NETWORK` are gone entirely; the
+network facts and Wi-Fi/hotspot buttons now live in a `NetworkCard` on Setup.
+A new `AmpPowerSimpleCard` on Setup covers host/IP, Test, Amp on/off and
+auto-with-schedule with an honest three-state status, while switch id,
+lead/lag and the device password stay on the Advanced Amp power screen — a
+centre configured in Advanced keeps working after switching to Simple, since
+no setting row was renamed or cleared. Setup gained the Simple|Advanced
+switch itself plus an `InfoDot` (ⓘ) disclosure component, reused to move
+three permission explanations behind dialogs and cut the screen subtitle to
+one line; the doha time field now commits on focus loss (through
+`ScheduleMaterializer.parseHhMm`) instead of a Save button. The Dashboard's
+Relay toggle is hidden in Simple, and the untrusted-clock banner no longer
+names the Time screen. `CommittingField` and `Toggle` moved into `Controls.kt`
+as shared composables (behaviour-neutral). Deliberately **not** done: the
+Advanced amp username field stays in place unsimplified, the Simple Dashboard
+has no read-only amp chip, and the full copy diet across Sounds/Audio out is
+still open (spec §9 follow-up). Prior: **Logs and Courses list order**
 (`0.2.0-beta11`, `versionCode` 12) — Logs gained a two-tap "clear log" and now
 orders by `ts_utc` rather than insertion, so a batch of `missed` rows written at
 boot no longer lands above fresher entries. Courses runs in calendar order with
