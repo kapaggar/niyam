@@ -106,6 +106,16 @@ enum class Tab(
             UiMode.ADVANCED -> entries.toList()
             UiMode.SIMPLE -> entries.filter { it !in ADVANCED_ONLY }
         }
+
+        /**
+         * Whether a pending deep-link [requested] tab should be applied now
+         * that the rail resolves to [rail]. A plain enum and a plain list, so
+         * the retry-until-the-real-mode-answers rule a cold-start deep link to
+         * an Advanced-only screen depends on is checkable on the JVM without
+         * standing up Compose.
+         */
+        fun shouldApplyTabRequest(requested: Tab?, rail: List<Tab>): Boolean =
+            requested != null && requested.enabled && requested in rail
     }
 }
 
@@ -127,15 +137,29 @@ fun GongApp(
     val fallback = remember { kotlinx.coroutines.flow.MutableStateFlow<Tab?>(null) }
     val requested by (tabRequest ?: fallback).collectAsState()
     val mode by vm.uiMode.collectAsState()
+    val settingsLoaded by vm.settingsLoaded.collectAsState()
     val rail = Tab.railFor(mode)
-    LaunchedEffect(requested) {
+    // Keyed on `mode` too: a request that arrives (or was left pending) while
+    // `mode` still held its provisional seed is retried once the real value
+    // comes in, rather than being dropped for good. Cleared only once actually
+    // applied — a dropped request must stay visible as "not yet applied", not
+    // be silently swallowed the way it used to be.
+    LaunchedEffect(requested, mode) {
         val t = requested ?: return@LaunchedEffect
-        if (t.enabled && t in rail) tab = t
-        tabRequest?.value = null
+        if (Tab.shouldApplyTabRequest(t, rail)) {
+            tab = t
+            tabRequest?.value = null
+        }
     }
     // Advanced → Simple can pull the floor out from under the current screen.
     // The Dashboard is in both rails, which is what makes it a safe landing.
-    LaunchedEffect(mode) { if (tab !in rail) tab = Tab.DASHBOARD }
+    // Gated on settingsLoaded: `mode` paints its Eagerly-seeded default before
+    // Room answers, and evicting a cold-start deep-linked tab against that
+    // provisional value — rather than the tablet's real mode — is exactly the
+    // bug this guard exists to stop.
+    LaunchedEffect(mode, settingsLoaded) {
+        if (settingsLoaded && tab !in rail) tab = Tab.DASHBOARD
+    }
     // The foreground service keeps this process alive for days, so nothing
     // else ever resets the unlock. Without this, one unlock stays good until
     // the appliance reboots.

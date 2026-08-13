@@ -29,7 +29,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
  * settings rows [org.dhamma.gong.relay.RelayController] already reads and
  * touches nothing else.
  *
- * Two honesty rules carry over from the full screen and are not negotiable
+ * Three honesty rules carry over from the full screen and are not negotiable
  * here either:
  *
  * 1. **Reachability has three states.** `RelayController.State.reachable` is a
@@ -38,6 +38,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
  * 2. **`lastError` is shown verbatim.** A silent failure on a mains relay is
  *    unacceptable; a stack trace on a wall tablet is useless. One line, as the
  *    controller reported it.
+ * 3. **Reachable is not the same claim as ok.** A Shelly that answers with
+ *    "authentication required" is `reachable = true` and `lastActionOk =
+ *    false` — it heard the request and rejected it. Neither the status tag nor
+ *    the "Amp believed on/off" sentence may paint green or assert a state that
+ *    call did not produce; both fold `lastActionOk` in alongside `reachable`.
  *
  * The relay password is never read into this file at all.
  */
@@ -60,6 +65,10 @@ fun AmpPowerSimpleCard(vm: AppViewModel) {
             when {
                 !configured -> Tag("NO ADDRESS", Nocturne.Neutral500)
                 relay.reachable == null -> Tag("NOT PROBED", Nocturne.Neutral500)
+                // Reachable but the call itself failed (e.g. a password the
+                // Shelly rejected) is not "OK" — that word claims the switch
+                // happened, and it did not.
+                relay.reachable == true && !relay.lastActionOk -> Tag("ACTION FAILED", Nocturne.Error)
                 relay.reachable == true -> Tag("OK", Nocturne.Ok)
                 else -> Tag("UNREACHABLE", Nocturne.Error)
             }
@@ -92,7 +101,9 @@ fun AmpPowerSimpleCard(vm: AppViewModel) {
                     vm.toggle("relay_enabled")
                 }
             } else {
-                Box(Modifier.alpha(0.5f)) {
+                // 42 % is the handoff's inert alpha (matches NavItem, StepButton
+                // and InertButton) — not a locally invented 50 %.
+                Box(Modifier.alpha(0.42f)) {
                     Toggle("", false, enabled = false, contentDescription = "Auto with schedule") {}
                 }
             }
@@ -142,16 +153,28 @@ fun AmpPowerSimpleCard(vm: AppViewModel) {
         }
 
         Spacer(Modifier.height(12.dp))
+        // Reachable-but-failed gets its own branch rather than falling into
+        // "Amp believed on/off": `armed` is set optimistically the moment a
+        // manual switch is requested, before the network call resolves, and a
+        // rejected call must not be read back as if it had gone through.
+        val actionFailed = relay.reachable == true && !relay.lastActionOk
         Text(
             when {
                 !configured -> "No address yet. Until one is set the relay does nothing."
                 relay.reachable == null -> "Nothing has been sent to the Shelly yet. Tap Test."
-                relay.reachable == true && relay.armed -> "Reachable. Amp believed on."
-                relay.reachable == true -> "Reachable. Amp believed off."
-                else -> "The last call did not reach the Shelly. The schedule is unaffected."
+                // `armed` is not checked before this: it flips the moment a
+                // manual switch is requested, before the network call
+                // resolves, so it is set on a call this branch is about to
+                // report as rejected too — checking reachability first, then
+                // the call outcome, then armed keeps each branch honest about
+                // what actually happened rather than what was merely intended.
+                relay.reachable == false -> "The last call did not reach the Shelly. The schedule is unaffected."
+                actionFailed -> "Reachable, but the last call failed. The amp's actual state is unknown."
+                relay.armed -> "Reachable. Amp believed on."
+                else -> "Reachable. Amp believed off."
             },
             fontSize = 12.5.sp,
-            color = if (relay.reachable == false) Nocturne.Warning else Nocturne.Neutral500,
+            color = if (relay.reachable == false || actionFailed) Nocturne.Warning else Nocturne.Neutral500,
         )
 
         if (relay.lastError.isNotBlank()) {

@@ -2,7 +2,46 @@
 
 Standalone repo **`kapaggar/niyam`** (branch `main`), extracted with history from the gongserver monorepo's `android/` tree.
 
-Last updated: 2026-08-13, **first shrunk release APK**
+Last updated: 2026-08-13, **beta13: final review pass on Simple/Advanced**
+(`0.2.0-beta13`, `versionCode` 14) — four findings from a whole-feature code
+review closed out the Simple/Advanced UI mode branch. **1.** The Setup amp
+card's status tag and "Amp believed on/off" sentence now fold in
+`RelayController.State.lastActionOk`, not just `reachable`: a
+password-protected Shelly that answers but rejects the call (`AuthRequired`,
+`reachable = true`, `lastActionOk = false`) no longer paints `OK` green or
+claims a switch state the call did not produce. `RelayScreen`'s `StatusCard`
+already had this right; the card now agrees with it. **2.** A cold-start deep
+link to an Advanced-only tab (`--es tab POWER`) used to always land on
+Dashboard: `uiMode` seeds `SIMPLE` before Room answers (by design, so the
+first frame paints the short rail rather than flashing nine items), and the
+mode-fallback effect was evicting the requested tab against that provisional
+value before the real mode arrived. `AppViewModel.settingsLoaded` now gates
+the fallback effect, and the tab-request effect only clears the pending
+request once it was actually applied — a request that arrives under the
+provisional default is retried once the real mode lands, not dropped.
+Covered by new `TabRailTest` JVM cases against the extracted
+`Tab.shouldApplyTabRequest`. **3.** The QA checklist's clock-trust rows were
+still hunting for a `CLOCK UNTRUSTED` Dashboard banner that `ed8560e`
+replaced with "Automatic plays are suppressed…"; both rows now name the
+current text (the string survives only on the Advanced-only Time screen and
+in the foreground notification suffix). **4.** The restore-confirm dialog on
+Setup no longer tells staff to "rescan the folder in Sounds" — Sounds is
+Advanced-only and this fires mid disaster-recovery, the worst moment to send
+someone hunting for a hidden screen; it now names the action and points at
+"Advanced screens" instead of a specific one. A whole-tree grep for other
+strings naming an Advanced-only screen as a destination turned up nothing
+else live — the remaining hits are screens naming themselves or non-user-
+facing KDoc. Also swept: `NetworkCard`'s dead zero-width spacer (a `Dot`
+vestige `NetRow` never used) removed; the Simple amp card's disabled-toggle
+alpha aligned to the shared 0.42 (`NavItem`/`StepButton`/`InertButton`); the
+checklist's Time-section "see the Simple / Advanced section above"
+cross-reference fixed to "below" (that section actually follows it; the
+Amp-power section's identical phrase was already correct and left alone);
+the "Known gaps" line crediting Network with shipping corrected (it was
+deleted, not shipped); `docs/screenshots/README.md` marked stale on the
+Setup captures and the deep-link tab list, matching the existing "retired"
+note on the Network capture; and one accessibility QA row added — TalkBack
+names the Setup amp card's auto-with-schedule switch. Prior: **first shrunk release APK**
 (`0.2.0-beta12`, `versionCode` 13) — R8 + resource shrinking take the QA build
 from 17 MB to 3.6 MB. It is signed with the local Android debug key on purpose,
 so a tester upgrades over `app-debug.apk` in place and keeps their database;

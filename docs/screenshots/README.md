@@ -28,7 +28,21 @@ adb shell am start -n org.dhamma.gong/.ui.MainActivity --es tab DASHBOARD
 was removed when the Network screen was folded into a card on Setup — see
 "Network" below.
 
+`SOUNDS`, `AUDIO_OUT`, `POWER` and `TIME` are Advanced-only since Simple/
+Advanced UI mode shipped (`0.2.0-beta12`). A fresh install boots into Simple,
+the shipped default, and a deep link to any of those four is silently ignored
+in that mode — the app lands on Dashboard instead. Switch to Advanced first
+(Setup → Screens, or `adb shell am start … --es tab SETUP` and tap it by hand)
+before capturing them.
+
 ## Gallery
+
+**Every capture below predates Simple/Advanced UI mode** (`0.2.0-beta12`).
+The nav rail they all show is the old nine-item rail — the shipped default is
+now the five-item Simple rail (Dashboard, Schedule, Courses, Logs, Setup).
+None of these are wrong for what they document, but none of them show the
+rail a fresh install actually renders; see "Outstanding — Simple/Advanced"
+below for the captures that would.
 
 ### Dashboard
 
@@ -115,6 +129,12 @@ a current screen — see the Setup captures for where this content lives now.
 
 ### Setup
 
+**Stale, same as Network below.** Taken before Simple/Advanced UI mode
+(`0.2.0-beta12`): Setup has since gained a **Network** card and an
+**Amp power** card (`AmpPowerSimpleCard`) that these captures do not show,
+and lost three explanatory paragraphs that moved behind ⓘ info dialogs. Kept
+for history; see "Outstanding — Simple/Advanced" below for the replacements.
+
 ![Setup](10-setup.png)
 
 First-run checklist (notifications, exact alarms, battery, appliance state).
@@ -166,8 +186,8 @@ reachable, following the "Re-shoot" recipe below.
 | `07b-amp-power-scrolled.png` | Amp power (scrolled) |
 | `08-time.png` | Time |
 | `09-network.png` | Network (retired — folded into a Setup card) |
-| `10-setup.png` | Setup |
-| `10b-setup-scrolled.png` | Setup (scrolled) |
+| `10-setup.png` | Setup (stale — pre-Simple/Advanced, missing the Network and Amp power cards) |
+| `10b-setup-scrolled.png` | Setup, scrolled (stale — see above) |
 | `12-notification-shade.png` | Notification shade |
 
 ## Re-shoot

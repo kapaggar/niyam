@@ -1,10 +1,10 @@
-# Niyam 0.2.0-beta12 — human QA
+# Niyam 0.2.0-beta13 — human QA
 
-Device: ________  Android: ________  Build: release APK, R8-shrunk (`versionCode` 13)
+Device: ________  Android: ________  Build: release APK, R8-shrunk (`versionCode` 14)
 
 Check **Setup → Appliance state** on the tablet before you start:
 
-- **Build** must read `0.2.0-beta12 (13)`. If it does not, the install did not
+- **Build** must read `0.2.0-beta13 (14)`. If it does not, the install did not
   take — reinstall before reporting anything.
 - **Media key** tells you which doha-download section applies. `present` means
   downloads should work; `absent — doha downloads off` is a deliberate build
@@ -98,7 +98,7 @@ changed or is a known gap — please try to break them in that order.
 
 **Advanced only** — Time is hidden in Simple. In Simple, clock trust is
 confirmed from the Dashboard banner or Setup's own clock row instead; see
-the Simple / Advanced section above.
+the Simple / Advanced section below.
 
 - [ ] Time shows **one clock**, tagged with the zone, and says it is taken from
       the tablet
@@ -128,6 +128,10 @@ the Simple / Advanced section above.
       Shelly's IP first.", auto toggle is dimmed
 - [ ] Amp card with a wrong IP, after Test: status reads UNREACHABLE and one
       error line — no stack trace
+- [ ] With TalkBack on, Setup → Amp power card → the auto-with-schedule
+      switch announces itself as "Auto with schedule", not as an unlabelled
+      switch (closes the `Toggle` semantics-merging fix that was reasoned
+      through but never checked on a device)
 - [ ] **Gong still fires with the Shelly unplugged.** Set a schedule row a
       minute out with a bad relay IP and auto on; the gong must ring on time
 - [ ] Setup → Screens → Advanced restores the full rail including Amp power
@@ -143,7 +147,7 @@ the Simple / Advanced section above.
       no Save button; a bad value like `25:00` toasts and does not save
 - [ ] Untrusted clock: Dashboard banner and Setup clock row both offer Confirm,
       and neither mentions a Time screen while in Simple
-- [ ] Setup → Appliance state → Build reads `0.2.0-beta12 (13)`
+- [ ] Setup → Appliance state → Build reads `0.2.0-beta13 (14)`
 
 ## Sounds — doha pack folder
 
@@ -429,8 +433,10 @@ Dashboard the whole time. If the wall clock jumps **backwards more than 10
 minutes** the appliance suppresses every automatic play until a human confirms.
 An NTP correction is enough to trigger it.
 
-- [ ] Dashboard shows **CLOCK UNTRUSTED** whenever the clock has jumped back;
-      the foreground notification says it too, so it is visible without unlocking
+- [ ] Dashboard shows the banner **"Automatic plays are suppressed until
+      someone confirms the wall clock is right."** whenever the clock has
+      jumped back; the foreground notification appends `CLOCK UNTRUSTED` too,
+      so it is visible without unlocking
 - [ ] Tapping **Confirm clock** clears it and the next gong arms immediately
 - [ ] After confirming, a scheduled gong **actually rings**
 - [ ] A gong logged `missed` earlier in the day does **not** stop a later gong
@@ -441,7 +447,7 @@ An NTP correction is enough to trigger it.
 ## Clock trust
 
 - [ ] Set the device clock back 30 minutes → the Dashboard shows the
-      **CLOCK UNTRUSTED** banner and the next fire is suppressed
+      "Automatic plays are suppressed…" banner and the next fire is suppressed
 - [ ] Confirm the clock (Dashboard banner button; Setup's clock row, present
       in both modes; or the Time screen, Advanced only) → banner clears and
       fires resume
@@ -475,9 +481,11 @@ These are understood and deliberately not fixed here.
    "run that one instead" — the most recent start wins.
 3. **Logs filter resets when you switch tabs.** It survives rotation and process
    death, not tab switching.
-4. **No screen is locked any more.** Audio out and Network have shipped, so
-   the nav rail has no padlocks left. `Tab.enabled` stays in the enum so the
-   next half-built screen is a one-line lock rather than a special case.
+4. **No screen is locked any more.** Audio out shipped unlocked; Network did
+   not ship at all — it was deleted as a tab and its facts folded into a
+   Setup card — so between the two, the nav rail has no padlocks left.
+   `Tab.enabled` stays in the enum so the next half-built screen is a
+   one-line lock rather than a special case.
 5. **Not verified on real 1280×800 hardware.** Screenshots were taken on an
    emulator forced to that size at density 160. A real 10" tablet reports fewer
    dp, so please look hard at the Dashboard hero and the event columns.

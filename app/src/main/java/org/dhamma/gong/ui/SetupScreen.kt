@@ -597,8 +597,8 @@ private fun RestoreConfirm(
                     Spacer(Modifier.height(10.dp))
                     Text(
                         "The courses and schedule above are replaced, not merged. " +
-                            "Restored doha slots arrive unverified — rescan the " +
-                            "folder in Sounds afterwards.",
+                            "Restored doha slots arrive unverified — rescan the doha " +
+                            "folder afterwards to confirm them again (Advanced screens).",
                         fontSize = 12.5.sp,
                         color = Nocturne.Warning,
                     )

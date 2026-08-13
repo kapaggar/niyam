@@ -181,6 +181,21 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setUiMode(mode: UiMode) =
         setSetting(UiMode.SETTING_KEY, mode.key, announce = "${mode.label} screens")
 
+    /**
+     * True once `settings` has answered from Room at least once.
+     *
+     * [uiMode] is `Eagerly`-started with a seeded default so the very first
+     * frame paints the short Simple rail rather than nine items flashing in
+     * while Room answers — but that means its first emission is the seed, not
+     * necessarily the tablet's real mode. A cold-start deep link to an
+     * Advanced-only screen needs to tell the two apart: [GongApp]'s
+     * mode-fallback effect waits for this flag before evicting a tab that only
+     * *looks* wrong under the provisional default.
+     */
+    val settingsLoaded: StateFlow<Boolean> = db.settings().observeAll()
+        .map { true }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
     val events: StateFlow<List<ScheduleEventEntity>> = db.scheduleEvents().observeAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
