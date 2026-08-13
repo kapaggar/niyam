@@ -59,8 +59,8 @@ android {
         // LocalOnlyHotspot). Raise back to 29 before centre / Play builds.
         minSdk = 27
         targetSdk = 35
-        versionCode = 12
-        versionName = "0.2.0-beta11"
+        versionCode = 13
+        versionName = "0.2.0-beta12"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField(
@@ -70,13 +70,40 @@ android {
         )
     }
 
+    // Sideload builds are signed with the local Android debug key on purpose.
+    // Its credentials are the published AGP defaults, so nothing secret lands
+    // here, and keeping the signature identical to `app-debug.apk` means a
+    // tester already carrying a debug build upgrades in place instead of having
+    // to uninstall — which would take their courses and logs with it.
+    //
+    // This is NOT a distribution key. A Play or centre build needs a real
+    // keystore; see AGENTS.md before changing this.
+    val debugKeystore = File(System.getProperty("user.home"), ".android/debug.keystore")
+
+    signingConfigs {
+        if (debugKeystore.exists()) {
+            create("sideload") {
+                storeFile = debugKeystore
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8 + resource shrinking: the QA APK is sideloaded over a slow
+            // link and installed by hand, so its size is a real cost. Anything
+            // reached only by reflection has to be named in proguard-rules.pro
+            // — an unlisted class fails at runtime, not at build time.
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            signingConfig = signingConfigs.findByName("sideload")
         }
     }
     compileOptions {

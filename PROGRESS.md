@@ -2,7 +2,13 @@
 
 Standalone repo **`kapaggar/niyam`** (branch `main`), extracted with history from the gongserver monorepo's `android/` tree.
 
-Last updated: 2026-08-12, **Logs and Courses list order**
+Last updated: 2026-08-13, **first shrunk release APK**
+(`0.2.0-beta12`, `versionCode` 13) — R8 + resource shrinking take the QA build
+from 17 MB to 3.6 MB. It is signed with the local Android debug key on purpose,
+so a tester upgrades over `app-debug.apk` in place and keeps their database;
+this is NOT a distribution key. Smoke-tested on the Pixel C: service foreground,
+scheduler armed, 11/11 doha slots, every `@Serializable` serializer survives R8
+(checked in `mapping.txt`). Prior: **Logs and Courses list order**
 (`0.2.0-beta11`, `versionCode` 12) — Logs gained a two-tap "clear log" and now
 orders by `ts_utc` rather than insertion, so a batch of `missed` rows written at
 boot no longer lands above fresher entries. Courses runs in calendar order with
