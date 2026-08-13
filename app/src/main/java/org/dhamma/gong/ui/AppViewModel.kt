@@ -1,6 +1,10 @@
 package org.dhamma.gong.ui
 
 import android.app.Application
+import android.content.Intent
+import android.net.Uri
+import android.os.SystemClock
+import android.provider.DocumentsContract
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -14,24 +18,41 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import org.dhamma.gong.BuildConfig
+import org.dhamma.gong.data.BackupManager
 import org.dhamma.gong.data.CourseTypeEntity
 import org.dhamma.gong.data.GongDatabase
 import org.dhamma.gong.data.GongRepository
+import org.dhamma.gong.data.MediaSlotEntity
+import org.dhamma.gong.data.MediaSlotSource
 import org.dhamma.gong.data.PlayLogEntity
 import org.dhamma.gong.data.ScheduleEventEntity
 import org.dhamma.gong.data.toDomain
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.dhamma.gong.assets.AudioAssetManager
+import org.dhamma.gong.assets.AudioAssets
 import org.dhamma.gong.domain.ActiveCourse
+import org.dhamma.gong.domain.AudioAsset
 import org.dhamma.gong.domain.ApplianceZone
+import org.dhamma.gong.domain.BackupCheck
 import org.dhamma.gong.domain.Course
+import org.dhamma.gong.domain.DohaPackMapper
+import org.dhamma.gong.domain.NetworkFacts
 import org.dhamma.gong.domain.PinCode
+import org.dhamma.gong.domain.RoutePlan
 import org.dhamma.gong.domain.SettingsDefaults
+import org.dhamma.gong.domain.ThemeMode
+import org.dhamma.gong.net.NetworkProbe
+import org.dhamma.gong.player.AudioRouter
+import org.dhamma.gong.relay.RelayController
 import org.dhamma.gong.schedule.SchedulerEngine
 import org.dhamma.gong.service.AppliancePermissions
 import org.dhamma.gong.service.GongService
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 
 /**
  * The UI's view of the appliance.
@@ -67,6 +88,61 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** One emission per strike, for the dashboard's expanding rings. */
     val strikes = service.flatMapLatest { it?.player?.strikes ?: flowOf() }
 
+    // ------------------------------------------------------------ relay
+
+    /**
+     * The amplifier relay's live view, bridged from the service exactly like
+     * [schedulerState]. With no service there is no relay, and the default
+     * [RelayController.State] reports `reachable = null` — "never probed" — which
+     * is the honest answer rather than a green or a red dot.
+     */
+    val relayState: StateFlow<RelayController.State> = service
+        .flatMapLatest { it?.relay?.state ?: flowOf(RelayController.State()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RelayController.State())
+
+    /**
+     * Save a relay setting and let the controller re-read it. Same immediate
+     * save + toast contract as [setSetting]; the scheduler is not poked because
+     * relay config cannot change when or whether anything fires.
+     */
+    fun setRelaySetting(key: String, value: String, announce: String = "Settings saved") {
+        viewModelScope.launch {
+            repo.putSetting(key, value)
+            service.value?.relay?.refresh()
+            toast(announce)
+        }
+    }
+
+    fun relayTest() {
+        val relay = service.value?.relay
+        if (relay == null) {
+            toast("Appliance service is not running")
+            return
+        }
+        relay.testConnection()
+        toast("Testing…")
+    }
+
+    fun relayManualOn() {
+        val relay = service.value?.relay
+        if (relay == null) {
+            toast("Appliance service is not running")
+            return
+        }
+        relay.manualOn()
+        toast("Switching amp on…")
+    }
+
+    fun relayManualOff() {
+        val relay = service.value?.relay
+        if (relay == null) {
+            toast("Appliance service is not running")
+            return
+        }
+        relay.manualOff()
+        toast("Switching amp off…")
+    }
+
     // ------------------------------------------------------------ store
 
     val courseTypes: StateFlow<List<CourseTypeEntity>> = db.courseTypes().observeAll()
@@ -79,7 +155,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** The appliance's zone — the `timezone` setting, never the device TZ. */
     val applianceZone: StateFlow<ZoneId> = settings
         .map { ApplianceZone.resolve(it["timezone"]) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ApplianceZone.DEFAULT)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ApplianceZone.deviceZone())
+
+    /**
+     * Which palette the shell paints in. Seeded with the shipped default so the
+     * very first frame is dark rather than flashing white while Room answers.
+     */
+    val themeMode: StateFlow<ThemeMode> = settings
+        .map { ThemeMode.parse(it[ThemeMode.SETTING_KEY]) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, ThemeMode.DEFAULT)
+
+    fun setThemeMode(mode: ThemeMode) =
+        setSetting(ThemeMode.SETTING_KEY, mode.key, announce = "Theme: ${mode.label.lowercase()}")
 
     val events: StateFlow<List<ScheduleEventEntity>> = db.scheduleEvents().observeAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -87,9 +174,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val logs: StateFlow<List<PlayLogEntity>> = db.playLog().observeRecent(300)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    val mediaSlots: StateFlow<List<MediaSlotEntity>> = db.mediaSlots().observeAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     val mappedDohaSlots: StateFlow<List<Int>> = db.mediaSlots().observeAll()
         .map { rows -> rows.map { it.slot } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** The persisted SAF tree, or "" when no pack folder has been picked. */
+    val dohaTreeUri: StateFlow<String> = settings
+        .map { it["doha_tree_uri"].orEmpty() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
 
     /** Courses joined with their type and their status for the courses table. */
     data class CourseRow(
@@ -132,7 +227,36 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 },
             )
         }
+            // Calendar order, earliest first: today's course sits between the
+            // recent past above it and the whole future below it, so scrolling
+            // down walks forward in time the way a wall calendar does.
+            .sortedWith(compareBy({ it.course.startDate }, { it.course.id }))
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * How many finished courses stay on the Courses screen. A centre that has
+     * run for years accumulates hundreds; the list exists to show what is
+     * running and what is booked, and every past row above that pushes the
+     * useful part off the top of the screen.
+     */
+    private val pastCoursesShown = 2
+
+    /**
+     * `courseRows` with the older finished courses folded away, and the ids of
+     * the ones folded. Status, not position, decides what counts as finished —
+     * a long course that began before a short one can still be running after
+     * that short one has ended, so dropping by index would hide the wrong row.
+     */
+    data class CourseList(val rows: List<CourseRow>, val hiddenPast: Int)
+
+    val visibleCourseRows: StateFlow<CourseList> = courseRows
+        .map { rows ->
+            val hidden = rows.filter { it.status == CourseRow.Status.PAST }
+                .dropLast(pastCoursesShown)
+                .mapTo(mutableSetOf()) { it.course.id }
+            CourseList(rows.filterNot { it.course.id in hidden }, hidden.size)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CourseList(emptyList(), 0))
 
     /** True when two courses claim today — the dashboard shows a warning. */
     val overlappingCourses: StateFlow<Boolean> = courseRows
@@ -180,6 +304,38 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val _unlocked = MutableStateFlow(false)
     val unlocked: StateFlow<Boolean> = _unlocked.asStateFlow()
 
+    /**
+     * Elapsed-realtime mark of the last time the UI went to the background,
+     * or 0 when it has not been backgrounded since the last unlock.
+     */
+    private var backgroundedAt = 0L
+
+    /** Call from the shell on ON_STOP. */
+    fun onBackgrounded() {
+        backgroundedAt = SystemClock.elapsedRealtime()
+    }
+
+    /**
+     * Call from the shell on ON_START. Re-locks when the UI has been away
+     * for longer than [graceMs].
+     *
+     * The grace window exists because the dashboard health rows launch
+     * system settings to grant permissions, which backgrounds us — an
+     * immediate re-lock would ask staff for the PIN in the middle of a
+     * grant. Anything longer than the window is someone walking away, and
+     * this appliance runs a foreground service, so the process (and this
+     * ViewModel) would otherwise stay unlocked indefinitely.
+     */
+    fun onForegrounded(graceMs: Long = 60_000) {
+        val away = backgroundedAt
+        backgroundedAt = 0L
+        if (_unlocked.value && away != 0L &&
+            SystemClock.elapsedRealtime() - away > graceMs
+        ) {
+            _unlocked.value = false
+        }
+    }
+
     /** @return true and unlocks when [pin] matches the stored hash. */
     suspend fun verifyAndUnlock(pin: String): Boolean {
         val stored = repo.setting("admin_pin_hash")
@@ -220,6 +376,501 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     repo.putSetting("admin_pin_hash", "")
                     toast("PIN removed")
                 }
+            }
+        }
+    }
+
+    // ------------------------------------------------------------ doha media pack
+
+    /**
+     * What the last scan of the pack folder found. UI-only state — the mapping
+     * itself lives in `media_slots`; this is the report staff read beside it.
+     */
+    data class DohaPack(
+        val folderLabel: String = "",
+        val viaDohaChild: Boolean = false,
+        val scanning: Boolean = false,
+        val scannedOnce: Boolean = false,
+        /** Set when the folder is unreadable or a re-pick was refused. */
+        val banner: String? = null,
+        val files: List<DohaPackMapper.ScannedFile> = emptyList(),
+        val skipped: List<DohaPackMapper.Skipped> = emptyList(),
+        val conflicts: List<DohaPackMapper.Conflict> = emptyList(),
+        val unassigned: List<DohaPackMapper.ScannedFile> = emptyList(),
+        /** Mapped slots whose URI could not be opened at the last check. */
+        val unreadable: Set<Int> = emptySet(),
+    )
+
+    private val _dohaPack = MutableStateFlow(DohaPack())
+    val dohaPack: StateFlow<DohaPack> = _dohaPack.asStateFlow()
+
+    private val resolver get() = getApplication<Application>().contentResolver
+
+    /**
+     * A folder came back from `OpenDocumentTree`.
+     *
+     * Order is the whole point (design doc "Permission lifecycle on re-pick"):
+     * take the new grant **first**, and only on success release the old one,
+     * persist, and remap. A take that throws changes nothing at all — a failed
+     * re-pick must leave a working appliance working.
+     */
+    fun onDohaFolderPicked(uri: Uri?) {
+        if (uri == null) return
+        viewModelScope.launch {
+            val took = runCatching {
+                resolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                )
+            }
+            if (took.isFailure) {
+                _dohaPack.value = _dohaPack.value.copy(
+                    banner = "Android refused lasting access to that folder. " +
+                        "Nothing changed — the previous folder and mapping are intact.",
+                )
+                return@launch
+            }
+
+            val previous = repo.setting("doha_tree_uri")
+            if (previous.isNotBlank() && previous != uri.toString()) {
+                // Persisted grants are a limited per-app resource; a season of
+                // re-picks would otherwise leak them.
+                runCatching {
+                    resolver.releasePersistableUriPermission(
+                        Uri.parse(previous),
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                    )
+                }
+            }
+            repo.putSetting("doha_tree_uri", uri.toString())
+            scanDohaTree(uri)
+        }
+    }
+
+    /** Re-read the persisted folder. Safe to call on every screen entry. */
+    fun rescanDohaFolder(announce: Boolean = true) {
+        viewModelScope.launch {
+            val stored = repo.setting("doha_tree_uri")
+            if (stored.isBlank()) {
+                _dohaPack.value = DohaPack()
+                if (announce) toast("Pick a doha folder first")
+                return@launch
+            }
+            scanDohaTree(Uri.parse(stored), announce)
+        }
+    }
+
+    /** Staff assign a scanned file to a slot by hand; this outranks auto-map. */
+    fun assignDohaSlot(slot: Int, file: DohaPackMapper.ScannedFile) {
+        viewModelScope.launch {
+            val stamp = if (openable(file.uri)) nowStamp() else null
+            db.mediaSlots().put(
+                MediaSlotEntity(slot, file.uri, file.name, MediaSlotSource.MANUAL, stamp),
+            )
+            refreshUnreadable()
+            toast("Slot %02d set to %s".format(slot, file.name))
+        }
+    }
+
+    /** Clearing a slot is always an explicit staff action. */
+    fun clearDohaSlot(slot: Int) {
+        viewModelScope.launch {
+            db.mediaSlots().delete(slot)
+            refreshUnreadable()
+            toast("Slot %02d cleared".format(slot))
+        }
+    }
+
+    fun dismissDohaBanner() {
+        _dohaPack.value = _dohaPack.value.copy(banner = null)
+    }
+
+    private suspend fun scanDohaTree(treeUri: Uri, announce: Boolean = true) {
+        _dohaPack.value = _dohaPack.value.copy(scanning = true, banner = null)
+        val root = withContext(Dispatchers.IO) { readTree(treeUri) }
+        if (root == null) {
+            // Keep the last known rows — but stop claiming they are verified.
+            val rows = db.mediaSlots().all()
+            if (rows.isNotEmpty()) db.mediaSlots().putAll(rows.map { it.copy(verifiedAt = null) })
+            _dohaPack.value = _dohaPack.value.copy(
+                scanning = false,
+                folderLabel = folderLabel(treeUri),
+                banner = "That folder is not readable now. The slots below are the " +
+                    "last known mapping and are unverified.",
+                unreadable = rows.map { it.slot }.toSet(),
+            )
+            return
+        }
+
+        val target = DohaPackMapper.resolveScanTarget(root)
+        // Held sources are read *before* the auto rows are cleared, so manual
+        // and bundled slots stay protected across the rescan.
+        val held = db.mediaSlots().all().associate { it.slot to it.source }
+        val mapping = DohaPackMapper.classify(target.files, held)
+
+        db.mediaSlots().deleteBySource(MediaSlotSource.AUTO)
+        val stamp = nowStamp()
+        val rows = withContext(Dispatchers.IO) {
+            mapping.assigned.map { (slot, f) ->
+                MediaSlotEntity(
+                    slot = slot,
+                    uri = f.uri,
+                    filename = f.name,
+                    source = MediaSlotSource.AUTO,
+                    verifiedAt = if (openable(f.uri)) stamp else null,
+                )
+            }
+        }
+        if (rows.isNotEmpty()) db.mediaSlots().putAll(rows)
+
+        _dohaPack.value = DohaPack(
+            folderLabel = folderLabel(treeUri),
+            viaDohaChild = target.viaDohaChild,
+            scannedOnce = true,
+            files = target.files,
+            skipped = mapping.skipped,
+            conflicts = mapping.conflicts,
+            unassigned = mapping.unassigned,
+        )
+        refreshUnreadable()
+        service.value?.pokeScheduler("doha pack rescanned")
+        if (announce) {
+            toast(
+                if (target.files.isEmpty()) "No D01…D11 files found in that folder"
+                else "Mapped ${mapping.assigned.size} of 11 slots",
+            )
+        }
+    }
+
+    /** Re-check every mapped slot. "Mapped" is not the same claim as "will play". */
+    private suspend fun refreshUnreadable() {
+        val rows = db.mediaSlots().all()
+        val bad = withContext(Dispatchers.IO) {
+            rows.filterNot { openable(it.uri) }.map { it.slot }.toSet()
+        }
+        _dohaPack.value = _dohaPack.value.copy(scanning = false, unreadable = bad)
+    }
+
+    private fun nowStamp(): String =
+        Instant.now().truncatedTo(ChronoUnit.SECONDS).toString()
+
+    private fun folderLabel(treeUri: Uri): String =
+        runCatching { Uri.decode(treeUri.lastPathSegment).orEmpty() }
+            .getOrDefault(treeUri.toString())
+            .ifBlank { treeUri.toString() }
+
+    private fun openable(uri: String): Boolean = runCatching {
+        val assetPath = uri.removePrefix("asset:///")
+        if (assetPath != uri) {
+            getApplication<Application>().assets.open(assetPath).close()
+        } else {
+            resolver.openInputStream(Uri.parse(uri))?.close()
+                ?: return false
+        }
+        true
+    }.getOrDefault(false)
+
+    /**
+     * One level of SAF listing, plus the immediate children of a `doha/` child.
+     * Nothing deeper is read — [DohaPackMapper.resolveScanTarget] decides which
+     * of the two the pack actually is.
+     *
+     * @return null when the tree cannot be read at all.
+     */
+    private fun readTree(treeUri: Uri): DohaPackMapper.DirNode? {
+        val rootId = runCatching { DocumentsContract.getTreeDocumentId(treeUri) }
+            .getOrNull() ?: return null
+        val root = listChildren(treeUri, rootId) ?: return null
+        val dirs = root.second.map { (docId, name) ->
+            if (name.equals(DohaPackMapper.DOHA_DIR, ignoreCase = true)) {
+                DohaPackMapper.DirNode(name, listChildren(treeUri, docId)?.first.orEmpty())
+            } else {
+                DohaPackMapper.DirNode(name)
+            }
+        }
+        return DohaPackMapper.DirNode(folderLabel(treeUri), root.first, dirs)
+    }
+
+    /** @return files to (docId, name) of child directories, or null on failure. */
+    private fun listChildren(
+        treeUri: Uri,
+        docId: String,
+    ): Pair<List<DohaPackMapper.ScannedFile>, List<Pair<String, String>>>? = runCatching {
+        val children = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, docId)
+        val files = mutableListOf<DohaPackMapper.ScannedFile>()
+        val dirs = mutableListOf<Pair<String, String>>()
+        resolver.query(
+            children,
+            arrayOf(
+                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                DocumentsContract.Document.COLUMN_MIME_TYPE,
+            ),
+            null,
+            null,
+            null,
+        )?.use { c ->
+            while (c.moveToNext()) {
+                val id = c.getString(0) ?: continue
+                val name = c.getString(1) ?: continue
+                val mime = c.getString(2).orEmpty()
+                if (mime == DocumentsContract.Document.MIME_TYPE_DIR) {
+                    dirs += id to name
+                } else {
+                    files += DohaPackMapper.ScannedFile(
+                        name,
+                        DocumentsContract.buildDocumentUriUsingTree(treeUri, id).toString(),
+                    )
+                }
+            }
+        } ?: return null
+        files to dirs
+    }.getOrNull()
+
+    // ------------------------------------------------------------ doha downloads
+
+    /**
+     * The on-demand download pipeline. Lazy on purpose: the manager indexes
+     * disk state when created, and only the Sounds screen asks about
+     * downloads, so nothing pays that cost until staff open the screen.
+     */
+    private val assetManager: AudioAssetManager by lazy {
+        AudioAssets.get(getApplication())
+    }
+
+    /** Per-asset pipeline state, keyed by [AudioAsset.id]. */
+    val downloadStates: StateFlow<Map<String, AudioAssetManager.TrackState>>
+        get() = assetManager.states
+
+    /** The downloadable doha catalog (11 assets), unordered. */
+    val downloadCatalog: List<AudioAsset>
+        get() = assetManager.catalog
+
+    /** True when the current network is metered (mobile data). */
+    fun downloadsMetered(): Boolean = assetManager.isMetered()
+
+    /**
+     * Download (or repair) one asset. Metering consent is the screen's job —
+     * by the time this is called the user has already said yes if it matters.
+     */
+    fun downloadDoha(id: String) {
+        assetManager.request(id)
+    }
+
+    fun downloadAllDohas(allowMetered: Boolean) {
+        assetManager.requestAll(allowMetered)
+    }
+
+    /** Re-index what is actually on disk. Safe to call on every screen entry. */
+    fun rescanDownloads() {
+        assetManager.refreshFromDisk()
+    }
+
+    /** Look for already-downloaded doha files elsewhere on this device. */
+    fun scanStorageForMedia() {
+        assetManager.scanStorage()
+        toast("Scanning storage for doha files…")
+    }
+
+    // ------------------------------------------------------------ audio out
+
+    private val router by lazy { AudioRouter(getApplication()) }
+
+    /** One row of the route picker: a rule from [RoutePlan] plus real devices. */
+    data class RouteRow(
+        val key: String,
+        /** The product name Android reports, or a generic name when absent. */
+        val label: String,
+        /** Every device currently answering to this route key. */
+        val devices: List<String>,
+        val available: Boolean,
+        val selected: Boolean,
+        val lastOk: Boolean,
+    )
+
+    private val _audioRoutes = MutableStateFlow<List<RouteRow>>(emptyList())
+    val audioRoutes: StateFlow<List<RouteRow>> = _audioRoutes.asStateFlow()
+
+    /** When a route last carried a finished burst, ISO-8601, or "". */
+    private val _routeLastOkAt = MutableStateFlow("")
+    val routeLastOkAt: StateFlow<String> = _routeLastOkAt.asStateFlow()
+
+    /** What a fire *right now* would actually use, fallback included. */
+    private val _routeChoice = MutableStateFlow(
+        RoutePlan.Choice(RoutePlan.SPEAKER, RoutePlan.SPEAKER, fellBack = false),
+    )
+    val routeChoice: StateFlow<RoutePlan.Choice> = _routeChoice.asStateFlow()
+
+    /**
+     * Re-read the attached output devices.
+     *
+     * Polled by the screen rather than pushed: an appliance that is asleep on a
+     * wall should not be waking to service an `AudioDeviceCallback` nobody is
+     * looking at, and staff plugging in a DAC are standing at the tablet.
+     */
+    fun refreshAudioRoutes() {
+        viewModelScope.launch {
+            val devices = withContext(Dispatchers.IO) { runCatching { router.available() } }
+                .getOrDefault(listOf(org.dhamma.gong.player.AudioRoute.Speaker))
+            val preferred = repo.setting(org.dhamma.gong.player.AudioRoute.SETTING_KEY)
+            val lastOk = repo.stateGet(org.dhamma.gong.player.AudioRoute.LAST_OK_KEY)
+            _routeLastOkAt.value =
+                repo.stateGet(org.dhamma.gong.player.AudioRoute.LAST_OK_AT_KEY).orEmpty()
+            val byKey = devices.groupBy { it.key }
+
+            _audioRoutes.value = RoutePlan
+                .rows(byKey.keys, preferred, lastOk)
+                .map { row ->
+                    val found = byKey[row.key].orEmpty()
+                    RouteRow(
+                        key = row.key,
+                        label = found.firstOrNull()?.label ?: RoutePlan.genericLabel(row.key),
+                        devices = found.map { it.label },
+                        available = row.available,
+                        selected = row.selected,
+                        lastOk = row.lastOk,
+                    )
+                }
+            _routeChoice.value = RoutePlan.choose(byKey.keys, preferred)
+        }
+    }
+
+    /** Commit a route as the appliance's preference. Saved immediately. */
+    fun selectAudioRoute(key: String) {
+        viewModelScope.launch {
+            repo.putSetting(org.dhamma.gong.player.AudioRoute.SETTING_KEY, key)
+            refreshAudioRoutes()
+            toast("Output set to ${RoutePlan.genericLabel(key)}")
+        }
+    }
+
+    /**
+     * Ring the test gong through one route without committing to it.
+     *
+     * Auditioning a Bluetooth amp must not mean pointing the whole appliance at
+     * it and remembering to point it back — that is how a centre ends up with
+     * every 04:00 gong going to a switched-off speaker.
+     */
+    fun testAudioRoute(key: String) {
+        val svc = service.value
+        if (svc == null) {
+            toast("Appliance service is not running")
+            return
+        }
+        viewModelScope.launch {
+            svc.testGong(key)
+            // The route is only "last known good" once a play has finished, so
+            // give the burst a moment before re-reading the indicator.
+            toast("Testing ${RoutePlan.genericLabel(key)}…")
+        }
+    }
+
+    // ------------------------------------------------------------ network
+
+    private val networkProbe by lazy { NetworkProbe(getApplication()) }
+
+    private val _network = MutableStateFlow(NetworkFacts.Facts())
+    val network: StateFlow<NetworkFacts.Facts> = _network.asStateFlow()
+
+    /** False until the first probe lands, so the screen never guesses "offline". */
+    private val _networkProbed = MutableStateFlow(false)
+    val networkProbed: StateFlow<Boolean> = _networkProbed.asStateFlow()
+
+    fun refreshNetwork() {
+        viewModelScope.launch {
+            _network.value = withContext(Dispatchers.IO) { networkProbe.read() }
+            _networkProbed.value = true
+        }
+    }
+
+    // ------------------------------------------------------------ backup
+
+    private val backups = BackupManager(db)
+
+    /**
+     * What a chosen file would do if restored, or why it was refused. Null when
+     * nothing is pending — the screen shows the confirm sheet only while set.
+     */
+    private val _pendingRestore = MutableStateFlow<PendingRestore?>(null)
+    val pendingRestore: StateFlow<PendingRestore?> = _pendingRestore.asStateFlow()
+
+    data class PendingRestore(
+        val uri: Uri,
+        val check: BackupCheck.Result,
+        /** What is on the tablet right now, so staff can weigh the swap. */
+        val currentCourses: Int,
+        val currentEvents: Int,
+    )
+
+    /** Write a backup to the document the picker returned. */
+    fun exportBackup(uri: Uri?) {
+        if (uri == null) return
+        viewModelScope.launch {
+            val text = backups.encode(backups.export(BuildConfig.VERSION_NAME))
+            val ok = withContext(Dispatchers.IO) {
+                runCatching {
+                    resolver.openOutputStream(uri, "wt")?.use { it.write(text.toByteArray()) }
+                        ?: error("could not open the file for writing")
+                }
+            }
+            toast(
+                if (ok.isSuccess) {
+                    "Backup saved — settings, courses and schedule"
+                } else {
+                    "Could not write that file. Nothing was changed."
+                },
+            )
+        }
+    }
+
+    /**
+     * Read and *inspect* a chosen backup. Never applies it — restore replaces
+     * the whole schedule, so it gets an explicit second tap with the counts in
+     * front of the person tapping.
+     */
+    fun inspectBackup(uri: Uri?) {
+        if (uri == null) return
+        viewModelScope.launch {
+            val text = withContext(Dispatchers.IO) {
+                runCatching { resolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } }
+                    .getOrNull()
+            }
+            val file = text?.let { backups.decode(it) }
+            _pendingRestore.value = PendingRestore(
+                uri = uri,
+                check = BackupCheck.inspect(file),
+                currentCourses = db.courses().count(),
+                currentEvents = db.scheduleEvents().count(),
+            )
+        }
+    }
+
+    fun dismissRestore() {
+        _pendingRestore.value = null
+    }
+
+    /** Apply the inspected backup. Only reachable from the confirm sheet. */
+    fun confirmRestore() {
+        val pending = _pendingRestore.value ?: return
+        _pendingRestore.value = null
+        if (pending.check !is BackupCheck.Result.Ok) return
+        viewModelScope.launch {
+            val text = withContext(Dispatchers.IO) {
+                runCatching { resolver.openInputStream(pending.uri)?.bufferedReader()?.use { it.readText() } }
+                    .getOrNull()
+            }
+            val file = text?.let { backups.decode(it) }
+            if (file == null) {
+                toast("That file could not be re-read. Nothing was changed.")
+                return@launch
+            }
+            val summary = runCatching { backups.restore(file) }
+            if (summary.isSuccess) {
+                // The materialized day is now wrong in every particular.
+                service.value?.pokeScheduler("backup restored")
+                toast(summary.getOrDefault("Restored"))
+            } else {
+                toast("Restore failed — the tablet is unchanged.")
             }
         }
     }
@@ -297,6 +948,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             db.scheduleEvents().delete(id)
             service.value?.pokeScheduler("schedule edited")
             toast("Event removed")
+        }
+    }
+
+    /**
+     * Empty `play_log`. Diagnostic history only — the `fired:`/`missed:` guards
+     * that stop a double blast live in `state` and are deliberately left alone,
+     * so clearing the log cannot make an already-fired gong ring again.
+     */
+    fun clearLogs() {
+        viewModelScope.launch {
+            db.playLog().clear()
+            toast("Logs cleared")
         }
     }
 

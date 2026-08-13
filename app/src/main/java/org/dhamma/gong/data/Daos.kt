@@ -31,11 +31,21 @@ interface CourseDao {
     @Query("SELECT * FROM courses ORDER BY start_date DESC")
     fun observeAll(): Flow<List<CourseEntity>>
 
+    @Query("SELECT COUNT(*) FROM courses")
+    suspend fun count(): Int
+
     @Insert
     suspend fun insert(row: CourseEntity): Long
 
+    @Insert
+    suspend fun insertAll(rows: List<CourseEntity>)
+
     @Query("DELETE FROM courses WHERE id = :id")
     suspend fun delete(id: Long)
+
+    /** Restore only. Course ids are referenced by `active_course_id`. */
+    @Query("DELETE FROM courses")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -70,6 +80,10 @@ interface ScheduleEventDao {
 
     @Query("DELETE FROM schedule_events WHERE id = :id")
     suspend fun delete(id: Long)
+
+    /** Restore only — the whole matrix is replaced as one unit. */
+    @Query("DELETE FROM schedule_events")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -123,17 +137,36 @@ interface StateDao {
     @Query("SELECT key FROM state WHERE key LIKE 'fired:%'")
     suspend fun firedKeys(): List<String>
 
-    /** the Pi daemon's prune_fired: the date is the last 10 chars of the key. */
-    @Query("DELETE FROM state WHERE key LIKE 'fired:%' AND substr(key, -10) < :cutoffIso")
+    @Query("SELECT key FROM state WHERE key LIKE 'missed:%'")
+    suspend fun missedKeys(): List<String>
+
+    /**
+     * the Pi daemon's prune_fired: the date is the last 10 chars of the key.
+     * Covers `missed:` too — it is day-scoped bookkeeping with the same
+     * lifetime, and leaving it behind would grow `state` without bound.
+     */
+    @Query(
+        """
+        DELETE FROM state
+         WHERE (key LIKE 'fired:%' OR key LIKE 'missed:%')
+           AND substr(key, -10) < :cutoffIso
+        """,
+    )
     suspend fun pruneFired(cutoffIso: String)
 }
 
 @Dao
 interface PlayLogDao {
-    @Query("SELECT * FROM play_log ORDER BY id DESC LIMIT :limit")
+    // Newest first, by the instant the row describes rather than by insertion
+    // order. `ts_utc` is written as `Instant.truncatedTo(SECONDS).toString()`,
+    // a fixed-width UTC string, so lexicographic order IS chronological order.
+    // Insertion order drifts from it whenever a batch is written after the
+    // fact — a boot that logs a night of `missed` entries, or a restore — and
+    // then `id DESC` puts a stale row above a fresh one.
+    @Query("SELECT * FROM play_log ORDER BY ts_utc DESC, id DESC LIMIT :limit")
     suspend fun recent(limit: Int = 200): List<PlayLogEntity>
 
-    @Query("SELECT * FROM play_log ORDER BY id DESC LIMIT :limit")
+    @Query("SELECT * FROM play_log ORDER BY ts_utc DESC, id DESC LIMIT :limit")
     fun observeRecent(limit: Int = 200): Flow<List<PlayLogEntity>>
 
     @Insert
@@ -145,6 +178,14 @@ interface PlayLogDao {
     /** Keep the log bounded — a wall tablet runs for years. */
     @Query("DELETE FROM play_log WHERE id < (SELECT MAX(id) - :keep FROM play_log)")
     suspend fun trim(keep: Int = 5000)
+
+    /**
+     * Staff-facing "clear all" on the Logs screen. The log is a diagnostic
+     * record only — nothing schedules off it, so emptying it cannot change
+     * what rings. The `fired:`/`missed:` guards live in `state`, untouched.
+     */
+    @Query("DELETE FROM play_log")
+    suspend fun clear()
 }
 
 @Dao
@@ -172,4 +213,8 @@ interface MediaSlotDao {
 
     @Query("DELETE FROM media_slots WHERE source = :source")
     suspend fun deleteBySource(source: String)
+
+    /** Restore only. */
+    @Query("DELETE FROM media_slots")
+    suspend fun deleteAll()
 }

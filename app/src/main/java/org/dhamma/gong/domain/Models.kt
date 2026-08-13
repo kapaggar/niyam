@@ -113,6 +113,16 @@ data class PlayCommand(
     /** 0..100 app-level gain. */
     val volume: Int = 90,
     val label: String = "",
+    /**
+     * Render through this route for this play only, ignoring the stored
+     * `audio_route` preference. Null — always, for anything the scheduler
+     * emits — means "use the setting".
+     *
+     * It exists so Audio out can test a route staff have not committed to yet.
+     * Auditioning a Bluetooth amp must not require first pointing the whole
+     * appliance at it and remembering to point it back.
+     */
+    val routeKey: String? = null,
 )
 
 /** A row to append to play_log. */
@@ -124,9 +134,34 @@ data class PlayLogEntry(
     val detail: String = "",
 )
 
-/** (occurrence key, local date) — the double-fire guard, persisted in `state`. */
+/**
+ * (occurrence key, local date) — the double-fire guard, persisted in `state`.
+ *
+ * Written **only when sound is actually dispatched**, and written before the
+ * player is touched so a process death mid-burst cannot produce a repeat.
+ */
 data class FiredMark(val key: String, val localDate: LocalDate) {
     val stateKey: String get() = "fired:$key:$localDate"
+}
+
+/**
+ * "We have already logged that this occurrence was missed."
+ *
+ * Deliberately a different row from [FiredMark], and the distinction is not
+ * cosmetic. A miss used to write the fire guard, which meant anything logged
+ * missed could never sound again that day. That is fine while the wall clock
+ * stands still and catastrophic when it moves: on a real tablet the device
+ * timezone changed from New York to Los Angeles, the day re-materialized three
+ * hours earlier, every past occurrence was logged missed — and when 21:00
+ * Los Angeles genuinely arrived the gong was suppressed as already-fired. The
+ * hall got silence and the log showed nothing at all.
+ *
+ * So the two marks answer different questions. This one exists solely to stop
+ * the 30 s heartbeat writing a fresh `missed` row every tick; it must never
+ * stop a gong that has become genuinely due.
+ */
+data class MissedMark(val key: String, val localDate: LocalDate) {
+    val stateKey: String get() = "missed:$key:$localDate"
 }
 
 /**
@@ -161,6 +196,8 @@ data class ScheduleSnapshot(
  */
 data class TickOutcome(
     val marks: List<FiredMark> = emptyList(),
+    /** Miss bookkeeping. Never blocks a fire — see [MissedMark]. */
+    val missedMarks: List<MissedMark> = emptyList(),
     val logs: List<PlayLogEntry> = emptyList(),
     val fired: List<PlayCommand> = emptyList(),
     /** Earliest un-fired occurrence still in the future; null = nothing pending. */
@@ -188,8 +225,21 @@ object SettingsDefaults {
     /** Android-only additions (no Pi counterpart). */
     val androidExtras: Map<String, String> = mapOf(
         "audio_route" to "speaker",
-        "timezone" to ApplianceZone.DEFAULT_ID,
+        // Blank = follow the device zone. A centre may pin an IANA id.
+        "timezone" to ApplianceZone.FOLLOW_DEVICE,
+        // Presentation only — nothing in the scheduler reads it.
+        ThemeMode.SETTING_KEY to ThemeMode.DEFAULT.key,
         "doha_tree_uri" to "",
+        // Amplifier relay (Shelly 1 Gen4) — `relay_enabled` lives in `map`
+        // above for Pi parity. Empty host = not configured, relay logic inert.
+        // `relay_auth_pass` is a LAN device password: stored like any other
+        // setting and, like the PIN, never logged.
+        "relay_host" to "",
+        "relay_auth_user" to "admin",
+        "relay_auth_pass" to "",
+        "relay_switch_id" to "0",
+        "relay_lead_seconds" to "5",
+        "relay_lag_seconds" to "5",
     )
 
     val all: Map<String, String> = map + androidExtras

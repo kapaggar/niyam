@@ -41,6 +41,23 @@ Copy these; do not “simplify” them away:
 ./gradlew :app:assembleDebug
 ```
 
+## Version the APK on every substantive change
+
+**Bump `versionCode` by 1 and set a new `versionName` in
+`app/build.gradle.kts`, in the same commit as the change.** Substantive means
+a new or unlocked screen, a behaviour change, a media swap, a permission
+added, or a fix to anything on the QA checklist — not comment-only, doc-only
+or test-only edits.
+
+A tester installs over the top. An equal `versionCode` can leave the old code
+in place and a lower one is refused, so a stale APK looks exactly like a fixed
+bug returning. The build is shown on the Setup screen so it can be checked
+without a cable.
+
+Bump the version line in `docs/BETA-QA-CHECKLIST.md` and name the version in
+`PROGRESS.md` in the same commit. Full rationale in `AGENTS.md`
+("Versioning the test APK").
+
 ## Out of scope unless asked
 
 - Deshna `fetch.php` media server

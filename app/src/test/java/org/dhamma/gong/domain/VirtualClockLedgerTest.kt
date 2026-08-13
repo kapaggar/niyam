@@ -7,7 +7,6 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
-import kotlin.random.Random
 
 /**
  * Design doc §12 — "a 400-day run over every course type executes in seconds
@@ -46,7 +45,6 @@ class VirtualClockLedgerTest {
                 now = now,
                 snapshot = snapshot,
                 firedGuard = state::wasFired,
-                random = Random(42),
             )
             state.applyMarks(out.marks)
             logs += out.logs

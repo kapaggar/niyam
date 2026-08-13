@@ -16,6 +16,7 @@ import org.dhamma.gong.domain.ClockTrust
 import org.dhamma.gong.domain.CourseCtx
 import org.dhamma.gong.domain.FiredMark
 import org.dhamma.gong.domain.GongClock
+import org.dhamma.gong.domain.MissedMark
 import org.dhamma.gong.domain.Occurrence
 import org.dhamma.gong.domain.PlayCommand
 import org.dhamma.gong.domain.ScheduleMaterializer
@@ -42,6 +43,15 @@ class SchedulerEngine(
     private val scope: CoroutineScope,
     private val dispatch: suspend (PlayCommand) -> Unit,
     private val warmUp: () -> Unit = {},
+    /**
+     * Amplifier relay pre-arm hook: `(now, nextDeadline, clockTrusted)`.
+     *
+     * Fire-and-forget by contract — it must return immediately and must never
+     * make this tick wait on a network call. The relay is a convenience; the
+     * gong is the product. The tick path owns *both* relay edges because a
+     * missed occurrence never reaches the player.
+     */
+    private val relayTick: (ZonedDateTime, ZonedDateTime?, Boolean) -> Unit = { _, _, _ -> },
 ) {
 
     data class State(
@@ -132,12 +142,14 @@ class SchedulerEngine(
         val snapshot = repo.snapshot()
         // Read the guard set once, in the same pass that will write to it.
         val fired = repo.firedKeys()
+        val missed = repo.missedKeys()
 
         val outcome: TickOutcome = SchedulerCore.tick(
             clock = clock,
             now = now,
             snapshot = snapshot,
             firedGuard = { key, date -> FiredMark(key, date).stateKey in fired },
+            missedGuard = { key, date -> MissedMark(key, date).stateKey in missed },
             clockTrusted = trusted,
         )
 
@@ -149,9 +161,17 @@ class SchedulerEngine(
         }
 
         // Publish what the dashboard needs.
+        // Only occurrences that will actually ring. The guard check is the
+        // point: without it the dashboard counts 10, 9, 8 ... 1 down to an
+        // occurrence the tick has already been told to skip, and then nothing
+        // happens and nothing is logged. That is precisely how the "a miss
+        // consumed the fire guard" bug presented on a real tablet — the
+        // countdown lied for eighty-seven minutes and the hall got silence.
+        // A screen that cannot promise a gong must not appear to promise one.
         val upcoming = ScheduleMaterializer
             .materialize(clock, today, snapshot, days = 2)
             .filter { it.fireAt.toInstant() > now.toInstant() }
+            .filterNot { FiredMark(it.key, it.localDate).stateKey in fired }
         val course = ActiveCourse.resolve(
             snapshot.courses,
             snapshot.typesById,
@@ -178,6 +198,14 @@ class SchedulerEngine(
         )
 
         val deadline = outcome.nextDeadline
+
+        // Amplifier relay: reads the deadline we just computed and nothing more.
+        // Called on both paths — a null deadline is exactly how a missed or
+        // fired occurrence releases the sticky arm. Wrapped because a relay
+        // fault must never abort a scheduler tick.
+        runCatching { relayTick(now, deadline, trusted) }
+            .onFailure { Log.w(TAG, "relay hook failed (schedule unaffected)", it) }
+
         if (deadline != null) {
             alarms.arm(deadline)
             maybeWarmUp(now, deadline)

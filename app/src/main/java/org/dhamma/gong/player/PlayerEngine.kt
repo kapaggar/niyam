@@ -18,6 +18,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.dhamma.gong.data.GongRepository
+import org.dhamma.gong.domain.GongTracks
 import org.dhamma.gong.domain.PlayCommand
 import org.dhamma.gong.domain.PlayKind
 import org.dhamma.gong.domain.PlayLogEntry
@@ -41,6 +42,14 @@ class PlayerEngine(
     private val router: AudioRouter,
     private val sink: AudioSink,
     private val scope: CoroutineScope,
+    /**
+     * Called when a play finishes, so the amplifier relay can time its lag-out
+     * from the real end of the burst.
+     *
+     * Fire-and-forget by contract: it must return immediately and must never
+     * be something playback waits on.
+     */
+    private val onPlayEnded: () -> Unit = {},
 ) {
 
     data class Status(
@@ -192,7 +201,9 @@ class PlayerEngine(
             return
         }
         val ok = resolved as MediaResolver.Resolved.Ok
-        val route = router.resolve(repo.setting(AudioRoute.SETTING_KEY))
+        // A command may name its own route (Audio out auditioning a device);
+        // everything the scheduler emits leaves it null and follows the setting.
+        val route = router.resolve(command.routeKey ?: repo.setting(AudioRoute.SETTING_KEY))
 
         var played = 0
         var result = PlayResult.OK
@@ -214,12 +225,19 @@ class PlayerEngine(
 
         try {
             val gapMs = command.gapSeconds * 1000L
-            for (i in 0 until command.repeats) {
+            // `repeats` counts audible hits, but one play of a multi-hit
+            // recording delivers several (the Sikkim gong rings three times
+            // per file). GongTracks does the division; strike/played numbers
+            // stay in hits so "n of repeats" in the log keeps meaning it.
+            val plays = GongTracks.playsFor(command.repeats, command.trackStem)
+            for (i in 0 until plays) {
                 if (i > 0 && gapMs > 0) delay(gapMs)
-                _status.value = _status.value.copy(strike = i + 1)
+                _status.value = _status.value.copy(
+                    strike = GongTracks.hitsAfterPlays(i, command.repeats, command.trackStem) + 1,
+                )
                 _strikes.tryEmit(i + 1)
-                sink.play(ok.uri, command.volume)
-                played = i + 1
+                sink.play(ok.uri, command.volume, route.route.deviceId)
+                played = GongTracks.hitsAfterPlays(i + 1, command.repeats, command.trackStem)
             }
         } catch (e: CancellationException) {
             result = PlayResult.STOPPED
@@ -251,11 +269,16 @@ class PlayerEngine(
         repo.log(PlayLogEntry(command.kind, media.displayName, played, result, detail))
         if (result == PlayResult.OK) {
             repo.statePut(AudioRoute.LAST_OK_KEY, route.route.key)
+            repo.statePut(AudioRoute.LAST_OK_AT_KEY, java.time.Instant.now().toString())
         }
         _status.value = _status.value.copy(
             playing = false, strike = 0, ofStrikes = 0, label = "",
             lastResult = result, lastFile = media.displayName,
         )
+        // Relay lag-out starts here, not at the scheduled time. Never allowed
+        // to throw into the play path.
+        runCatching { onPlayEnded() }
+            .onFailure { Log.w(TAG, "play-end hook failed", it) }
     }
 
     private class BurstPreempted : CancellationException("preempted")

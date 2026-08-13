@@ -10,7 +10,6 @@ import org.junit.Test
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZonedDateTime
-import kotlin.random.Random
 
 /**
  * Behavioural oracle ported from ng/tests/test_scheduler.py.
@@ -37,7 +36,6 @@ class SchedulerCoreTest {
         ),
         firedGuard = state::wasFired,
         clockTrusted = clockTrusted,
-        random = Random(7),
     )
 
     // ---------------------------------------------------------------- firing
@@ -75,8 +73,15 @@ class SchedulerCoreTest {
         assertEquals(PlayKind.GONG, missed.kind)
         assertEquals(16, missed.repeats)
         assertTrue(missed.detail.startsWith("scheduled 2026-08-03T04:00"))
-        // Still consumes the slot, so it cannot fire later in the day.
-        assertTrue(out.marks.any { it.key == "g4" || it.key.startsWith("g") })
+
+        // CHANGED 2026-08-11, from "still consumes the slot so it cannot fire
+        // later in the day". That invariant silenced a real tablet: the device
+        // timezone moved, the day re-materialized three hours earlier, every
+        // past occurrence was logged missed — and the fire guard those misses
+        // wrote then suppressed the gongs when they genuinely came due. A miss
+        // is bookkeeping, not a fire. It marks only that the miss was logged.
+        assertTrue("a miss must not write the fire guard", out.marks.isEmpty())
+        assertTrue(out.missedMarks.any { it.key.startsWith("g") })
     }
 
     // ------------------------------------------------------------ guard
@@ -201,7 +206,6 @@ class SchedulerCoreTest {
             now = Fixtures.ist(day, 6, 30),
             snapshot = Fixtures.snapshot(courses = courses),
             firedGuard = { _, _ -> false },
-            random = Random(1),
         )
         val gong = out.fired.single { it.kind == PlayKind.GONG }
         assertEquals(3, gong.repeats)

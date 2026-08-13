@@ -5,15 +5,22 @@
 ```
 app/src/main/assets/media/
   gongs/
-    ting.mp3
-    drum.mp3
-    gong-ting.mp3   # original filenames from gongserver
+    ting.mp3        # "single gong" — Single_Gong recording, ONE ring per play
+    drum.mp3        # "sikkim gong" — sikkim_GONG recording, THREE hits per play
+    gong-ting.mp3   # original filenames from gongserver (dormant)
     gong-drum.mp3
   doha/
     manifest.json   # slot → filename; audio files NOT shipped
 ```
 
 Settings key `gong_track` uses the **stem** (`ting`, `drum`) → file `ting.mp3`.
+The stems are legacy Pi ids kept for database compatibility; the recordings
+behind them were replaced 2026-08-09 (sources:
+`DHAMMA/03-Course-Playback/Gong-Bell/Single_Gong.mp3` and
+`DHAMMA/Dhamma/Study/sikkim_GONG.mp3`). `domain/GongTracks.kt` maps stem →
+staff-facing label and hits-per-play; a schedule row's `repeats` counts
+audible hits, and the player divides by hits-per-play to decide how many
+times to play the file.
 
 ## Centre media pack (install later)
 

@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -14,14 +15,17 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,11 +35,35 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import org.dhamma.gong.data.ScheduleEventEntity
+import org.dhamma.gong.domain.GongTracks
 import java.time.LocalTime
+
+/** Narrowest a day column may ever be; it grows to fill the pane (handoff `minmax(46px, 1fr)`). */
+private val MIN_COL_W = 46.dp
+
+/** The frozen wall-clock gutter on the left of the grid. */
+private val GUTTER_W = 60.dp
+
+private val ROW_H = 44.dp
+
+/** Tolerant parse: the seed and the Pi daemon both emit "HH:mm" and "HH:mm:ss". */
+private fun parseTime(raw: String): LocalTime? = runCatching { LocalTime.parse(raw) }.getOrNull()
+
+private fun hhmm(t: LocalTime): String = "%02d:%02d".format(t.hour, t.minute)
+
+private fun dayLabel(typeId: Int?, day: Int?): String = when {
+    typeId == null -> "No course"
+    day == null -> "Default pattern"
+    else -> "Day $day"
+}
 
 /**
  * The day-column grid: days across, wall-clock times down, the whole
@@ -45,6 +73,14 @@ import java.time.LocalTime
  * The **DEF** column is `day_no IS NULL`, the mid-course default pattern used
  * for any day with no rows of its own. For "No course" the grid collapses to a
  * single **N/C** column (`course_type_id IS NULL`).
+ *
+ * Inheritance is **`ScheduleMaterializer.eventsFor`'s law**: a day with at
+ * least one explicit row uses *only* its explicit rows; a day with none fires
+ * the whole DEF pattern. The grid therefore *ghosts* the DEF rows into every
+ * inheriting day (alpha 0.38, no accent) and makes the first override a
+ * two-tap — creating one row silently replaces that day's entire inherited
+ * pattern. Nothing here materialises DEF rows into a day; the ghosts are paint
+ * only.
  */
 @Composable
 fun ScheduleScreen(vm: AppViewModel) {
@@ -56,8 +92,17 @@ fun ScheduleScreen(vm: AppViewModel) {
     var typeId by remember { mutableStateOf<Int?>(1) }
     var selected by remember { mutableStateOf<CellKey?>(null) }
 
+    // First tap on an inheriting day only arms the override; the second writes.
+    var armedOverrideDay by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(armedOverrideDay) {
+        if (armedOverrideDay != null) {
+            delay(4_000)
+            armedOverrideDay = null
+        }
+    }
+
     val type = types.firstOrNull { it.id == typeId }
-    val events = allEvents.filter { it.courseTypeId == typeId }
+    val events = remember(allEvents, typeId) { allEvents.filter { it.courseTypeId == typeId } }
 
     // Columns: days 0..total, then DEF. No course collapses to one column.
     val dayColumns: List<Int?> = if (typeId == null) {
@@ -65,9 +110,29 @@ fun ScheduleScreen(vm: AppViewModel) {
     } else {
         (0..(type?.totalDays ?: 0)).map { it as Int? } + listOf<Int?>(null)
     }
-    val times = events.mapNotNull { runCatching { LocalTime.parse(it.timeLocal) }.getOrNull() }
-        .distinct()
-        .sorted()
+
+    // Everything below keys on a parsed LocalTime, never on the raw string —
+    // "04:00" and "04:00:00" are the same slot and must collide, not duplicate.
+    val byCell: Map<Pair<Int?, LocalTime>, ScheduleEventEntity> = remember(events) {
+        buildMap { for (e in events) parseTime(e.timeLocal)?.let { put(e.dayNo to it, e) } }
+    }
+    val defByTime: Map<LocalTime, ScheduleEventEntity> = remember(events) {
+        buildMap {
+            for (e in events) {
+                if (e.dayNo == null) parseTime(e.timeLocal)?.let { put(it, e) }
+            }
+        }
+    }
+    val daysWithExplicit: Set<Int> = remember(events) {
+        events.mapNotNull { it.dayNo }.toSet()
+    }
+    val times = remember(events) {
+        events.mapNotNull { parseTime(it.timeLocal) }.distinct().sorted()
+    }
+
+    /** True when this day column currently paints DEF rows it does not own. */
+    fun inheritsDef(day: Int?): Boolean =
+        typeId != null && day != null && day !in daysWithExplicit && defByTime.isNotEmpty()
 
     Row(Modifier.fillMaxSize()) {
         Column(
@@ -79,61 +144,117 @@ fun ScheduleScreen(vm: AppViewModel) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                ScreenTitle("Schedule")
+                // Title only — NOT ScreenTitle. Its subtitle is an unconstrained
+                // Text, which in a Row takes the whole width and squeezes the
+                // course-type picker to nothing. The subtitle goes below.
+                Text(
+                    "Schedule",
+                    fontSize = 23.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Nocturne.Text,
+                )
                 Spacer(Modifier.weight(1f))
-                TypePicker(
-                    types = types,
-                    selected = type,
-                    modifier = Modifier.width(220.dp),
-                    includeNoCourse = true,
-                    onNoCourse = {
-                        typeId = null
+                if (types.isEmpty() && typeId != null) {
+                    // Room has not emitted course types yet — do not flash "No course".
+                    Box(Modifier.width(220.dp).height(38.dp), contentAlignment = Alignment.CenterStart) {
+                        Text("Loading…", fontSize = 13.5.sp, color = Nocturne.Neutral600)
+                    }
+                } else {
+                    TypePicker(
+                        types = types,
+                        selected = type,
+                        modifier = Modifier.width(220.dp),
+                        includeNoCourse = true,
+                        onNoCourse = {
+                            typeId = null
+                            selected = null
+                            armedOverrideDay = null
+                        },
+                    ) {
+                        typeId = it.id
                         selected = null
-                    },
-                ) {
-                    typeId = it.id
-                    selected = null
+                        armedOverrideDay = null
+                    }
                 }
             }
+
+            Text(
+                "Days across, times down. DEF is the default pattern.",
+                fontSize = 12.5.sp,
+                color = Nocturne.Neutral500,
+            )
 
             Grid(
                 times = times,
                 dayColumns = dayColumns,
-                events = events,
+                byCell = byCell,
+                defByTime = defByTime,
+                daysWithExplicit = daysWithExplicit,
                 typeId = typeId,
                 selected = selected,
+                armedOverrideDay = armedOverrideDay,
                 onSelect = { key ->
                     selected = key
-                    // Tapping an empty cell creates a default event
-                    // (×6, inherit gap, inherit track) — design handoff.
-                    val existing = events.firstOrNull {
-                        it.dayNo == key.dayNo && it.timeLocal == key.time.toString()
-                    }
-                    if (existing == null) {
-                        vm.addEvent(
-                            ScheduleEventEntity(
-                                courseTypeId = typeId,
-                                dayNo = key.dayNo,
-                                timeLocal = key.time.toString(),
-                                repeats = 6,
-                                gapSeconds = null,
-                                track = null,
-                            ),
-                        )
+                    val existing = byCell[key.dayNo to key.time]
+                    when {
+                        existing != null -> armedOverrideDay = null
+
+                        // The destructive case: this day fires the whole DEF
+                        // pattern, and one insert replaces all of it. Arm first.
+                        inheritsDef(key.dayNo) && armedOverrideDay != key.dayNo -> {
+                            armedOverrideDay = key.dayNo
+                            vm.toast(
+                                "Day ${key.dayNo} inherits the DEF pattern — " +
+                                    "tap again to override it",
+                            )
+                        }
+
+                        else -> {
+                            armedOverrideDay = null
+                            // Tapping an empty cell creates a default event
+                            // (×6, inherit gap, inherit track) — design handoff.
+                            vm.addEvent(
+                                ScheduleEventEntity(
+                                    courseTypeId = typeId,
+                                    dayNo = key.dayNo,
+                                    timeLocal = key.time.toString(),
+                                    repeats = 6,
+                                    gapSeconds = null,
+                                    track = null,
+                                ),
+                            )
+                        }
                     }
                 },
                 modifier = Modifier.weight(1f),
             )
-
-            AddRow(typeId = typeId, selectedDay = selected?.dayNo, onAdd = vm::addEvent, vm = vm)
         }
 
-        Inspector(
-            event = selected?.let { key ->
-                events.firstOrNull { it.dayNo == key.dayNo && it.timeLocal == key.time.toString() }
+        InspectorColumn(
+            addRow = {
+                AddRow(
+                    typeId = typeId,
+                    selectedDay = selected?.dayNo,
+                    events = events,
+                    onAdd = vm::addEvent,
+                    vm = vm,
+                )
             },
+            event = selected?.let { byCell[it.dayNo to it.time] },
             typeName = if (typeId == null) "No course" else type?.name ?: "",
             settings = settings,
+            emptyHint = selected?.let { key ->
+                if (byCell[key.dayNo to key.time] == null &&
+                    inheritsDef(key.dayNo) &&
+                    defByTime[key.time] != null
+                ) {
+                    "Day ${key.dayNo} has no schedule of its own, so it fires the whole " +
+                        "DEF pattern — including this ${hhmm(key.time)} gong. Creating one " +
+                        "event here replaces every inherited row for this day."
+                } else {
+                    null
+                }
+            },
             onChange = vm::updateEvent,
             onDelete = {
                 vm.deleteEvent(it)
@@ -149,25 +270,37 @@ data class CellKey(val dayNo: Int?, val time: LocalTime)
 private fun Grid(
     times: List<LocalTime>,
     dayColumns: List<Int?>,
-    events: List<ScheduleEventEntity>,
+    byCell: Map<Pair<Int?, LocalTime>, ScheduleEventEntity>,
+    defByTime: Map<LocalTime, ScheduleEventEntity>,
+    daysWithExplicit: Set<Int>,
     typeId: Int?,
     selected: CellKey?,
+    armedOverrideDay: Int?,
     onSelect: (CellKey) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val byCell = events.associateBy { it.dayNo to it.timeLocal }
+    // One horizontal state shared by the header and the body; the time gutter
+    // sits *outside* it so wall-clock times never scroll away (20/30/45 Day
+    // types are far wider than 1280 dp).
     val hScroll = rememberScrollState()
+    val vScroll = rememberScrollState()
 
-    Column(modifier.fillMaxSize()) {
-        Row(Modifier.horizontalScroll(hScroll)) {
-            Column {
-                // Header row
-                Row(Modifier.height(36.dp)) {
-                    Box(Modifier.width(60.dp))
+    BoxWithConstraints(modifier.fillMaxSize()) {
+        val avail = (maxWidth - GUTTER_W).coerceAtLeast(0.dp)
+        val colW: Dp = if (dayColumns.isEmpty()) {
+            MIN_COL_W
+        } else {
+            maxOf(MIN_COL_W, avail / dayColumns.size)
+        }
+
+        Column(Modifier.fillMaxSize()) {
+            Row(Modifier.height(36.dp)) {
+                Box(Modifier.width(GUTTER_W).fillMaxHeight())
+                Row(Modifier.horizontalScroll(hScroll)) {
                     for (day in dayColumns) {
                         Box(
                             Modifier
-                                .width(46.dp)
+                                .width(colW)
                                 .fillMaxHeight()
                                 .background(
                                     if (day == null) {
@@ -184,75 +317,122 @@ private fun Grid(
                                     day == null -> "DEF"
                                     else -> day.toString()
                                 },
-                                fontSize = 11.5.sp,
+                                fontSize = 12.sp,
                                 fontFamily = Nocturne.Mono,
                                 color = Nocturne.Neutral400,
                             )
                         }
                     }
                 }
-                Hairline()
+            }
+            Hairline()
 
-                Column(Modifier.verticalScroll(rememberScrollState())) {
-                    for (t in times) {
-                        Row(Modifier.height(44.dp)) {
+            if (times.isEmpty()) {
+                Text(
+                    "No events for this course type yet — add one below.",
+                    fontSize = 13.5.sp,
+                    color = Nocturne.Neutral500,
+                    modifier = Modifier.padding(top = 16.dp),
+                )
+            } else {
+                // weight() bounds the height BEFORE verticalScroll; every row is a
+                // fixed 44 dp and nothing under the scroll uses weight().
+                Row(Modifier.weight(1f).verticalScroll(vScroll)) {
+                    Column(Modifier.width(GUTTER_W)) {
+                        for (t in times) {
                             Box(
-                                Modifier.width(60.dp).fillMaxHeight(),
+                                Modifier.width(GUTTER_W).height(ROW_H),
                                 contentAlignment = Alignment.CenterStart,
                             ) {
                                 Text(
-                                    "%02d:%02d".format(t.hour, t.minute),
+                                    hhmm(t),
                                     fontSize = 12.5.sp,
                                     fontFamily = Nocturne.Mono,
                                     color = Nocturne.Neutral400,
                                 )
                             }
-                            for (day in dayColumns) {
-                                val row = byCell[day to t.toString()]
-                                val isSelected = selected != null &&
-                                    selected.dayNo == day && selected.time == t
-                                Cell(
-                                    label = row?.let { "×${it.repeats}" } ?: "·",
-                                    filled = row != null,
-                                    selected = isSelected,
-                                    onClick = { onSelect(CellKey(day, t)) },
-                                )
+                        }
+                    }
+                    Column(Modifier.horizontalScroll(hScroll)) {
+                        for (t in times) {
+                            Row(Modifier.height(ROW_H)) {
+                                for (day in dayColumns) {
+                                    val row = byCell[day to t]
+                                    val inherits = typeId != null && day != null &&
+                                        day !in daysWithExplicit && defByTime.isNotEmpty()
+                                    val ghost = if (row == null && inherits) defByTime[t] else null
+                                    val isSelected = selected != null &&
+                                        selected.dayNo == day && selected.time == t
+                                    val where = dayLabel(typeId, day)
+                                    val strikes = row?.repeats ?: ghost?.repeats
+                                    Cell(
+                                        label = strikes?.let { "×$it" } ?: "·",
+                                        filled = row != null,
+                                        ghost = ghost != null,
+                                        selected = isSelected,
+                                        width = colW,
+                                        contentDescription = when {
+                                            row != null ->
+                                                "$where, ${hhmm(t)}, ${row.repeats} strikes"
+                                            ghost != null ->
+                                                "$where, ${hhmm(t)}, ${ghost.repeats} strikes " +
+                                                    "inherited from the default pattern"
+                                            else -> "$where, ${hhmm(t)}, no event"
+                                        },
+                                        onClickLabel = when {
+                                            row != null -> "Edit event"
+                                            ghost != null && armedOverrideDay == day ->
+                                                "Confirm override of the inherited pattern"
+                                            inherits -> "Override the inherited pattern"
+                                            else -> "Add event"
+                                        },
+                                        onClick = { onSelect(CellKey(day, t)) },
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
         }
-        if (times.isEmpty()) {
-            Text(
-                "No events for this course type yet — add one below.",
-                fontSize = 13.5.sp,
-                color = Nocturne.Neutral500,
-                modifier = Modifier.padding(top = 16.dp),
-            )
-        }
     }
 }
 
 @Composable
-private fun Cell(label: String, filled: Boolean, selected: Boolean, onClick: () -> Unit) {
+private fun Cell(
+    label: String,
+    filled: Boolean,
+    ghost: Boolean,
+    selected: Boolean,
+    width: Dp,
+    contentDescription: String,
+    onClickLabel: String,
+    onClick: () -> Unit,
+) {
+    val desc = contentDescription
     Box(
         Modifier
-            .width(46.dp)
-            .height(44.dp)
+            .width(width)
+            .height(ROW_H)
             .background(if (filled) Nocturne.Accent.copy(alpha = 0.14f) else Color.Transparent)
             .border(1.dp, Nocturne.Hairline)
             .then(
                 if (selected) Modifier.border(2.dp, Nocturne.Accent) else Modifier,
             )
-            .clickable(onClick = onClick),
+            .clickable(onClickLabel = onClickLabel, onClick = onClick)
+            .semantics { this.contentDescription = desc },
         contentAlignment = Alignment.Center,
     ) {
         Text(
             label,
             fontSize = 12.5.sp,
             fontFamily = Nocturne.Mono,
-            color = if (filled) Nocturne.Accent200 else Nocturne.Neutral700,
+            color = when {
+                filled -> Nocturne.Accent200
+                // Inherited DEF rows: visible, but plainly not this day's own.
+                ghost -> Nocturne.Text.copy(alpha = 0.38f)
+                else -> Nocturne.Neutral700
+            },
         )
     }
 }
@@ -261,12 +441,15 @@ private fun Cell(label: String, filled: Boolean, selected: Boolean, onClick: () 
 private fun AddRow(
     typeId: Int?,
     selectedDay: Int?,
+    events: List<ScheduleEventEntity>,
     onAdd: (ScheduleEventEntity) -> Unit,
     vm: AppViewModel,
 ) {
     var time by remember { mutableStateOf("") }
     var repeats by remember { mutableStateOf("6") }
     var gap by remember { mutableStateOf("") }
+
+    val defTarget = typeId != null && selectedDay == null
 
     SurfaceCard(padding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)) {
         Row(
@@ -277,9 +460,19 @@ private fun AddRow(
             Field(repeats, { repeats = it }, "repeats", Modifier.width(90.dp))
             Field(gap, { gap = it }, "gap s", Modifier.width(90.dp))
             PrimaryButton("Add") {
-                val t = runCatching { LocalTime.parse(time.trim()) }.getOrNull()
+                val t = parseTime(time.trim())
                 if (t == null) {
                     vm.toast("Pick a time first")
+                    return@PrimaryButton
+                }
+                // Insert is REPLACE on the unique (type, day, time) index: a clash
+                // would wipe the existing row's strikes/gap/track and rotate its
+                // primary key, which the fired guard is keyed on. Refuse instead.
+                val clash = events.any {
+                    it.dayNo == selectedDay && parseTime(it.timeLocal) == t
+                }
+                if (clash) {
+                    vm.toast("${hhmm(t)} already exists here — select the cell to edit it")
                     return@PrimaryButton
                 }
                 onAdd(
@@ -297,11 +490,12 @@ private fun AddRow(
             Text(
                 "adds to " + when {
                     typeId == null -> "the no-course schedule"
-                    selectedDay == null -> "the DEF column (mid-course default)"
+                    selectedDay == null -> "the DEF column — every day that has no rows of its own"
                     else -> "day $selectedDay"
                 },
                 fontSize = 12.5.sp,
-                color = Nocturne.Neutral500,
+                fontWeight = if (defTarget) FontWeight.Medium else FontWeight.Normal,
+                color = if (defTarget) Nocturne.Accent200 else Nocturne.Neutral500,
             )
         }
     }
@@ -312,11 +506,21 @@ private fun AddRow(
  * setting"** — this nullability is load-bearing and survives into the data
  * model (design handoff §3).
  */
+/**
+ * The right rail: what the selected cell is, and the form for adding a new time.
+ *
+ * The add-row used to sit under the grid. On a 1280x800 tablet the left column
+ * is about 411 dp tall, and a title, a paragraph and a form left the weighted
+ * grid with zero height — 335 seeded rows and a blank screen. The grid is the
+ * screen; the form is not, so the form moved.
+ */
 @Composable
-private fun Inspector(
+private fun InspectorColumn(
+    addRow: @Composable () -> Unit,
     event: ScheduleEventEntity?,
     typeName: String,
     settings: Map<String, String>,
+    emptyHint: String?,
     onChange: (ScheduleEventEntity) -> Unit,
     onDelete: (Long) -> Unit,
 ) {
@@ -325,15 +529,36 @@ private fun Inspector(
             .width(272.dp)
             .fillMaxHeight()
             .background(Nocturne.NavRail)
-            .padding(20.dp),
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Inspector(event, typeName, settings, emptyHint, onChange, onDelete)
+        Hairline()
+        Eyebrow("Add a time")
+        addRow()
+    }
+}
+
+@Composable
+private fun Inspector(
+    event: ScheduleEventEntity?,
+    typeName: String,
+    settings: Map<String, String>,
+    emptyHint: String?,
+    onChange: (ScheduleEventEntity) -> Unit,
+    onDelete: (Long) -> Unit,
+) {
+    Column(
+        Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         if (event == null) {
             Eyebrow("Inspector")
             Text(
-                "Select a cell to edit its strike count, gap and track.",
+                emptyHint ?: "Select a cell to edit its strike count, gap and track.",
                 fontSize = 13.5.sp,
-                color = Nocturne.Neutral500,
+                color = if (emptyHint != null) Nocturne.Warning else Nocturne.Neutral500,
             )
             return@Column
         }
@@ -354,8 +579,13 @@ private fun Inspector(
         Hairline()
 
         Eyebrow("Strikes")
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Stepper("−") { onChange(event.copy(repeats = (event.repeats - 1).coerceIn(1, 32))) }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Stepper("−", "One fewer strike") {
+                onChange(event.copy(repeats = (event.repeats - 1).coerceIn(1, 32)))
+            }
             Text(
                 event.repeats.toString(),
                 fontSize = 25.sp,
@@ -363,60 +593,111 @@ private fun Inspector(
                 color = Nocturne.Text,
                 modifier = Modifier.width(48.dp),
             )
-            Stepper("+") { onChange(event.copy(repeats = (event.repeats + 1).coerceIn(1, 32))) }
+            Stepper("+", "One more strike") {
+                onChange(event.copy(repeats = (event.repeats + 1).coerceIn(1, 32)))
+            }
         }
 
         Eyebrow("Gap")
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             // "—" is null: inherit gong_gap_seconds.
-            Chip("—", event.gapSeconds == null) { onChange(event.copy(gapSeconds = null)) }
+            Chip("—", event.gapSeconds == null, "Inherit gap from settings") {
+                onChange(event.copy(gapSeconds = null))
+            }
             for (g in listOf(2, 4, 6, 8)) {
-                Chip("${g}s", event.gapSeconds == g) { onChange(event.copy(gapSeconds = g)) }
+                Chip("${g}s", event.gapSeconds == g, "Gap of $g seconds") {
+                    onChange(event.copy(gapSeconds = g))
+                }
             }
         }
 
         Eyebrow("Track")
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Chip("—", event.track == null) { onChange(event.copy(track = null)) }
-            for (t in listOf("ting", "drum")) {
-                Chip(t, event.track == t) { onChange(event.copy(track = t)) }
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Chip("—", event.track == null, "Inherit track from settings") {
+                onChange(event.copy(track = null))
+            }
+            // Stems stay the stored ids; staff see what the recording is.
+            for (t in listOf(GongTracks.SINGLE, GongTracks.SIKKIM)) {
+                Chip(GongTracks.label(t), event.track == t, "Play the ${GongTracks.label(t)} track") {
+                    onChange(event.copy(track = t))
+                }
             }
         }
 
         val gap = event.gapSeconds ?: settings["gong_gap_seconds"]?.toIntOrNull() ?: 4
+        // Gaps sit between plays of the file, and the sikkim recording rings
+        // three hits per play — so the gap count follows plays, not repeats.
+        val plays = GongTracks.playsFor(event.repeats, event.track ?: settings["gong_track"])
         Text(
-            "burst ≈ ${(event.repeats - 1) * gap}s" +
+            "burst ≈ ${(plays - 1).coerceAtLeast(0) * gap}s of gaps" +
                 if (event.gapSeconds == null) " (inherited gap)" else "",
             fontSize = 12.5.sp,
             fontFamily = Nocturne.Mono,
             color = Nocturne.Neutral500,
         )
 
-        Spacer(Modifier.weight(1f))
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(Nocturne.MIN_TOUCH_DP.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(Nocturne.Error.copy(alpha = 0.12f))
-                .border(1.dp, Nocturne.Error.copy(alpha = 0.34f), RoundedCornerShape(8.dp))
-                .clickable { onDelete(event.id) },
-            contentAlignment = Alignment.Center,
-        ) {
-            Text("Remove event", fontSize = 13.5.sp, color = Nocturne.Error)
+        // No weight() here — this Column is vertically scrollable, so its height
+        // is unbounded and weight() would throw.
+        Spacer(Modifier.height(8.dp))
+        RemoveEventButton { onDelete(event.id) }
+    }
+}
+
+/**
+ * Two-tap remove, matching the Courses table's DeleteButton: the first tap arms
+ * ("remove — sure?"), the second within 3 s deletes. Re-entering a lost event
+ * costs staff real time.
+ */
+@Composable
+private fun RemoveEventButton(onClick: () -> Unit) {
+    var armed by remember { mutableStateOf(false) }
+    LaunchedEffect(armed) {
+        if (armed) {
+            delay(3_000)
+            armed = false
         }
+    }
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(Nocturne.MIN_TOUCH_DP.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(Nocturne.Error.copy(alpha = if (armed) 0.30f else 0.12f))
+            .border(
+                1.dp,
+                Nocturne.Error.copy(alpha = if (armed) 0.85f else 0.34f),
+                RoundedCornerShape(8.dp),
+            )
+            .clickable(
+                onClickLabel = if (armed) "Confirm remove event" else "Remove event",
+            ) {
+                if (armed) {
+                    armed = false
+                    onClick()
+                } else {
+                    armed = true
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            if (armed) "Remove event — sure?" else "Remove event",
+            fontSize = 13.5.sp,
+            color = Nocturne.Error,
+        )
     }
 }
 
 @Composable
-private fun Stepper(label: String, onClick: () -> Unit) {
+private fun Stepper(label: String, description: String, onClick: () -> Unit) {
     Box(
         Modifier
-            .size(40.dp)
+            .size(Nocturne.MIN_TOUCH_DP.dp)
             .clip(RoundedCornerShape(8.dp))
             .background(Nocturne.SurfaceHigh)
             .border(1.dp, Nocturne.Neutral700, RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick),
+            .clickable(onClickLabel = description, onClick = onClick)
+            .semantics { contentDescription = description },
         contentAlignment = Alignment.Center,
     ) {
         Text(label, fontSize = 17.sp, color = Nocturne.Text)
@@ -424,10 +705,16 @@ private fun Stepper(label: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun Chip(label: String, selected: Boolean, onClick: () -> Unit) {
+private fun Chip(
+    label: String,
+    selected: Boolean,
+    description: String,
+    onClick: () -> Unit,
+) {
     Box(
         Modifier
-            .height(32.dp)
+            .height(Nocturne.MIN_TOUCH_DP.dp)
+            .widthIn(min = 40.dp)
             .clip(RoundedCornerShape(6.dp))
             .background(if (selected) Nocturne.Accent.copy(alpha = 0.22f) else Color.Transparent)
             .border(
@@ -435,8 +722,9 @@ private fun Chip(label: String, selected: Boolean, onClick: () -> Unit) {
                 if (selected) Nocturne.Accent else Nocturne.Neutral700,
                 RoundedCornerShape(6.dp),
             )
-            .clickable(onClick = onClick)
-            .padding(horizontal = 10.dp),
+            .clickable(onClickLabel = description, onClick = onClick)
+            .semantics { contentDescription = description }
+            .padding(horizontal = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(

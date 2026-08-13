@@ -3,7 +3,6 @@ package org.dhamma.gong.domain
 import java.time.Duration
 import java.time.LocalDate
 import java.time.ZonedDateTime
-import kotlin.random.Random
 
 /**
  * The scheduler, as a pure function of (now, snapshot, fired-guard).
@@ -25,16 +24,16 @@ object SchedulerCore {
      *   Must be read from the same transaction the caller writes
      *   [TickOutcome.marks] into.
      * @param clockTrusted result of [ClockTrust.isTrusted].
-     * @param random used only for `no_course_doha=random`.
      */
     fun tick(
         clock: GongClock,
         now: ZonedDateTime,
         snapshot: ScheduleSnapshot,
         firedGuard: (key: String, date: LocalDate) -> Boolean,
+        /** True when this occurrence has already been logged as missed today. */
+        missedGuard: (key: String, date: LocalDate) -> Boolean = { _, _ -> false },
         clockTrusted: Boolean = true,
         graceSeconds: Long = SettingsDefaults.FIRE_GRACE_SECONDS,
-        random: Random = Random.Default,
     ): TickOutcome {
         // §05: untrusted clock suppresses automatic playback entirely. The Pi daemon
         // returns no deadline at all, so the loop falls back to its heartbeat.
@@ -42,6 +41,7 @@ object SchedulerCore {
 
         val grace = Duration.ofSeconds(graceSeconds)
         val marks = ArrayList<FiredMark>()
+        val missedMarks = ArrayList<MissedMark>()
         val logs = ArrayList<PlayLogEntry>()
         val fired = ArrayList<PlayCommand>()
         var next: ZonedDateTime? = null
@@ -61,10 +61,13 @@ object SchedulerCore {
                     if (next == null || occ.fireAt.toInstant() < next.toInstant()) next = occ.fireAt
                 }
 
-                // Past due. The Pi daemon marks fired *before* deciding what to do with it,
-                // so a disabled toggle or a missed window still consumes the slot.
+                // Past due. Log it once, and do NOT touch the fire guard: a
+                // miss is not a fire, and treating it as one means a clock or
+                // timezone shift can permanently silence a gong that is about
+                // to become genuinely due. See MissedMark.
                 FireDecision.MISSED -> {
-                    marks += FiredMark(occ.key, occ.localDate)
+                    if (missedGuard(occ.key, occ.localDate)) continue
+                    missedMarks += MissedMark(occ.key, occ.localDate)
                     logs += PlayLogEntry(
                         kind = occ.kind.logName,
                         file = "-",
@@ -76,14 +79,20 @@ object SchedulerCore {
 
                 FireDecision.FIRE -> {
                     marks += FiredMark(occ.key, occ.localDate)
-                    val dispatched = dispatch(occ, snapshot, random)
+                    val dispatched = dispatch(occ, snapshot)
                     dispatched.log?.let { logs += it }
                     dispatched.command?.let { fired += it }
                 }
             }
         }
 
-        return TickOutcome(marks = marks, logs = logs, fired = fired, nextDeadline = next)
+        return TickOutcome(
+            marks = marks,
+            missedMarks = missedMarks,
+            logs = logs,
+            fired = fired,
+            nextDeadline = next,
+        )
     }
 
     private data class Dispatched(val command: PlayCommand?, val log: PlayLogEntry?)
@@ -92,7 +101,6 @@ object SchedulerCore {
     private fun dispatch(
         occ: Occurrence,
         snapshot: ScheduleSnapshot,
-        random: Random,
     ): Dispatched {
         val master = snapshot.settingBool("enabled")
         val course = occ.ctx?.label ?: "No course"
@@ -123,7 +131,10 @@ object SchedulerCore {
                 val slot = DohaSlots.pickSlot(
                     ctx = occ.ctx,
                     noCourseDoha = snapshot.setting("no_course_doha"),
-                    random = random,
+                    // Same calendar day must always resolve to the same doha,
+                    // or a re-materialize after a restart contradicts the
+                    // fired-guard and the log.
+                    date = occ.localDate,
                 ) ?: return Dispatched(null, null)
 
                 // Missing media is an error log, never a crash (design doc §05).
