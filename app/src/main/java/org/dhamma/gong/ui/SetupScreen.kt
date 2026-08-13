@@ -103,8 +103,7 @@ fun SetupScreen(vm: AppViewModel) {
         ) {
             ScreenTitle(
                 "Setup",
-                "Three OS grants decide whether this tablet is still gonging in " +
-                    "three weeks. Amber rows are not fatal — they are unreliable.",
+                "Amber rows are not fatal — they are unreliable.",
             )
 
             // One honest verdict. Grants alone are not enough — a tablet with
@@ -124,13 +123,6 @@ fun SetupScreen(vm: AppViewModel) {
                     .replaceFirstChar { it.uppercase() },
                 color = if (ready) Nocturne.Ok else Nocturne.Warning,
             )
-            if (!ready) {
-                Text(
-                    "Tap an amber row below to open the matching system page.",
-                    fontSize = 12.5.sp,
-                    color = Nocturne.Neutral500,
-                )
-            }
 
             val checklist: @Composable () -> Unit = {
                 SurfaceCard(Modifier.fillMaxWidth()) {
@@ -180,7 +172,20 @@ fun SetupScreen(vm: AppViewModel) {
 
             val applianceState: @Composable () -> Unit = {
                 SurfaceCard(Modifier.fillMaxWidth()) {
-                    Eyebrow("Appliance state")
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Eyebrow("Appliance state", Modifier.weight(1f))
+                        InfoDot(
+                            "Appliance state",
+                            "The scheduler lives in the foreground service, not in " +
+                                "this screen. Closing the app leaves it running. " +
+                                "Last tick is the 30 s heartbeat — anything much " +
+                                "older means the service was frozen.",
+                        )
+                    }
                     Spacer(Modifier.height(12.dp))
                     StateRow(
                         "Scheduler",
@@ -238,13 +243,6 @@ fun SetupScreen(vm: AppViewModel) {
                         } else {
                             Nocturne.Ok
                         },
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    Text(
-                        "The scheduler lives in the service, not in this screen. " +
-                            "Closing the app leaves it running.",
-                        fontSize = 12.5.sp,
-                        color = Nocturne.Neutral500,
                     )
                 }
             }
@@ -384,6 +382,10 @@ private fun UiModeCard(vm: AppViewModel) {
  * One checklist item. The whole row is the tap target when the grant is
  * missing (>= 44 dp), with the button as the visible affordance — both run
  * the same handler, so a tap anywhere does the right thing.
+ *
+ * The "why" moved behind the ⓘ. Three green rows with three paragraphs under
+ * them is three paragraphs nobody reads on the day they matter; the reason
+ * this grant exists is still one tap away on the day it does.
  */
 @Composable
 private fun CheckRow(
@@ -426,9 +428,8 @@ private fun CheckRow(
                 fontFamily = Nocturne.Mono,
                 color = dot,
             )
+            InfoDot(label, why)
         }
-        Spacer(Modifier.height(6.dp))
-        Text(why, fontSize = 12.5.sp, color = Nocturne.Neutral500)
         if (!granted) {
             Spacer(Modifier.height(10.dp))
             PrimaryButton(action, onClick = onAction)

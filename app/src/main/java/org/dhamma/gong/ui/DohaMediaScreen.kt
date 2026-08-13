@@ -41,8 +41,6 @@ import org.dhamma.gong.assets.AudioAssetManager
 import org.dhamma.gong.data.MediaSlotSource
 import org.dhamma.gong.domain.AudioAsset
 import org.dhamma.gong.domain.DohaPackMapper
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import org.dhamma.gong.domain.DohaSlots
 import org.dhamma.gong.domain.GongTracks
 import org.dhamma.gong.domain.ScheduleMaterializer
@@ -237,24 +235,22 @@ private fun DohaScheduleCard(vm: AppViewModel, settings: Map<String, String>) {
                 color = Nocturne.Neutral500,
                 modifier = Modifier.width(96.dp),
             )
-            var typed by remember(stored) { mutableStateOf(stored) }
-            Field(
-                value = typed,
-                onValueChange = { typed = it },
-                placeholder = "06:37",
-                modifier = Modifier
-                    .width(120.dp)
-                    .semantics { contentDescription = "Doha time, 24 hour HH:MM" },
-            )
-            PrimaryButton("Save") {
-                // Validate through the scheduler's own parser, so the screen
-                // can never accept a string the materializer would silently
-                // fall back on.
-                val parsed = ScheduleMaterializer.parseHhMm(typed.trim())
-                if (parsed == null) {
-                    vm.toast("Doha time must be 24-hour HH:MM, e.g. 06:37")
-                } else {
-                    vm.setSetting("doha_time", typed.trim(), "Doha time set to ${typed.trim()}")
+            Box(Modifier.width(120.dp)) {
+                // Commits on focus loss like the relay host and every other
+                // field in the app. Validation still runs through the
+                // scheduler's own parser, so the screen can never store a
+                // string the materializer would silently fall back on.
+                CommittingField(
+                    stored = stored,
+                    placeholder = "06:37",
+                    description = "Doha time, 24 hour HH:MM",
+                ) { typed ->
+                    val trimmed = typed.trim()
+                    if (ScheduleMaterializer.parseHhMm(trimmed) == null) {
+                        vm.toast("Doha time must be 24-hour HH:MM, e.g. 06:37")
+                    } else {
+                        vm.setSetting("doha_time", trimmed, "Doha time set to $trimmed")
+                    }
                 }
             }
         }

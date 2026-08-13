@@ -312,7 +312,13 @@ fun CommittingField(
 }
 
 @Composable
-fun Toggle(label: String, checked: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
+fun Toggle(
+    label: String,
+    checked: Boolean,
+    enabled: Boolean = true,
+    contentDescription: String? = null,
+    onClick: () -> Unit,
+) {
     // The painted box stays 20 dp as designed; only the hit slop grows to the
     // 44 dp minimum, so a wall tablet tap does not miss.
     Row(
@@ -324,6 +330,18 @@ fun Toggle(label: String, checked: Boolean, enabled: Boolean = true, onClick: ()
                 enabled = enabled,
                 role = Role.Checkbox,
                 onValueChange = { onClick() },
+            )
+            .then(
+                // A caller whose visible label is a sibling Text outside this
+                // row — kept there so the on-screen layout does not move —
+                // passes the same words here instead. Without it TalkBack
+                // merges only this row's own (empty) label and announces an
+                // unlabeled checkbox.
+                if (contentDescription != null) {
+                    Modifier.semantics { this.contentDescription = contentDescription }
+                } else {
+                    Modifier
+                },
             )
             .padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -350,6 +368,8 @@ fun Toggle(label: String, checked: Boolean, enabled: Boolean = true, onClick: ()
                 )
             }
         }
-        Text(label, fontSize = 12.5.sp, color = Nocturne.Neutral300)
+        if (label.isNotEmpty()) {
+            Text(label, fontSize = 12.5.sp, color = Nocturne.Neutral300)
+        }
     }
 }

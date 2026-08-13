@@ -88,9 +88,13 @@ fun AmpPowerSimpleCard(vm: AppViewModel) {
                 modifier = Modifier.weight(1f),
             )
             if (configured) {
-                Toggle("", auto) { vm.toggle("relay_enabled") }
+                Toggle("", auto, contentDescription = "Auto with schedule") {
+                    vm.toggle("relay_enabled")
+                }
             } else {
-                Box(Modifier.alpha(0.5f)) { Toggle("", false, enabled = false) {} }
+                Box(Modifier.alpha(0.5f)) {
+                    Toggle("", false, enabled = false, contentDescription = "Auto with schedule") {}
+                }
             }
         }
 

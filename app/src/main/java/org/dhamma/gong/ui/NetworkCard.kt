@@ -122,8 +122,9 @@ fun NetworkCard(vm: AppViewModel, advanced: Boolean) {
             },
         )
 
-        // Advanced keeps the metered line and the full explanation; Simple gets
-        // the four facts and the two buttons that change them.
+        // Advanced keeps the metered line; Simple gets the four facts and the
+        // two buttons that change them. The withheld-SSID explanation lives
+        // once, behind the ⓘ above — not repeated here for whoever reads it.
         if (advanced) {
             Spacer(Modifier.height(8.dp))
             NetRow(
@@ -131,16 +132,6 @@ fun NetworkCard(vm: AppViewModel, advanced: Boolean) {
                 if (facts.metered) "metered" else "unmetered",
                 if (facts.metered) Nocturne.Warning else Nocturne.Text,
             )
-            if (facts.ssidWithheld) {
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    "Android only tells an app the network's name if the app holds " +
-                        "a location permission. This one does not ask for one — a " +
-                        "location grant to caption an informational card is a bad trade.",
-                    fontSize = 12.5.sp,
-                    color = Nocturne.Neutral500,
-                )
-            }
         }
 
         Spacer(Modifier.height(14.dp))
