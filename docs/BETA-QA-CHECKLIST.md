@@ -96,6 +96,10 @@ changed or is a known gap — please try to break them in that order.
 
 ## Time — now follows the tablet (changed in this build)
 
+**Advanced only** — Time is hidden in Simple. In Simple, clock trust is
+confirmed from the Dashboard banner or Setup's own clock row instead; see
+the Simple / Advanced section above.
+
 - [ ] Time shows **one clock**, tagged with the zone, and says it is taken from
       the tablet
 - [ ] Change the tablet's timezone in Android settings → the Time screen and the
@@ -142,6 +146,8 @@ changed or is a known gap — please try to break them in that order.
 
 ## Sounds — doha pack folder
 
+**Advanced only** — Sounds is hidden in Simple.
+
 The eleven-row slot table is gone; the folder card's mapped count is now the
 signal that a scan worked.
 
@@ -157,6 +163,11 @@ signal that a scan worked.
 
 ## Amp power — Shelly relay (new)
 
+**Advanced only** — the full Amp power screen (switch id, lead/lag, device
+password) is hidden in Simple. Simple's abbreviated `AmpPowerSimpleCard` on
+Setup is covered by the Simple / Advanced section above; a host typed there
+is the same `relay_host` row this screen reads.
+
 Provision the Shelly onto the centre WiFi with the **Shelly app** first; Niyam
 does not do BLE setup. Give it a DHCP reservation so the IP is stable.
 
@@ -165,7 +176,8 @@ does not do BLE setup. Give it a DHCP reservation so the IP is stable.
       "unknown", and never green)
 - [ ] Before any test, reachability reads **not probed yet** — neither green nor red
 - [ ] Manual Amp on / Amp off actually switch the relay
-- [ ] Enable Relay on the Dashboard (only possible once a host is set)
+- [ ] Enable Relay on the Dashboard (Advanced only — the Dashboard Relay
+      toggle is hidden in Simple; only possible once a host is set)
 - [ ] Schedule a gong +2 min → **the amp switches on shortly before it and off
       after** (on may come up to ~35 s early — that is by design)
 - [ ] Gong followed by a doha a minute later → the amp does **not** drop out
@@ -178,6 +190,8 @@ does not do BLE setup. Give it a DHCP reservation so the IP is stable.
       and the password is never displayed back
 
 ## Doha downloads — CDN pipeline (new)
+
+**Advanced only** — this lives on Sounds, which is hidden in Simple.
 
 The QA build must be made with the media passphrase present: copy
 `media.properties.example` to `media.properties` (gitignored), fill in
@@ -215,6 +229,8 @@ check below.
 
 ## Audio out (new)
 
+**Advanced only** — Audio out is hidden in Simple.
+
 The route now genuinely steers playback — before this build the picker would
 have been decorative, because the resolved route never reached the player.
 
@@ -239,26 +255,38 @@ have been decorative, because the resolved route never reached the player.
 - [ ] Kill the app (service stopped) → Test buttons render inert rather than
       failing silently
 
-## Network (simplified)
+## Network (now a Setup card, not a screen)
 
-Informational only. Nothing here should ever suggest the schedule is at risk.
-The "what needs a connection" table and the hotspot caveat box are gone.
+There is no Network tab in either mode any more — `NetworkScreen` and
+`Tab.NETWORK` were deleted; the facts and buttons live in a **Network** card
+on Setup, visible in both Simple and Advanced. Informational only — nothing
+here should ever suggest the schedule is at risk. The old "what needs a
+connection" table and hotspot caveat box are gone.
 
-- [ ] On the centre Wi-Fi → mode reads **Wi-Fi**, address matches what the
-      router shows for that tablet
-- [ ] Network name shows either the real SSID or **name withheld** with the
-      explanation — never the literal `<unknown ssid>`
-- [ ] Airplane mode → **OFFLINE**, and the copy still says the schedule is
-      unaffected. Confirm a scheduled gong then fires normally in airplane mode
-- [ ] Join a Wi-Fi with a sign-in page → **NO INTERNET** amber, not green
-- [ ] On mobile data → **METERED** tag appears (matches what Sounds warns about
-      before a download)
-- [ ] Turn on the tablet's own hotspot → Hotspot card flips to **LOOKS ACTIVE**
-      within a few seconds. If it does not, that is a known-heuristic miss, not
-      a bug — note the device model
-- [ ] Both **Open Wi-Fi settings** and **Open hotspot settings** land somewhere
+- [ ] Setup → Network card → **Kind** reads Wi-Fi on the centre Wi-Fi,
+      **Address** matches what the router shows for that tablet
+- [ ] **Network** row shows either the real SSID or **name withheld**, with
+      the ⓘ explaining why (same in both modes) — never the literal
+      `<unknown ssid>`
+- [ ] Airplane mode → the card's tag reads **OFFLINE**, and nothing on it
+      suggests the schedule is at risk. Confirm a scheduled gong then fires
+      normally in airplane mode
+- [ ] Join a Wi-Fi with a sign-in page → tag reads **NO INTERNET** (amber),
+      not green
+- [ ] On mobile data → a **METERED** tag appears next to the main tag, in
+      both Simple and Advanced; switch to Advanced and the card also gains a
+      **Data** row reading metered (matches what Sounds warns about before a
+      download)
+- [ ] Both **Wi-Fi settings** and **Hotspot settings** buttons land somewhere
       sensible; neither crashes if the OEM lacks the screen
 - [ ] Return from system settings within the PIN grace window → no re-prompt
+
+Dropped from this section: the old "Hotspot card flips to LOOKS ACTIVE"
+check. The Setup Network card has no visible hotspot-status readout any
+more — only the settings button remains, so there is nothing on this card
+to watch when starting a hotspot. Confirm this is intended before relying on
+it; `NetworkFacts.hotspot` is still computed in the domain layer but nothing
+in the UI reads it (see `app/src/main/java/org/dhamma/gong/ui/NetworkCard.kt`).
 
 ## Service liveness — the third belt (new)
 
@@ -285,14 +313,17 @@ service is alive; this section attacks that assumption.
 
 ## Sounds — gong and doha settings (new)
 
+**Advanced only** — Sounds is hidden in Simple.
+
 - [ ] Track chips read single gong / sikkim gong; changing it changes what
       Test gong plays
 - [ ] Gap stepper changes the silence between strikes on a multi-strike test
 - [ ] Gong volume at 20% is audibly quieter than 90%; note that Android's
       own media volume multiplies it
-- [ ] Doha time: type `06:37` → Save → the Dashboard "next events" doha
-      moves to match
-- [ ] Type `25:00` or `6.37` → refused with a message, nothing saved
+- [ ] Doha time: type `06:37`, tap away → **no Save button any more** — it
+      commits on focus loss, and the Dashboard "next events" doha moves to
+      match
+- [ ] Type `25:00` or `6.37`, tap away → refused with a toast, nothing saved
 - [ ] Between courses → **rotate daily**: with no active course, note the
       slot the Dashboard predicts, then re-open the app — **it must predict
       the same slot** (this is the determinism fix; a different slot is a bug)
@@ -338,9 +369,12 @@ install: a wall tablet that lights the hall at 04:00 is a defect, not a taste.
 - [ ] Fresh install (or after clearing data) → **Dark** is selected
 - [ ] Tap **Light** → the whole shell repaints on the tap, no restart, and the
       status-bar clock and battery icons turn dark so they stay visible
-- [ ] Walk every tab in Light — Dashboard, Schedule, Courses, Logs, Sounds,
-      Audio out, Network, Time, Setup — and confirm **nothing is unreadable**:
-      no white-on-white text, no invisible borders, no dark card on a dark page
+- [ ] Walk every tab in Light. The tab set depends on the mode: in **Simple**,
+      the five — Dashboard, Schedule, Courses, Logs, Setup; in **Advanced**,
+      all nine — add Sounds, Audio out, Amp power, Time. (There is no Network
+      tab in either mode; its card is on Setup.) Confirm **nothing is
+      unreadable**: no white-on-white text, no invisible borders, no dark card
+      on a dark page
 - [ ] The Dashboard hero clock and countdown are still legible from 2 m
 - [ ] Open a dropdown (Courses → course type) in Light: the menu is light, not
       a dark rectangle
@@ -406,8 +440,8 @@ An NTP correction is enough to trigger it.
 
 - [ ] Set the device clock back 30 minutes → the Dashboard shows the
       **CLOCK UNTRUSTED** banner and the next fire is suppressed
-- [ ] Confirm the clock (banner button or Time screen) → banner clears and
-      fires resume
+- [ ] Confirm the clock (Dashboard banner button, or Setup's clock row in
+      Simple / the Time screen in Advanced) → banner clears and fires resume
 - [ ] While untrusted, tests still work — a person standing at the tablet
       may always ring it
 
