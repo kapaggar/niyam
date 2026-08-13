@@ -47,6 +47,7 @@ import org.dhamma.gong.domain.Liveness
 import org.dhamma.gong.domain.PinCode
 import org.dhamma.gong.domain.Readiness
 import org.dhamma.gong.domain.ThemeMode
+import org.dhamma.gong.domain.UiMode
 import org.dhamma.gong.service.AppliancePermissions
 import java.time.format.DateTimeFormatter
 
@@ -202,11 +203,7 @@ fun SetupScreen(vm: AppViewModel) {
                         },
                     )
                     Spacer(Modifier.height(8.dp))
-                    StateRow(
-                        "Clock",
-                        if (state.clockTrusted) "trusted" else "untrusted — see Time",
-                        if (state.clockTrusted) Nocturne.Ok else Nocturne.Warning,
-                    )
+                    ClockRow(vm, trusted = state.clockTrusted)
                     Spacer(Modifier.height(8.dp))
                     StateRow(
                         "Course today",
@@ -271,6 +268,8 @@ fun SetupScreen(vm: AppViewModel) {
             // through the grants above, not something staff visit.
             SecurityCard(vm)
 
+            UiModeCard(vm)
+
             BackupCard(vm, zone)
         }
     }
@@ -325,6 +324,52 @@ private fun AppearanceCard(vm: AppViewModel) {
                 color = Nocturne.Neutral600,
             )
         }
+    }
+}
+
+/**
+ * Which screens this tablet offers.
+ *
+ * Deliberately sits with Appearance and the PIN rather than at the top: it is
+ * an install-day decision made once by whoever works down this screen, not a
+ * thing staff toggle. Nothing is hidden destructively — an Advanced setting
+ * made here keeps working after the switch to Simple.
+ */
+@Composable
+private fun UiModeCard(vm: AppViewModel) {
+    val mode by vm.uiMode.collectAsStateWithLifecycle()
+    SurfaceCard(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Eyebrow("Screens", Modifier.weight(1f))
+            InfoDot(
+                "Simple and Advanced",
+                "Simple shows the five screens a course needs, with network and " +
+                    "amp power folded into this page. Advanced adds sounds, " +
+                    "audio out, the full amp page and the timezone pin. " +
+                    "Switching hides screens; it never changes a setting.",
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            UiMode.entries.forEach { option ->
+                ChoiceChip(
+                    label = option.label,
+                    selected = option == mode,
+                    description = "${option.label} screens. ${option.why}",
+                    onClick = { vm.setUiMode(option) },
+                )
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(mode.why, fontSize = 12.5.sp, color = Nocturne.Neutral500)
     }
 }
 
@@ -394,6 +439,39 @@ private fun StateRow(label: String, value: String, dot: Color) {
         Box(Modifier.clearAndSetSemantics {}) { Dot(dot) }
         Text(label, fontSize = 12.5.sp, color = Nocturne.Neutral500, modifier = Modifier.width(100.dp))
         Text(value, fontSize = 12.5.sp, fontFamily = Nocturne.Mono, color = Nocturne.Text)
+    }
+}
+
+/**
+ * The clock row, carrying its own way out.
+ *
+ * The old value read "untrusted — see Time", and Simple has no Time screen to
+ * see. Confirm was always the whole action anyway: it tells the scheduler the
+ * wall clock is right, which is what un-suppresses automatic plays.
+ */
+@Composable
+private fun ClockRow(vm: AppViewModel, trusted: Boolean) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = Nocturne.MIN_TOUCH_DP.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(Modifier.clearAndSetSemantics {}) {
+            Dot(if (trusted) Nocturne.Ok else Nocturne.Warning)
+        }
+        Text(
+            "Clock",
+            fontSize = 12.5.sp,
+            color = Nocturne.Neutral500,
+            modifier = Modifier.width(100.dp),
+        )
+        Text(
+            if (trusted) "trusted" else "untrusted",
+            fontSize = 12.5.sp,
+            fontFamily = Nocturne.Mono,
+            color = if (trusted) Nocturne.Ok else Nocturne.Warning,
+        )
+        if (!trusted) OutlineButton("Confirm", Nocturne.Warning) { vm.confirmClock() }
     }
 }
 

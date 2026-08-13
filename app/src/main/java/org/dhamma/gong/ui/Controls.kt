@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -226,5 +227,47 @@ fun OutlineButton(label: String, color: Color = Nocturne.Neutral300, onClick: ()
         contentAlignment = Alignment.Center,
     ) {
         Text(label, fontSize = 13.5.sp, color = color)
+    }
+}
+
+/**
+ * The one way this app explains itself.
+ *
+ * Everything a control does is on the control. Everything about *why Android
+ * behaves that way* goes behind this badge, in three sentences or fewer. It is
+ * a dialog and not a hover tip because the appliance is a tablet on a wall and
+ * there is no pointer to hover with.
+ *
+ * The badge is drawn rather than typed: glyphs outside the platform font have
+ * shipped as tofu on centre tablets before.
+ */
+@Composable
+fun InfoDot(title: String, body: String) {
+    var open by remember { mutableStateOf(false) }
+    Box(
+        Modifier
+            .size(Nocturne.MIN_TOUCH_DP.dp)
+            .semantics { contentDescription = "About $title" }
+            .clickable(role = Role.Button) { open = true },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            Modifier
+                .size(19.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .border(1.dp, Nocturne.Neutral600, RoundedCornerShape(10.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("i", fontSize = 12.sp, fontFamily = Nocturne.Mono, color = Nocturne.Neutral400)
+        }
+    }
+    if (open) {
+        AlertDialog(
+            onDismissRequest = { open = false },
+            containerColor = Nocturne.Surface,
+            title = { Text(title, fontSize = 17.sp, color = Nocturne.Text) },
+            text = { Text(body, fontSize = 13.5.sp, color = Nocturne.Neutral300) },
+            confirmButton = { OutlineButton("Close", Nocturne.Neutral300) { open = false } },
+        )
     }
 }
