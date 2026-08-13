@@ -264,6 +264,10 @@ fun SetupScreen(vm: AppViewModel) {
 
             NetworkCard(vm, advanced = mode == UiMode.ADVANCED)
 
+            // Simple's only amp surface. Advanced keeps the full screen and
+            // shows this card too — the four controls are the ones both need.
+            AmpPowerSimpleCard(vm)
+
             AppearanceCard(vm)
 
             // PIN lives here rather than in its own nav entry: it is an
