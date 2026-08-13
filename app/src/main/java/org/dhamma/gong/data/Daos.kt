@@ -157,10 +157,16 @@ interface StateDao {
 
 @Dao
 interface PlayLogDao {
-    @Query("SELECT * FROM play_log ORDER BY id DESC LIMIT :limit")
+    // Newest first, by the instant the row describes rather than by insertion
+    // order. `ts_utc` is written as `Instant.truncatedTo(SECONDS).toString()`,
+    // a fixed-width UTC string, so lexicographic order IS chronological order.
+    // Insertion order drifts from it whenever a batch is written after the
+    // fact — a boot that logs a night of `missed` entries, or a restore — and
+    // then `id DESC` puts a stale row above a fresh one.
+    @Query("SELECT * FROM play_log ORDER BY ts_utc DESC, id DESC LIMIT :limit")
     suspend fun recent(limit: Int = 200): List<PlayLogEntity>
 
-    @Query("SELECT * FROM play_log ORDER BY id DESC LIMIT :limit")
+    @Query("SELECT * FROM play_log ORDER BY ts_utc DESC, id DESC LIMIT :limit")
     fun observeRecent(limit: Int = 200): Flow<List<PlayLogEntity>>
 
     @Insert
@@ -172,6 +178,14 @@ interface PlayLogDao {
     /** Keep the log bounded — a wall tablet runs for years. */
     @Query("DELETE FROM play_log WHERE id < (SELECT MAX(id) - :keep FROM play_log)")
     suspend fun trim(keep: Int = 5000)
+
+    /**
+     * Staff-facing "clear all" on the Logs screen. The log is a diagnostic
+     * record only — nothing schedules off it, so emptying it cannot change
+     * what rings. The `fired:`/`missed:` guards live in `state`, untouched.
+     */
+    @Query("DELETE FROM play_log")
+    suspend fun clear()
 }
 
 @Dao

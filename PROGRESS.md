@@ -2,7 +2,12 @@
 
 Standalone repo **`kapaggar/niyam`** (branch `main`), extracted with history from the gongserver monorepo's `android/` tree.
 
-Last updated: 2026-08-11, **gongs not firing on a real tablet**
+Last updated: 2026-08-12, **Logs and Courses list order**
+(`0.2.0-beta11`, `versionCode` 12) — Logs gained a two-tap "clear log" and now
+orders by `ts_utc` rather than insertion, so a batch of `missed` rows written at
+boot no longer lands above fresher entries. Courses runs in calendar order with
+the old finished courses folded behind one expandable row. Prior:
+light theme (`0.2.0-beta10`, `versionCode` 11). Prior: **gongs not firing on a real tablet**
 (`0.2.0-beta9`, `versionCode` 10) — two causes, one of them a real domain bug;
 see below. Prior: Schedule grid fix (`0.2.0-beta8`, `versionCode` 9) — the grid was drawing nothing at all; see below. Prior:
 screen simplification (`0.2.0-beta7`, `versionCode` 8) — the app now follows the tablet's timezone, the PIN moved

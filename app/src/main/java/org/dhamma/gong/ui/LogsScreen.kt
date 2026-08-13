@@ -2,6 +2,7 @@ package org.dhamma.gong.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,6 +23,7 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,6 +41,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.delay
 import org.dhamma.gong.domain.PlayKind
 import org.dhamma.gong.domain.PlayResult
 import java.time.Instant
@@ -106,11 +109,22 @@ fun LogsScreen(vm: AppViewModel) {
         )
 
         Row(
-            Modifier.selectableGroup(),
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            for (f in Filter.entries) {
-                FilterChip(f.label, f == filter) { filter = f }
+            Row(
+                Modifier.weight(1f).selectableGroup(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                for (f in Filter.entries) {
+                    FilterChip(f.label, f == filter) { filter = f }
+                }
+            }
+            // Nothing to clear, nothing to arm — and an always-present
+            // destructive control on an empty table invites the mis-tap.
+            if (rows.isNotEmpty()) {
+                ClearButton(rows.size) { vm.clearLogs() }
             }
         }
 
@@ -253,6 +267,59 @@ private fun Mono(text: String, width: Dp, color: Color) {
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier.width(width),
     )
+}
+
+/**
+ * Two-tap clear, matching the Courses delete: the first tap arms ("clear all?"),
+ * a second within 3 s empties `play_log`. Logs is the one unlocked screen that
+ * can now destroy something, so a single stray tap must not be enough — and the
+ * count is in the label so nobody clears 300 rows thinking they clear the eight
+ * a filter is showing.
+ */
+@Composable
+private fun ClearButton(count: Int, onClick: () -> Unit) {
+    var armed by remember { mutableStateOf(false) }
+    LaunchedEffect(armed) {
+        if (armed) {
+            delay(3_000)
+            armed = false
+        }
+    }
+    val label = if (armed) "clear all $count?" else "clear log"
+    Box(
+        Modifier
+            .height(Nocturne.MIN_TOUCH_DP.dp)
+            .clickable(role = Role.Button) {
+                if (armed) {
+                    armed = false
+                    onClick()
+                } else {
+                    armed = true
+                }
+            }
+            .semantics {
+                contentDescription =
+                    if (armed) "Confirm clearing all $count log entries"
+                    else "Clear all $count log entries"
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            Modifier
+                .height(32.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(Nocturne.Error.copy(alpha = if (armed) 0.30f else 0.12f))
+                .border(
+                    1.dp,
+                    Nocturne.Error.copy(alpha = if (armed) 0.85f else 0.34f),
+                    RoundedCornerShape(6.dp),
+                )
+                .padding(horizontal = 12.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(label, fontSize = 12.5.sp, color = Nocturne.Error, maxLines = 1)
+        }
+    }
 }
 
 /**
