@@ -4,16 +4,19 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,8 +29,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.semantics
@@ -269,5 +274,82 @@ fun InfoDot(title: String, body: String) {
             text = { Text(body, fontSize = 13.5.sp, color = Nocturne.Neutral300) },
             confirmButton = { OutlineButton("Close", Nocturne.Neutral300) { open = false } },
         )
+    }
+}
+
+/**
+ * A text field that keeps a local buffer and writes it back when focus leaves
+ * or the value it was seeded from changes underneath it. Saving on every
+ * keystroke would write a partial IP address to the settings row the tick path
+ * reads; a save button was ruled out by the design.
+ */
+@Composable
+fun CommittingField(
+    stored: String,
+    placeholder: String,
+    description: String,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    onCommit: (String) -> Unit,
+) {
+    var typed by remember(stored) { mutableStateOf(stored) }
+    var focused by remember { mutableStateOf(false) }
+    Field(
+        value = typed,
+        onValueChange = { typed = it },
+        placeholder = placeholder,
+        keyboardOptions = keyboardOptions,
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics { contentDescription = description }
+            // `hasFocus`, not `isFocused`: the focus target is the child
+            // BasicTextField inside Field, so this node is never itself focused.
+            .onFocusChanged { focus ->
+                val had = focused
+                focused = focus.hasFocus
+                if (had && !focus.hasFocus && typed.trim() != stored) onCommit(typed)
+            },
+    )
+}
+
+@Composable
+fun Toggle(label: String, checked: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
+    // The painted box stays 20 dp as designed; only the hit slop grows to the
+    // 44 dp minimum, so a wall tablet tap does not miss.
+    Row(
+        Modifier
+            .heightIn(min = Nocturne.MIN_TOUCH_DP.dp)
+            .clip(RoundedCornerShape(6.dp))
+            .toggleable(
+                value = checked,
+                enabled = enabled,
+                role = Role.Checkbox,
+                onValueChange = { onClick() },
+            )
+            .padding(horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Box(
+            Modifier
+                .size(20.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(if (checked) Nocturne.Accent.copy(alpha = 0.26f) else Color.Transparent)
+                .border(
+                    1.dp,
+                    if (checked) Nocturne.Accent else Nocturne.Neutral700,
+                    RoundedCornerShape(4.dp),
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (checked) {
+                Text(
+                    "✓",
+                    fontSize = 12.sp,
+                    color = Nocturne.Accent100,
+                    modifier = Modifier.clearAndSetSemantics {},
+                )
+            }
+        }
+        Text(label, fontSize = 12.5.sp, color = Nocturne.Neutral300)
     }
 }

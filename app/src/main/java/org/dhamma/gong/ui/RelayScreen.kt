@@ -251,40 +251,6 @@ private fun ConnectionCard(
 }
 
 /**
- * A text field that keeps a local buffer and writes it back when focus leaves
- * or the value it was seeded from changes underneath it. Saving on every
- * keystroke would write a partial IP address to the settings row the tick path
- * reads; a save button was ruled out by the design.
- */
-@Composable
-private fun CommittingField(
-    stored: String,
-    placeholder: String,
-    description: String,
-    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
-    onCommit: (String) -> Unit,
-) {
-    var typed by remember(stored) { mutableStateOf(stored) }
-    var focused by remember { mutableStateOf(false) }
-    Field(
-        value = typed,
-        onValueChange = { typed = it },
-        placeholder = placeholder,
-        keyboardOptions = keyboardOptions,
-        modifier = Modifier
-            .fillMaxWidth()
-            .semantics { contentDescription = description }
-            // `hasFocus`, not `isFocused`: the focus target is the child
-            // BasicTextField inside Field, so this node is never itself focused.
-            .onFocusChanged { focus ->
-                val had = focused
-                focused = focus.hasFocus
-                if (had && !focus.hasFocus && typed.trim() != stored) onCommit(typed)
-            },
-    )
-}
-
-/**
  * Password entry, masked exactly as `PinScreens.PinField` masks the PIN. The
  * stored password is never loaded in, so there is nothing here to reveal; an
  * empty buffer is never committed, so blanking the field cannot silently

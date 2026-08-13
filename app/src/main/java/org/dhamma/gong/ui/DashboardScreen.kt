@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -348,49 +347,6 @@ private fun DayProgress(day: Int, total: Int) {
                     ),
             )
         }
-    }
-}
-
-@Composable
-private fun Toggle(label: String, checked: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
-    // The painted box stays 20 dp as designed; only the hit slop grows to the
-    // 44 dp minimum, so a wall tablet tap does not miss.
-    Row(
-        Modifier
-            .heightIn(min = Nocturne.MIN_TOUCH_DP.dp)
-            .clip(RoundedCornerShape(6.dp))
-            .toggleable(
-                value = checked,
-                enabled = enabled,
-                role = Role.Checkbox,
-                onValueChange = { onClick() },
-            )
-            .padding(horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Box(
-            Modifier
-                .size(20.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(if (checked) Nocturne.Accent.copy(alpha = 0.26f) else Color.Transparent)
-                .border(
-                    1.dp,
-                    if (checked) Nocturne.Accent else Nocturne.Neutral700,
-                    RoundedCornerShape(4.dp),
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (checked) {
-                Text(
-                    "✓",
-                    fontSize = 12.sp,
-                    color = Nocturne.Accent100,
-                    modifier = Modifier.clearAndSetSemantics {},
-                )
-            }
-        }
-        Text(label, fontSize = 12.5.sp, color = Nocturne.Neutral300)
     }
 }
 
