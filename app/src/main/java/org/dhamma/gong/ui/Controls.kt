@@ -4,16 +4,20 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -25,8 +29,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.semantics
@@ -226,5 +232,144 @@ fun OutlineButton(label: String, color: Color = Nocturne.Neutral300, onClick: ()
         contentAlignment = Alignment.Center,
     ) {
         Text(label, fontSize = 13.5.sp, color = color)
+    }
+}
+
+/**
+ * The one way this app explains itself.
+ *
+ * Everything a control does is on the control. Everything about *why Android
+ * behaves that way* goes behind this badge, in three sentences or fewer. It is
+ * a dialog and not a hover tip because the appliance is a tablet on a wall and
+ * there is no pointer to hover with.
+ *
+ * The badge is drawn rather than typed: glyphs outside the platform font have
+ * shipped as tofu on centre tablets before.
+ */
+@Composable
+fun InfoDot(title: String, body: String) {
+    var open by remember { mutableStateOf(false) }
+    Box(
+        Modifier
+            .size(Nocturne.MIN_TOUCH_DP.dp)
+            .semantics { contentDescription = "About $title" }
+            .clickable(role = Role.Button) { open = true },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            Modifier
+                .size(19.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .border(1.dp, Nocturne.Neutral600, RoundedCornerShape(10.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("i", fontSize = 12.sp, fontFamily = Nocturne.Mono, color = Nocturne.Neutral400)
+        }
+    }
+    if (open) {
+        AlertDialog(
+            onDismissRequest = { open = false },
+            containerColor = Nocturne.Surface,
+            title = { Text(title, fontSize = 17.sp, color = Nocturne.Text) },
+            text = { Text(body, fontSize = 13.5.sp, color = Nocturne.Neutral300) },
+            confirmButton = { OutlineButton("Close", Nocturne.Neutral300) { open = false } },
+        )
+    }
+}
+
+/**
+ * A text field that keeps a local buffer and writes it back when focus leaves
+ * or the value it was seeded from changes underneath it. Saving on every
+ * keystroke would write a partial IP address to the settings row the tick path
+ * reads; a save button was ruled out by the design.
+ */
+@Composable
+fun CommittingField(
+    stored: String,
+    placeholder: String,
+    description: String,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    onCommit: (String) -> Unit,
+) {
+    var typed by remember(stored) { mutableStateOf(stored) }
+    var focused by remember { mutableStateOf(false) }
+    Field(
+        value = typed,
+        onValueChange = { typed = it },
+        placeholder = placeholder,
+        keyboardOptions = keyboardOptions,
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics { contentDescription = description }
+            // `hasFocus`, not `isFocused`: the focus target is the child
+            // BasicTextField inside Field, so this node is never itself focused.
+            .onFocusChanged { focus ->
+                val had = focused
+                focused = focus.hasFocus
+                if (had && !focus.hasFocus && typed.trim() != stored) onCommit(typed)
+            },
+    )
+}
+
+@Composable
+fun Toggle(
+    label: String,
+    checked: Boolean,
+    enabled: Boolean = true,
+    contentDescription: String? = null,
+    onClick: () -> Unit,
+) {
+    // The painted box stays 20 dp as designed; only the hit slop grows to the
+    // 44 dp minimum, so a wall tablet tap does not miss.
+    Row(
+        Modifier
+            .heightIn(min = Nocturne.MIN_TOUCH_DP.dp)
+            .clip(RoundedCornerShape(6.dp))
+            .toggleable(
+                value = checked,
+                enabled = enabled,
+                role = Role.Checkbox,
+                onValueChange = { onClick() },
+            )
+            .then(
+                // A caller whose visible label is a sibling Text outside this
+                // row — kept there so the on-screen layout does not move —
+                // passes the same words here instead. Without it TalkBack
+                // merges only this row's own (empty) label and announces an
+                // unlabeled checkbox.
+                if (contentDescription != null) {
+                    Modifier.semantics { this.contentDescription = contentDescription }
+                } else {
+                    Modifier
+                },
+            )
+            .padding(horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Box(
+            Modifier
+                .size(20.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(if (checked) Nocturne.Accent.copy(alpha = 0.26f) else Color.Transparent)
+                .border(
+                    1.dp,
+                    if (checked) Nocturne.Accent else Nocturne.Neutral700,
+                    RoundedCornerShape(4.dp),
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (checked) {
+                Text(
+                    "✓",
+                    fontSize = 12.sp,
+                    color = Nocturne.Accent100,
+                    modifier = Modifier.clearAndSetSemantics {},
+                )
+            }
+        }
+        if (label.isNotEmpty()) {
+            Text(label, fontSize = 12.5.sp, color = Nocturne.Neutral300)
+        }
     }
 }

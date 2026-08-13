@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -58,6 +57,7 @@ import kotlinx.coroutines.launch
 import org.dhamma.gong.domain.Liveness
 import org.dhamma.gong.domain.Occurrence
 import org.dhamma.gong.domain.PlayResult
+import org.dhamma.gong.domain.UiMode
 import org.dhamma.gong.service.AppliancePermissions
 import java.time.Duration
 import java.time.ZoneId
@@ -76,6 +76,7 @@ fun DashboardScreen(vm: AppViewModel) {
     val slots by vm.mappedDohaSlots.collectAsStateWithLifecycle()
     val overlapping by vm.overlappingCourses.collectAsStateWithLifecycle()
     val permissions by vm.permissionStatus.collectAsStateWithLifecycle()
+    val mode by vm.uiMode.collectAsStateWithLifecycle()
 
     // The clock ticks every second and the countdown is recomputed from
     // seconds — never by borrowing minutes by hand (design handoff). It shows
@@ -115,8 +116,8 @@ fun DashboardScreen(vm: AppViewModel) {
             // to hide in a status row.
             if (!state.clockTrusted) {
                 Banner(
-                    text = "CLOCK UNTRUSTED — automatic gongs are suppressed. " +
-                        "Check the time on the Time screen, then confirm the clock.",
+                    text = "Automatic plays are suppressed until someone confirms the " +
+                        "wall clock is right.",
                     color = Nocturne.Warning,
                     actionLabel = "Confirm clock",
                     onAction = { vm.confirmClock() },
@@ -133,7 +134,7 @@ fun DashboardScreen(vm: AppViewModel) {
                         Modifier.width(394.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        CourseCard(vm, state, zone, settings, overlapping)
+                        CourseCard(vm, state, zone, settings, overlapping, mode)
                         HealthCard(vm, state, player, slots.size, permissions)
                     }
                 }
@@ -151,7 +152,7 @@ fun DashboardScreen(vm: AppViewModel) {
                     Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    CourseCard(vm, state, zone, settings, overlapping)
+                    CourseCard(vm, state, zone, settings, overlapping, mode)
                     HealthCard(vm, state, player, slots.size, permissions)
                 }
                 NextEvents(state.upcoming, now, Modifier.fillMaxWidth())
@@ -271,6 +272,7 @@ private fun CourseCard(
     zone: ZoneId,
     settings: Map<String, String>,
     overlapping: Boolean,
+    mode: UiMode,
 ) {
     val ctx = state.course
     SurfaceCard(padding = androidx.compose.foundation.layout.PaddingValues(16.dp)) {
@@ -320,11 +322,17 @@ private fun CourseCard(
             // Live once a Shelly address is set; dimmed and inert until then,
             // because a relay with no host cannot switch anything (relay design,
             // "Error handling": host unset → relay logic inert).
-            val relayConfigured = settings["relay_host"].orEmpty().isNotBlank()
-            if (relayConfigured) {
-                Toggle("Relay", settings["relay_enabled"] == "1") { vm.toggle("relay_enabled") }
-            } else {
-                Box(Modifier.alpha(0.5f)) { Toggle("Relay", false, enabled = false) {} }
+            //
+            // Simple drops it entirely: Setup's amp card is the one place amp
+            // configuration lives there, and two switches for one relay on two
+            // screens is exactly the density this mode exists to remove.
+            if (mode == UiMode.ADVANCED) {
+                val relayConfigured = settings["relay_host"].orEmpty().isNotBlank()
+                if (relayConfigured) {
+                    Toggle("Relay", settings["relay_enabled"] == "1") { vm.toggle("relay_enabled") }
+                } else {
+                    Box(Modifier.alpha(0.5f)) { Toggle("Relay", false, enabled = false) {} }
+                }
             }
         }
     }
@@ -348,49 +356,6 @@ private fun DayProgress(day: Int, total: Int) {
                     ),
             )
         }
-    }
-}
-
-@Composable
-private fun Toggle(label: String, checked: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
-    // The painted box stays 20 dp as designed; only the hit slop grows to the
-    // 44 dp minimum, so a wall tablet tap does not miss.
-    Row(
-        Modifier
-            .heightIn(min = Nocturne.MIN_TOUCH_DP.dp)
-            .clip(RoundedCornerShape(6.dp))
-            .toggleable(
-                value = checked,
-                enabled = enabled,
-                role = Role.Checkbox,
-                onValueChange = { onClick() },
-            )
-            .padding(horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Box(
-            Modifier
-                .size(20.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(if (checked) Nocturne.Accent.copy(alpha = 0.26f) else Color.Transparent)
-                .border(
-                    1.dp,
-                    if (checked) Nocturne.Accent else Nocturne.Neutral700,
-                    RoundedCornerShape(4.dp),
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (checked) {
-                Text(
-                    "✓",
-                    fontSize = 12.sp,
-                    color = Nocturne.Accent100,
-                    modifier = Modifier.clearAndSetSemantics {},
-                )
-            }
-        }
-        Text(label, fontSize = 12.5.sp, color = Nocturne.Neutral300)
     }
 }
 

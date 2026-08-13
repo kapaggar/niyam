@@ -57,6 +57,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.delay
+import org.dhamma.gong.domain.UiMode
 
 /**
  * The appliance shell: a persistent left nav rail and a content pane.
@@ -86,8 +87,26 @@ enum class Tab(
     // U+23FB POWER SYMBOL is not in the platform font and drew as tofu.
     POWER("Amp power", "⊙", requiresPin = true),
     TIME("Time", "◷", requiresPin = true),
-    NETWORK("Network", "⌁", requiresPin = true),
     SETUP("Setup", "✓", requiresPin = true),
+    ;
+
+    companion object {
+        /**
+         * Set once by a technician, then never again: relay wiring, doha slot
+         * mapping, the audio route and the timezone pin. Hiding them is what
+         * Simple *is* — the settings behind them keep their values and keep
+         * being read by the service either way. Network has no entry here: its
+         * facts and Wi-Fi buttons live on Setup as a card (design doc §3.2/§6),
+         * so there was never a standalone Network tab for Simple to hide.
+         */
+        private val ADVANCED_ONLY = setOf(SOUNDS, AUDIO_OUT, POWER, TIME)
+
+        /** The visible destinations, in rail order. */
+        fun railFor(mode: UiMode): List<Tab> = when (mode) {
+            UiMode.ADVANCED -> entries.toList()
+            UiMode.SIMPLE -> entries.filter { it !in ADVANCED_ONLY }
+        }
+    }
 }
 
 @Composable
@@ -107,11 +126,16 @@ fun GongApp(
     // for the tab the user has since navigated away from still lands.
     val fallback = remember { kotlinx.coroutines.flow.MutableStateFlow<Tab?>(null) }
     val requested by (tabRequest ?: fallback).collectAsState()
+    val mode by vm.uiMode.collectAsState()
+    val rail = Tab.railFor(mode)
     LaunchedEffect(requested) {
         val t = requested ?: return@LaunchedEffect
-        if (t.enabled) tab = t
+        if (t.enabled && t in rail) tab = t
         tabRequest?.value = null
     }
+    // Advanced → Simple can pull the floor out from under the current screen.
+    // The Dashboard is in both rails, which is what makes it a safe landing.
+    LaunchedEffect(mode) { if (tab !in rail) tab = Tab.DASHBOARD }
     // The foreground service keeps this process alive for days, so nothing
     // else ever resets the unlock. Without this, one unlock stays good until
     // the appliance reboots.
@@ -145,7 +169,7 @@ fun GongApp(
             org.dhamma.gong.domain.PinCode.isSet(pinHash) && !unlocked -> PinLockScreen(vm)
 
             else -> Row(Modifier.fillMaxSize()) {
-                NavRail(current = tab, onSelect = { tab = it })
+                NavRail(tabs = rail, current = tab, onSelect = { tab = it })
                 Box(
                     Modifier
                         .fillMaxSize()
@@ -164,7 +188,6 @@ fun GongApp(
                         Tab.POWER -> RelayScreen(vm)
                         Tab.TIME -> TimeScreen(vm)
                         Tab.AUDIO_OUT -> AudioOutScreen(vm)
-                        Tab.NETWORK -> NetworkScreen(vm)
                         Tab.SETUP -> SetupScreen(vm)
                         // Nothing is locked today. The branch stays so that
                         // adding a half-built screen is a one-line `enabled =
@@ -198,13 +221,13 @@ fun GongApp(
 }
 
 @Composable
-private fun NavRail(current: Tab, onSelect: (Tab) -> Unit) {
+private fun NavRail(tabs: List<Tab>, current: Tab, onSelect: (Tab) -> Unit) {
     Column(
         Modifier
             .width(186.dp)
             .fillMaxHeight()
             .background(Nocturne.NavRail)
-            // Eleven 44 dp items plus header is ~583 dp; a landscape phone is
+            // Nine 44 dp items plus header is ~495 dp; a landscape phone is
             // ~393 dp tall, so the rail must scroll rather than clip.
             .windowInsetsPadding(
                 WindowInsets.safeDrawing.only(
@@ -224,7 +247,7 @@ private fun NavRail(current: Tab, onSelect: (Tab) -> Unit) {
             color = Nocturne.Neutral500,
             modifier = Modifier.padding(start = 20.dp, bottom = 18.dp),
         )
-        for (t in Tab.entries) {
+        for (t in tabs) {
             NavItem(
                 tab = t,
                 selected = t == current,

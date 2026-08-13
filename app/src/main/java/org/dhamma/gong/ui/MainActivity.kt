@@ -105,7 +105,8 @@ class MainActivity : ComponentActivity() {
          * `-e tab DASHBOARD|SCHEDULE|COURSES|LOGS|SOUNDS|SETUP`.
          *
          * Case-insensitive: `-e tab courses` used to fail [Tab.valueOf] and fall
-         * back to the Dashboard without saying so.
+         * back to the Dashboard without saying so. A name that is not a tab, or
+         * a tab the current UI mode hides, is ignored the same way.
          */
         internal fun parseTab(intent: Intent?): Tab? =
             intent?.getStringExtra(EXTRA_TAB)
