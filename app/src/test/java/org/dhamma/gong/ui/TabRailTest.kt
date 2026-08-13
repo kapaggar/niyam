@@ -41,4 +41,12 @@ class TabRailTest {
             assertEquals("mode=$it", Tab.DASHBOARD, Tab.railFor(it).first())
         }
     }
+
+    @Test
+    fun networkIsNotADestinationInEitherMode() {
+        // Spec §6: the facts live on Setup. A rail entry for them was one tap
+        // to a screen that only ever reported.
+        val names = Tab.entries.map { it.name }
+        assertTrue("NETWORK must be gone from Tab entirely", "NETWORK" !in names)
+    }
 }

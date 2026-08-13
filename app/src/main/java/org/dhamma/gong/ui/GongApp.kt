@@ -87,7 +87,6 @@ enum class Tab(
     // U+23FB POWER SYMBOL is not in the platform font and drew as tofu.
     POWER("Amp power", "⊙", requiresPin = true),
     TIME("Time", "◷", requiresPin = true),
-    NETWORK("Network", "⌁", requiresPin = true),
     SETUP("Setup", "✓", requiresPin = true),
     ;
 
@@ -96,11 +95,11 @@ enum class Tab(
          * Set once by a technician, then never again: relay wiring, doha slot
          * mapping, the audio route and the timezone pin. Hiding them is what
          * Simple *is* — the settings behind them keep their values and keep
-         * being read by the service either way. Network is in this set too:
-         * its facts and Wi-Fi buttons move into Setup (design doc §3.2/§6),
-         * so Simple has no standalone Network tab to hide behind.
+         * being read by the service either way. Network has no entry here: its
+         * facts and Wi-Fi buttons live on Setup as a card (design doc §3.2/§6),
+         * so there was never a standalone Network tab for Simple to hide.
          */
-        private val ADVANCED_ONLY = setOf(SOUNDS, AUDIO_OUT, POWER, TIME, NETWORK)
+        private val ADVANCED_ONLY = setOf(SOUNDS, AUDIO_OUT, POWER, TIME)
 
         /** The visible destinations, in rail order. */
         fun railFor(mode: UiMode): List<Tab> = when (mode) {
@@ -189,7 +188,6 @@ fun GongApp(
                         Tab.POWER -> RelayScreen(vm)
                         Tab.TIME -> TimeScreen(vm)
                         Tab.AUDIO_OUT -> AudioOutScreen(vm)
-                        Tab.NETWORK -> NetworkScreen(vm)
                         Tab.SETUP -> SetupScreen(vm)
                         // Nothing is locked today. The branch stays so that
                         // adding a half-built screen is a one-line `enabled =
@@ -229,7 +227,7 @@ private fun NavRail(tabs: List<Tab>, current: Tab, onSelect: (Tab) -> Unit) {
             .width(186.dp)
             .fillMaxHeight()
             .background(Nocturne.NavRail)
-            // Eleven 44 dp items plus header is ~583 dp; a landscape phone is
+            // Nine 44 dp items plus header is ~495 dp; a landscape phone is
             // ~393 dp tall, so the rail must scroll rather than clip.
             .windowInsetsPadding(
                 WindowInsets.safeDrawing.only(

@@ -68,6 +68,7 @@ fun SetupScreen(vm: AppViewModel) {
     val state by vm.schedulerState.collectAsStateWithLifecycle()
     val zone by vm.applianceZone.collectAsStateWithLifecycle()
     val pinHash by vm.pinHash.collectAsStateWithLifecycle()
+    val mode by vm.uiMode.collectAsStateWithLifecycle()
     val now = rememberNow()
     val context = LocalContext.current
 
@@ -260,6 +261,8 @@ fun SetupScreen(vm: AppViewModel) {
                 checklist()
                 applianceState()
             }
+
+            NetworkCard(vm, advanced = mode == UiMode.ADVANCED)
 
             AppearanceCard(vm)
 
