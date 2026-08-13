@@ -43,6 +43,7 @@ import org.dhamma.gong.domain.PinCode
 import org.dhamma.gong.domain.RoutePlan
 import org.dhamma.gong.domain.SettingsDefaults
 import org.dhamma.gong.domain.ThemeMode
+import org.dhamma.gong.domain.UiMode
 import org.dhamma.gong.net.NetworkProbe
 import org.dhamma.gong.player.AudioRouter
 import org.dhamma.gong.relay.RelayController
@@ -167,6 +168,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setThemeMode(mode: ThemeMode) =
         setSetting(ThemeMode.SETTING_KEY, mode.key, announce = "Theme: ${mode.label.lowercase()}")
+
+    /**
+     * How many destinations the rail offers. Eagerly started and seeded with
+     * the shipped default so the first frame draws the Simple rail rather than
+     * flashing nine items while Room answers.
+     */
+    val uiMode: StateFlow<UiMode> = settings
+        .map { UiMode.parse(it[UiMode.SETTING_KEY]) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, UiMode.DEFAULT)
+
+    fun setUiMode(mode: UiMode) =
+        setSetting(UiMode.SETTING_KEY, mode.key, announce = "${mode.label} screens")
 
     val events: StateFlow<List<ScheduleEventEntity>> = db.scheduleEvents().observeAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())

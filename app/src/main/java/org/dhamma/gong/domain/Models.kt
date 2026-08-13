@@ -229,6 +229,9 @@ object SettingsDefaults {
         "timezone" to ApplianceZone.FOLLOW_DEVICE,
         // Presentation only — nothing in the scheduler reads it.
         ThemeMode.SETTING_KEY to ThemeMode.DEFAULT.key,
+        // Which destinations the rail offers. Presentation only; Advanced-only
+        // settings keep their values and keep being read in Simple.
+        UiMode.SETTING_KEY to UiMode.DEFAULT.key,
         "doha_tree_uri" to "",
         // Amplifier relay (Shelly 1 Gen4) — `relay_enabled` lives in `map`
         // above for Pi parity. Empty host = not configured, relay logic inert.
