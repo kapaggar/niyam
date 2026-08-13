@@ -65,7 +65,15 @@ private val NARROW_WIDTH = 760.dp
  */
 @Composable
 fun CoursesScreen(vm: AppViewModel) {
-    val rows by vm.courseRows.collectAsState()
+    // Two views of the same list: the folded one the screen shows by default,
+    // and the full one behind the "older courses" row. A hidden course still
+    // counts for overlap and still has to be deletable, so it must stay
+    // reachable rather than merely vanish.
+    val visible by vm.visibleCourseRows.collectAsState()
+    val allRows by vm.courseRows.collectAsState()
+    var showAllPast by rememberSaveable { mutableStateOf(false) }
+    val rows = if (showAllPast) allRows else visible.rows
+
     val types by vm.courseTypes.collectAsState()
     // "Today" for the example date must be the appliance's zone, never the device's.
     val zone by vm.applianceZone.collectAsState()
@@ -223,6 +231,18 @@ fun CoursesScreen(vm: AppViewModel) {
                         }
                     }
                 }
+
+                // The fold sits at the top, because in calendar order that is
+                // exactly where the hidden courses belong — expanding grows the
+                // list upwards from here instead of shuffling what is on screen.
+                if (visible.hiddenPast > 0) {
+                    item(key = "older-courses") {
+                        OlderCourses(visible.hiddenPast, showAllPast) {
+                            showAllPast = !showAllPast
+                        }
+                    }
+                }
+
                 items(rows, key = { it.course.id }) { row ->
                     val active = row.status == AppViewModel.CourseRow.Status.ACTIVE
                     Column {
@@ -311,6 +331,38 @@ fun CoursesScreen(vm: AppViewModel) {
 }
 
 // ---------------------------------------------------------------- widgets
+
+/**
+ * The one row that stands for every folded-away finished course. It has to be a
+ * control, not a caption: a hidden course still counts towards an OVERLAP
+ * warning and still has to be deletable, and a list that silently drops rows
+ * reads as data loss.
+ */
+@Composable
+private fun OlderCourses(hidden: Int, expanded: Boolean, onClick: () -> Unit) {
+    val label =
+        if (expanded) "Hide the $hidden older ${plural(hidden)}"
+        else "Show $hidden older finished ${plural(hidden)}"
+    Column {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(Nocturne.MIN_TOUCH_DP.dp)
+                .clickable(role = Role.Button, onClick = onClick)
+                .semantics { contentDescription = label },
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            Text(
+                (if (expanded) "▴  " else "▾  ") + label,
+                fontSize = 12.5.sp,
+                color = Nocturne.Neutral500,
+            )
+        }
+        Hairline()
+    }
+}
+
+private fun plural(n: Int) = if (n == 1) "course" else "courses"
 
 @Composable
 private fun HeaderCell(text: String, width: androidx.compose.ui.unit.Dp) {

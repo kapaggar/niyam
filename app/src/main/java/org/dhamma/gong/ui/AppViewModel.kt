@@ -227,7 +227,36 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 },
             )
         }
+            // Calendar order, earliest first: today's course sits between the
+            // recent past above it and the whole future below it, so scrolling
+            // down walks forward in time the way a wall calendar does.
+            .sortedWith(compareBy({ it.course.startDate }, { it.course.id }))
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * How many finished courses stay on the Courses screen. A centre that has
+     * run for years accumulates hundreds; the list exists to show what is
+     * running and what is booked, and every past row above that pushes the
+     * useful part off the top of the screen.
+     */
+    private val pastCoursesShown = 2
+
+    /**
+     * `courseRows` with the older finished courses folded away, and the ids of
+     * the ones folded. Status, not position, decides what counts as finished —
+     * a long course that began before a short one can still be running after
+     * that short one has ended, so dropping by index would hide the wrong row.
+     */
+    data class CourseList(val rows: List<CourseRow>, val hiddenPast: Int)
+
+    val visibleCourseRows: StateFlow<CourseList> = courseRows
+        .map { rows ->
+            val hidden = rows.filter { it.status == CourseRow.Status.PAST }
+                .dropLast(pastCoursesShown)
+                .mapTo(mutableSetOf()) { it.course.id }
+            CourseList(rows.filterNot { it.course.id in hidden }, hidden.size)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CourseList(emptyList(), 0))
 
     /** True when two courses claim today — the dashboard shows a warning. */
     val overlappingCourses: StateFlow<Boolean> = courseRows
@@ -919,6 +948,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             db.scheduleEvents().delete(id)
             service.value?.pokeScheduler("schedule edited")
             toast("Event removed")
+        }
+    }
+
+    /**
+     * Empty `play_log`. Diagnostic history only — the `fired:`/`missed:` guards
+     * that stop a double blast live in `state` and are deliberately left alone,
+     * so clearing the log cannot make an already-fired gong ring again.
+     */
+    fun clearLogs() {
+        viewModelScope.launch {
+            db.playLog().clear()
+            toast("Logs cleared")
         }
     }
 

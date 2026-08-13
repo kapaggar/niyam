@@ -1,6 +1,6 @@
-# Niyam 0.2.0-beta10 — human QA
+# Niyam 0.2.0-beta11 — human QA
 
-Device: ________  Android: ________  Build: debug APK (`versionCode` 11)
+Device: ________  Android: ________  Build: debug APK (`versionCode` 12)
 
 Check **Setup → Appliance state** on the tablet before you start:
 
