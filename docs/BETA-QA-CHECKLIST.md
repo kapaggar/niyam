@@ -138,8 +138,9 @@ the Simple / Advanced section above.
 - [ ] Mode survives a force-stop and relaunch
 - [ ] The ⓘ badges on Setup (permissions, network, amp, screens, appliance
       state) each open a dialog and close again
-- [ ] Sounds → Morning doha: the time saves when you tap away, with no Save
-      button; a bad value like `25:00` toasts and does not save
+- [ ] **Advanced only** (switch modes first — the row above puts you back in
+      Simple) — Sounds → Morning doha: the time saves when you tap away, with
+      no Save button; a bad value like `25:00` toasts and does not save
 - [ ] Untrusted clock: Dashboard banner and Setup clock row both offer Confirm,
       and neither mentions a Time screen while in Simple
 - [ ] Setup → Appliance state → Build reads `0.2.0-beta12 (13)`
@@ -403,7 +404,8 @@ fired-guard record.
 - [ ] Pick a non-backup file (any .txt) → refused with a clear message and
       **nothing is changed**
 - [ ] Restore a backup taken on a *different* tablet → doha slots appear but
-      read **unverified**; rescanning the folder in Sounds re-verifies them
+      read **unverified**; rescanning the folder in Sounds (Advanced only —
+      switch modes first if you're in Simple) re-verifies them
 - [ ] After restore, the PIN on this tablet is still the PIN you set here —
       not one from the backup
 - [ ] After restore, a scheduled gong still fires correctly the same day
@@ -440,8 +442,9 @@ An NTP correction is enough to trigger it.
 
 - [ ] Set the device clock back 30 minutes → the Dashboard shows the
       **CLOCK UNTRUSTED** banner and the next fire is suppressed
-- [ ] Confirm the clock (Dashboard banner button, or Setup's clock row in
-      Simple / the Time screen in Advanced) → banner clears and fires resume
+- [ ] Confirm the clock (Dashboard banner button; Setup's clock row, present
+      in both modes; or the Time screen, Advanced only) → banner clears and
+      fires resume
 - [ ] While untrusted, tests still work — a person standing at the tablet
       may always ring it
 
@@ -452,8 +455,9 @@ An NTP correction is enough to trigger it.
 - [ ] Leave it overnight on charge and confirm the 04:00 gong fires
 - [ ] Over 48 h: no missed and no doubled fires in Logs
 - [ ] Over 48 h: Setup's last-tick age never exceeds ~35 s
-- [ ] Audio out → "Last played" **When** keeps advancing after each fire —
-      a stamp stuck at yesterday means the route silently stopped working
+- [ ] **Advanced only** (switch modes first if you're in Simple) — Audio out
+      → "Last played" **When** keeps advancing after each fire; a stamp stuck
+      at yesterday means the route silently stopped working
 
 ---
 
