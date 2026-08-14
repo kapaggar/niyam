@@ -249,4 +249,74 @@ class RelayPlanTest {
         )
         assertTrue("de-powering mid-chant is the failure to avoid", toggle >= 1800 + 60)
     }
+
+    // ------------------------------------------------------------ the log row
+
+    @Test
+    fun `a switch that worked reads as ok with its reason`() {
+        val row = RelayPlan.ampLog(
+            kind = PlayKind.AMP_ON,
+            host = "10.0.0.42",
+            ok = true,
+            reason = RelayPlan.Reason.SCHEDULE,
+        )
+        assertEquals(PlayKind.AMP_ON, row.kind)
+        assertEquals("10.0.0.42", row.file)
+        assertEquals(PlayResult.OK, row.result)
+        assertEquals("schedule", row.detail)
+        assertEquals("nothing was struck", 0, row.repeats)
+    }
+
+    @Test
+    fun `a failed switch carries the reason and the error`() {
+        val row = RelayPlan.ampLog(
+            kind = PlayKind.AMP_OFF,
+            host = "10.0.0.42",
+            ok = false,
+            reason = RelayPlan.Reason.SCHEDULE,
+            error = "timed out",
+        )
+        assertEquals(PlayResult.ERROR, row.result)
+        assertTrue(row.detail.contains("timed out"))
+        assertTrue(row.detail.contains("schedule"))
+    }
+
+    @Test
+    fun `a manual press is told apart from the schedule`() {
+        val manual = RelayPlan.ampLog(PlayKind.AMP_ON, "h", ok = true, reason = RelayPlan.Reason.MANUAL)
+        val auto = RelayPlan.ampLog(PlayKind.AMP_ON, "h", ok = true, reason = RelayPlan.Reason.SCHEDULE)
+        assertTrue("staff pressing on must not read as the scheduler", manual.detail != auto.detail)
+    }
+
+    /**
+     * The relay password has its own setting and must never reach a log. A host
+     * typed as a URL with credentials in it is the one back door into the FILE
+     * column, so it is closed here rather than trusted not to happen.
+     */
+    @Test
+    fun `credentials typed into the host never reach the log`() {
+        val row = RelayPlan.ampLog(
+            kind = PlayKind.AMP_ON,
+            host = "admin:hunter2@10.0.0.42",
+            ok = true,
+            reason = RelayPlan.Reason.MANUAL,
+        )
+        assertEquals("10.0.0.42", row.file)
+        assertTrue(!row.file.contains("hunter2") && !row.detail.contains("hunter2"))
+    }
+
+    @Test
+    fun `an unset host still produces a readable row`() {
+        val row = RelayPlan.ampLog(PlayKind.AMP_TEST, "  ", ok = false, reason = RelayPlan.Reason.TEST)
+        assertEquals("-", row.file)
+    }
+
+    @Test
+    fun `only the amp kinds are treated as amp rows`() {
+        assertTrue(PlayKind.isAmp(PlayKind.AMP_ON))
+        assertTrue(PlayKind.isAmp(PlayKind.AMP_OFF))
+        assertTrue(PlayKind.isAmp(PlayKind.AMP_TEST))
+        assertTrue(!PlayKind.isAmp(PlayKind.GONG))
+        assertTrue(!PlayKind.isAmp(PlayKind.TEST_DOHA))
+    }
 }

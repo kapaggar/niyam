@@ -1,10 +1,10 @@
-# Niyam 0.2.0-beta13 — human QA
+# Niyam 0.2.0-beta14 — human QA
 
 Device: ________  Android: ________  Build: release APK, R8-shrunk (`versionCode` 14)
 
 Check **Setup → Appliance state** on the tablet before you start:
 
-- **Build** must read `0.2.0-beta13 (14)`. If it does not, the install did not
+- **Build** must read `0.2.0-beta14 (15)`. If it does not, the install did not
   take — reinstall before reporting anything.
 - **Media key** tells you which doha-download section applies. `present` means
   downloads should work; `absent — doha downloads off` is a deliberate build
@@ -81,6 +81,15 @@ changed or is a known gap — please try to break them in that order.
 - [ ] Filters work; with `missed` selected and nothing matching, the message
       says so rather than "Nothing logged yet"
 - [ ] Columns do not vanish when the window is narrower
+- [ ] **Amp events are logged (new in this build).** With a relay host set,
+      press Amp on then Amp off → two rows, `amp_on` and `amp_off`, FILE showing
+      the relay's address, x showing 0 and DETAIL reading `manual`
+- [ ] Test connection adds an `amp_test` row
+- [ ] Point the relay at a **wrong IP** and press Amp on → the row is `error`
+      with the reason in DETAIL. This is the row that explains a silent gong
+- [ ] Let a scheduled gong drive the relay → its amp rows read `schedule`, not
+      `manual`, and sit either side of the gong's own row
+- [ ] The `amp` filter shows only those rows; `gong` and `doha` exclude them
 
 ## PIN (now on Setup, no longer its own tab)
 
@@ -147,7 +156,7 @@ the Simple / Advanced section below.
       no Save button; a bad value like `25:00` toasts and does not save
 - [ ] Untrusted clock: Dashboard banner and Setup clock row both offer Confirm,
       and neither mentions a Time screen while in Simple
-- [ ] Setup → Appliance state → Build reads `0.2.0-beta13 (14)`
+- [ ] Setup → Appliance state → Build reads `0.2.0-beta14 (15)`
 
 ## Sounds — doha pack folder
 

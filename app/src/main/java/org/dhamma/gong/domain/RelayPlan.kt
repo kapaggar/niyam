@@ -125,6 +125,55 @@ object RelayPlan {
         else -> DOHA_CEILING_SECONDS
     }
 
+    // ------------------------------------------------------------ the log row
+
+    /** Why the relay moved — the first thing the DETAIL column says. */
+    object Reason {
+        /** The pre-arm window or the sticky-arm release, i.e. [decide]. */
+        const val SCHEDULE = "schedule"
+
+        /** Somebody pressed on or off on the Amp power screen. */
+        const val MANUAL = "manual"
+
+        /** The reachability probe. Switches nothing. */
+        const val TEST = "test"
+    }
+
+    /**
+     * One `play_log` row for one relay transition.
+     *
+     * Pure, so what the row *says* is unit-tested without a Shelly, a database
+     * or a coroutine. [host] lands in the FILE column: a LAN address is not a
+     * secret and is exactly what someone diagnosing a dead amp needs, but
+     * anything before an `@` is dropped in case a host was ever typed as
+     * `user:pass@10.0.0.5` — the relay password has its own field and must not
+     * reach a log by the back door.
+     *
+     * [repeats] is 0 because nothing was struck.
+     */
+    fun ampLog(
+        kind: String,
+        host: String,
+        ok: Boolean,
+        reason: String,
+        error: String = "",
+    ): PlayLogEntry = PlayLogEntry(
+        kind = kind,
+        file = safeHost(host),
+        repeats = 0,
+        result = if (ok) PlayResult.OK else PlayResult.ERROR,
+        detail = when {
+            ok -> reason
+            error.isBlank() -> reason
+            else -> "$reason — $error"
+        },
+    )
+
+    private fun safeHost(host: String): String {
+        val bare = host.trim().substringAfterLast('@')
+        return bare.ifBlank { "-" }
+    }
+
     // ------------------------------------------------------------ internals
 
     private fun releaseIfArmed(

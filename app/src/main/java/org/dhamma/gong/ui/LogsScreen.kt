@@ -73,6 +73,12 @@ private val FIXED_W = LOCAL_W + KIND_W + FILE_W + STRIKES_W + RESULT_W + COL_GAP
  * reconcile two numbers that always mean the same moment. The detail column
  * still carries the local scheduled instant for a missed fire (handoff §4).
  *
+ * Amplifier relay transitions (`amp_on`/`amp_off`/`amp_test`) share the table
+ * with the plays, because "the 04:00 gong was silent" is only answerable by
+ * reading the switch and the sound against one timeline. Their FILE column is
+ * the relay's address and their × column is 0 — nothing was struck. The `amp`
+ * chip hides them again when the question is only about sound.
+ *
  * The table is wider than a phone pane, so the header and every row share one
  * horizontal scroll state — the house pattern from `ScheduleScreen` — instead
  * of letting the trailing columns measure to zero and vanish.
@@ -89,6 +95,7 @@ fun LogsScreen(vm: AppViewModel) {
                 Filter.ALL -> true
                 Filter.GONG -> row.kind == PlayKind.GONG || row.kind == PlayKind.TEST_GONG
                 Filter.DOHA -> row.kind == PlayKind.DOHA || row.kind == PlayKind.TEST_DOHA
+                Filter.AMP -> PlayKind.isAmp(row.kind)
                 Filter.MISSED -> row.result == PlayResult.MISSED
                 Filter.ERROR -> row.result == PlayResult.ERROR
             }
@@ -189,7 +196,7 @@ fun LogsScreen(vm: AppViewModel) {
 }
 
 private enum class Filter(val label: String) {
-    ALL("all"), GONG("gong"), DOHA("doha"), MISSED("missed"), ERROR("error")
+    ALL("all"), GONG("gong"), DOHA("doha"), AMP("amp"), MISSED("missed"), ERROR("error")
 }
 
 /**

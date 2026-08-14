@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withTimeout
 import org.dhamma.gong.data.GongRepository
+import org.dhamma.gong.domain.PlayKind
 import org.dhamma.gong.domain.RelayPlan
 import org.dhamma.gong.schedule.SchedulerEngine
 import java.time.ZonedDateTime
@@ -57,6 +58,13 @@ class RelayController(
         const val ON = "on"
         const val OFF = "off"
         const val TEST = "test"
+    }
+
+    /** The `play_log.kind` an [Action] is recorded under. */
+    private fun kindOf(action: String): String = when (action) {
+        Action.ON -> PlayKind.AMP_ON
+        Action.OFF -> PlayKind.AMP_OFF
+        else -> PlayKind.AMP_TEST
     }
 
     private val _state = MutableStateFlow(State())
@@ -140,13 +148,23 @@ class RelayController(
                 // storm against a Shelly that is powered down.
                 armedForDeadline = nextDeadline
                 _state.value = _state.value.copy(armed = true)
-                switch(cfg, on = true, toggleAfterSeconds = desired.toggleAfterSeconds)
+                switch(
+                    cfg,
+                    on = true,
+                    toggleAfterSeconds = desired.toggleAfterSeconds,
+                    reason = RelayPlan.Reason.SCHEDULE,
+                )
             }
 
             is RelayPlan.Desired.Off -> {
                 armedForDeadline = null
                 _state.value = _state.value.copy(armed = false)
-                switch(cfg, on = false, toggleAfterSeconds = null)
+                switch(
+                    cfg,
+                    on = false,
+                    toggleAfterSeconds = null,
+                    reason = RelayPlan.Reason.SCHEDULE,
+                )
             }
         }
     }
@@ -179,7 +197,13 @@ class RelayController(
             }
             if (!inFlight.tryLock()) return@launch
             try {
-                applyResult(Action.TEST, bounded { client.deviceInfo(cfg.host) }, describe = true)
+                applyResult(
+                    action = Action.TEST,
+                    result = bounded { client.deviceInfo(cfg.host) },
+                    describe = true,
+                    host = cfg.host,
+                    reason = RelayPlan.Reason.TEST,
+                )
             } finally {
                 inFlight.unlock()
             }
@@ -195,7 +219,12 @@ class RelayController(
             // next tick does not think a deadline is still pending.
             armedForDeadline = null
             _state.value = _state.value.copy(armed = true)
-            switch(cfg, on = true, toggleAfterSeconds = toggleAfterSeconds)
+            switch(
+                cfg,
+                on = true,
+                toggleAfterSeconds = toggleAfterSeconds,
+                reason = RelayPlan.Reason.MANUAL,
+            )
         }
     }
 
@@ -206,7 +235,12 @@ class RelayController(
             if (cfg.host.isEmpty()) return@launch
             armedForDeadline = null
             _state.value = _state.value.copy(armed = false)
-            switch(cfg, on = false, toggleAfterSeconds = null)
+            switch(
+                cfg,
+                on = false,
+                toggleAfterSeconds = null,
+                reason = RelayPlan.Reason.MANUAL,
+            )
         }
     }
 
@@ -245,7 +279,12 @@ class RelayController(
         lagSeconds = repo.settingInt("relay_lag_seconds").toLong(),
     )
 
-    private suspend fun switch(cfg: Config, on: Boolean, toggleAfterSeconds: Long?) {
+    private suspend fun switch(
+        cfg: Config,
+        on: Boolean,
+        toggleAfterSeconds: Long?,
+        reason: String,
+    ) {
         // Busy means a switch is already in flight: drop rather than queue.
         if (!inFlight.tryLock()) {
             Log.i(TAG, "relay busy, dropping ${if (on) "on" else "off"}")
@@ -262,7 +301,13 @@ class RelayController(
                     password = cfg.password,
                 )
             }
-            applyResult(if (on) Action.ON else Action.OFF, result, describe = false)
+            applyResult(
+                action = if (on) Action.ON else Action.OFF,
+                result = result,
+                describe = false,
+                host = cfg.host,
+                reason = reason,
+            )
         } finally {
             inFlight.unlock()
         }
@@ -284,7 +329,27 @@ class RelayController(
             ShellyClient.Result.Failed(e.message ?: e.javaClass.simpleName)
         }
 
-    private fun applyResult(action: String, result: ShellyClient.Result, describe: Boolean) {
+    /**
+     * Fold one call's outcome into [state] **and** append it to `play_log`.
+     *
+     * The row is what makes a silent gong diagnosable after the fact: the Amp
+     * power screen only ever shows the *last* action, so without this a switch
+     * that failed at 04:00 is overwritten by the one that succeeded at 06:30 and
+     * the night is unreconstructable. Logs already carries the play; putting the
+     * switch on the same timeline is the whole point.
+     *
+     * The insert cannot delay a play — it runs on [scope] after the network call
+     * has already returned, never on the scheduler's path — and a database that
+     * refuses the row must not turn a working relay into a crash, hence the
+     * [runCatching].
+     */
+    private suspend fun applyResult(
+        action: String,
+        result: ShellyClient.Result,
+        describe: Boolean,
+        host: String,
+        reason: String,
+    ) {
         val now = ZonedDateTime.now()
         _state.value = when (result) {
             is ShellyClient.Result.Ok -> {
@@ -322,6 +387,25 @@ class RelayController(
                     lastError = result.reason,
                 )
             }
+        }
+
+        // Read the outcome back off the state we just settled, so the row and
+        // the screen can never disagree about whether the switch worked.
+        val settled = _state.value
+        try {
+            repo.log(
+                RelayPlan.ampLog(
+                    kind = kindOf(action),
+                    host = host,
+                    ok = settled.lastActionOk,
+                    reason = reason,
+                    error = settled.lastError,
+                ),
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "relay log write failed (switch unaffected)", e)
         }
     }
 

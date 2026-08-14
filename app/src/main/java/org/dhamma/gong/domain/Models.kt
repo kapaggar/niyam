@@ -81,12 +81,25 @@ enum class FireDecision {
     SKIPPED_CLOCK,
 }
 
-/** play_log.kind values (Pi parity). */
+/** play_log.kind values (Pi parity, plus the Android-only amp rows). */
 object PlayKind {
     const val GONG = "gong"
     const val DOHA = "doha"
     const val TEST_GONG = "test_gong"
     const val TEST_DOHA = "test_doha"
+
+    /**
+     * Amplifier relay transitions. The Pi daemon has no relay, so these have no
+     * counterpart to stay in parity with; they share `play_log` because the
+     * question they answer — "the 04:00 gong was silent, why?" — is only
+     * answerable by reading the switch and the play against one timeline.
+     */
+    const val AMP_ON = "amp_on"
+    const val AMP_OFF = "amp_off"
+    const val AMP_TEST = "amp_test"
+
+    /** True for the [AMP_ON]/[AMP_OFF]/[AMP_TEST] rows, so Logs can filter them. */
+    fun isAmp(kind: String): Boolean = kind.startsWith("amp_")
 }
 
 /** play_log.result values (Pi parity). */

@@ -2,7 +2,26 @@
 
 Standalone repo **`kapaggar/niyam`** (branch `main`), extracted with history from the gongserver monorepo's `android/` tree.
 
-Last updated: 2026-08-13, **beta13: final review pass on Simple/Advanced**
+Last updated: 2026-08-14, **beta14: amp switching is now in the log**
+(`0.2.0-beta14`, `versionCode` 15) — every relay transition appends a
+`play_log` row, so a silent gong is diagnosable after the night it happened.
+`RelayController.applyResult` was already the single choke point for every
+`Shelly.Set`/`GetDeviceInfo` outcome; it now also writes `amp_on`, `amp_off`
+or `amp_test` beside the plays. Until this build the Amp power screen showed
+only the *last* action, so a switch that failed at 04:00 was overwritten by the
+one that succeeded at 06:30 and the night could not be reconstructed. The row
+carries the relay's address in FILE, `0` in the strikes column (nothing was
+struck), `ok`/`error` from the same state the screen paints, and a DETAIL that
+says `schedule`, `manual` or `test` — so staff pressing the button is never
+mistaken for the scheduler arming the amp. Logs gained an `amp` chip; `gong`
+and `doha` exclude the new rows. The row itself is built by a pure
+`RelayPlan.ampLog`, unit-tested without a Shelly, a database or a coroutine,
+and it strips anything before an `@` in the host so a relay password typed as
+`user:pass@10.0.0.5` cannot reach a log by the back door. The insert runs on
+the relay's own scope after the network call has returned and is wrapped so a
+refused write cannot turn a working relay into a crash — the rule that the
+relay never blocks, delays or fails a play is unchanged. 417 JVM tests green.
+Prior: **final review pass on Simple/Advanced**
 (`0.2.0-beta13`, `versionCode` 14) — four findings from a whole-feature code
 review closed out the Simple/Advanced UI mode branch. **1.** The Setup amp
 card's status tag and "Amp believed on/off" sentence now fold in
