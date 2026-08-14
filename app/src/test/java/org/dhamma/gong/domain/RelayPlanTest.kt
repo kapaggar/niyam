@@ -33,7 +33,7 @@ class RelayPlanTest {
     ): Desired = RelayPlan.decide(
         now = at,
         nextDeadline = nextDeadline,
-        playing = playing,
+        playerBusy = playing,
         armedForDeadline = armedForDeadline,
         relayEnabled = relayEnabled,
         clockTrusted = clockTrusted,

@@ -2,7 +2,27 @@
 
 Standalone repo **`kapaggar/niyam`** (branch `main`), extracted with history from the gongserver monorepo's `android/` tree.
 
-Last updated: 2026-08-14, **beta14: amp switching is now in the log**
+Last updated: 2026-08-14, **beta15: the amp no longer switches off on the
+first strike** (`0.2.0-beta15`, `versionCode` 16) — a P1 found in the beta14
+amp log. The tablet recorded `amp_on` at 10:59:30, `amp_off` at 11:00:00 and
+then a 16-strike gong finishing at 11:02:37: the amp was dead for the entire
+burst it had just been powered up for. Root cause was the flag the relay was
+handed. `SchedulerEngine.tick` dispatches a command and calls the relay hook
+in the *same* pass, but `PlayerEngine.submit` only queues — the pump has not
+run and `Status.playing` is still false. `RelayPlan.releaseIfArmed` cannot
+tell a gong that is starting from one that was missed except by that flag, so
+it read "armed, nothing playing", took it for a miss and cut power at the
+instant of the fire. `PlayerEngine.busy` is now a `StateFlow` maintained under
+the same mutex as the queue and `current` — true from the moment a command is
+*accepted* until the queue drains, spanning the gap between a gong and the
+doha behind it — and that, not `Status.playing`, is what `GongService` samples
+for the relay. The parameter is renamed `playerBusy` through `RelayPlan` and
+`RelayController` with the trap written down at both ends, so the narrow flag
+cannot quietly come back. Pinned by `AmpHoldsAcrossThePlayTest`, which drives
+the real scheduler with the real player behind it and asserts the three
+moments that matter: the fire tick, a heartbeat mid-burst, and the lag-out
+after the last strike. 420 JVM tests green.
+Prior: **beta14: amp switching is now in the log**
 (`0.2.0-beta14`, `versionCode` 15) — every relay transition appends a
 `play_log` row, so a silent gong is diagnosable after the night it happened.
 `RelayController.applyResult` was already the single choke point for every

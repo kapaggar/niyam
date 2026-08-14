@@ -95,7 +95,10 @@ class GongService : Service() {
                 relayController.onTick(
                     now = now,
                     nextDeadline = deadline,
-                    playing = playerEngine.status.value.playing,
+                    // `busy`, not `status.playing`: this hook runs in the same
+                    // tick that dispatched the burst, before a single strike has
+                    // reached the speaker. See RelayPlan.decide.
+                    playerBusy = playerEngine.busy.value,
                     clockTrusted = trusted,
                 )
             },

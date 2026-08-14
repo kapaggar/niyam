@@ -1,10 +1,10 @@
-# Niyam 0.2.0-beta14 — human QA
+# Niyam 0.2.0-beta15 — human QA
 
 Device: ________  Android: ________  Build: release APK, R8-shrunk (`versionCode` 14)
 
 Check **Setup → Appliance state** on the tablet before you start:
 
-- **Build** must read `0.2.0-beta14 (15)`. If it does not, the install did not
+- **Build** must read `0.2.0-beta15 (16)`. If it does not, the install did not
   take — reinstall before reporting anything.
 - **Media key** tells you which doha-download section applies. `present` means
   downloads should work; `absent — doha downloads off` is a deliberate build
@@ -156,7 +156,7 @@ the Simple / Advanced section below.
       no Save button; a bad value like `25:00` toasts and does not save
 - [ ] Untrusted clock: Dashboard banner and Setup clock row both offer Confirm,
       and neither mentions a Time screen while in Simple
-- [ ] Setup → Appliance state → Build reads `0.2.0-beta14 (15)`
+- [ ] Setup → Appliance state → Build reads `0.2.0-beta15 (16)`
 
 ## Sounds — doha pack folder
 
@@ -194,6 +194,12 @@ does not do BLE setup. Give it a DHCP reservation so the IP is stable.
       toggle is hidden in Simple; only possible once a host is set)
 - [ ] Schedule a gong +2 min → **the amp switches on shortly before it and off
       after** (on may come up to ~35 s early — that is by design)
+- [ ] **Fixed in this build: use a long burst (x16) and listen to every strike.**
+      The amp must stay powered for the *whole* burst and only click off a few
+      seconds after the last strike. In beta14 it switched off at the instant the
+      gong started, so the amp rows read `amp_on`, then `amp_off` ~30 s later,
+      then the gong finishing minutes afterwards into a dead amp. In Logs the
+      `amp_off` row must come **after** the `gong` row, never before it
 - [ ] Gong followed by a doha a minute later → the amp does **not** drop out
       between them
 - [ ] **Power the Shelly down, then let a gong fire → the gong still rings on

@@ -88,15 +88,17 @@ class RelayController(
      *
      * @param nextDeadline the scheduler's own `TickOutcome.nextDeadline`. The
      *   relay only reads it — it never influences whether or when a gong fires.
+     * @param playerBusy [org.dhamma.gong.player.PlayerEngine.busy], sampled by
+     *   the caller. Never `Status.playing`: see [RelayPlan.decide].
      */
     fun onTick(
         now: ZonedDateTime,
         nextDeadline: ZonedDateTime?,
-        playing: Boolean,
+        playerBusy: Boolean,
         clockTrusted: Boolean,
     ) {
         scope.launch {
-            runCatching { evaluate(now, nextDeadline, playing, clockTrusted) }
+            runCatching { evaluate(now, nextDeadline, playerBusy, clockTrusted) }
                 .onFailure { Log.w(TAG, "relay tick failed (play unaffected)", it) }
         }
     }
@@ -112,7 +114,7 @@ class RelayController(
     private suspend fun evaluate(
         now: ZonedDateTime,
         nextDeadline: ZonedDateTime?,
-        playing: Boolean,
+        playerBusy: Boolean,
         clockTrusted: Boolean,
     ) {
         val cfg = readConfig()
@@ -128,7 +130,7 @@ class RelayController(
         val desired = RelayPlan.decide(
             now = now,
             nextDeadline = nextDeadline,
-            playing = playing,
+            playerBusy = playerBusy,
             armedForDeadline = armedForDeadline,
             relayEnabled = cfg.enabled,
             clockTrusted = clockTrusted,

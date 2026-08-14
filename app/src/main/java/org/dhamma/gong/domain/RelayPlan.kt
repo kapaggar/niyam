@@ -52,7 +52,12 @@ object RelayPlan {
     /**
      * @param now appliance-zone clock.
      * @param nextDeadline [TickOutcome.nextDeadline]; null when nothing is pending.
-     * @param playing [org.dhamma.gong.player.PlayerEngine.Status.playing].
+     * @param playerBusy [org.dhamma.gong.player.PlayerEngine.busy] — a play is in
+     *   flight, **counting one that has been queued but has not reached the
+     *   speaker yet**. It must not be `Status.playing`: the scheduler dispatches
+     *   and calls the relay hook in the same tick, so the narrow flag is still
+     *   false at the fire and [releaseIfArmed] below mistakes a gong that is
+     *   starting for one that was missed, cutting power on the first strike.
      * @param armedForDeadline the deadline the relay was last switched on for,
      *   or null when it is not armed. The sticky arm is what lets a *missed*
      *   occurrence — which never reaches the player — still power the amp down.
@@ -62,7 +67,7 @@ object RelayPlan {
     fun decide(
         now: ZonedDateTime,
         nextDeadline: ZonedDateTime?,
-        playing: Boolean,
+        playerBusy: Boolean,
         armedForDeadline: ZonedDateTime?,
         relayEnabled: Boolean,
         clockTrusted: Boolean,
@@ -76,7 +81,7 @@ object RelayPlan {
         // ON automatically. If we are still armed from before, release the amp
         // rather than leaving it energised until `toggle_after` expires.
         if (!relayEnabled || !clockTrusted) {
-            return releaseIfArmed(now, playing, armedForDeadline, lagSeconds, lastPlayEndedAt)
+            return releaseIfArmed(now, playerBusy, armedForDeadline, lagSeconds, lastPlayEndedAt)
         }
 
         val inWindow = nextDeadline != null &&
@@ -96,7 +101,7 @@ object RelayPlan {
         // since fired, been missed or been superseded, this is the sticky-arm
         // release — the tick path owns it because a missed occurrence never
         // reaches the player.
-        return releaseIfArmed(now, playing, armedForDeadline, lagSeconds, lastPlayEndedAt)
+        return releaseIfArmed(now, playerBusy, armedForDeadline, lagSeconds, lastPlayEndedAt)
     }
 
     /**
@@ -178,14 +183,15 @@ object RelayPlan {
 
     private fun releaseIfArmed(
         now: ZonedDateTime,
-        playing: Boolean,
+        playerBusy: Boolean,
         armedForDeadline: ZonedDateTime?,
         lagSeconds: Long,
         lastPlayEndedAt: ZonedDateTime?,
     ): Desired {
         if (armedForDeadline == null) return Desired.NoChange
-        // Rule 5: never cut power out from under a play in progress.
-        if (playing) return Desired.NoChange
+        // Rule 5: never cut power out from under a play in progress —
+        // including one that is queued and about to sound.
+        if (playerBusy) return Desired.NoChange
         // Lag-out: hold the amp for `lagSeconds` past the end of the play so a
         // reverberating strike is not clipped by a relay click.
         if (lastPlayEndedAt != null && secondsUntil(lastPlayEndedAt, now) < lagSeconds) {

@@ -19,6 +19,7 @@ import org.dhamma.gong.domain.PlayKind
 import org.dhamma.gong.domain.PlayResult
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -444,5 +445,50 @@ class PlayerEngineTest {
         engine(sink).warmUp()
         advanceUntilIdle()
         assertTrue(sink.warmedUp)
+    }
+
+    // ------------------------------------------------------------ busy
+
+    /**
+     * The amplifier relay samples [PlayerEngine.busy] and powers the amp down
+     * the moment it reads false, so the flag has to cover the whole handover —
+     * from the scheduler queuing a burst to the last strike fading — including
+     * the gap between two queued commands. `Status.playing` covers none of it.
+     */
+    @Test
+    fun busySpansAcceptanceUntilTheQueueDrains() = runTest {
+        val sink = FakeSink()
+        val engine = engine(sink)
+
+        assertFalse("an idle player is not busy", engine.busy.value)
+
+        engine.submit(gong(repeats = 1))
+        assertTrue("queued counts as busy before any audio starts", engine.busy.value)
+        assertFalse("and nothing is playing yet", engine.status.value.playing)
+
+        advanceUntilIdle()
+        assertFalse("busy clears once the queue has drained", engine.busy.value)
+    }
+
+    @Test
+    fun busyDoesNotDipBetweenTwoQueuedCommands() = runTest {
+        val sink = FakeSink()
+        val gate = CompletableDeferred<Unit>()
+        sink.block = gate
+        val engine = engine(sink)
+        mapSlot(8)
+
+        // A gong with a doha behind it: the relay must not see an idle instant
+        // between the two and cut power in the gap.
+        engine.submit(gong(repeats = 1))
+        engine.submit(
+            PlayCommand(kind = PlayKind.DOHA, dohaSlot = 8, repeats = 1, volume = 90, label = "doha"),
+        )
+        advanceUntilIdle()
+        assertTrue("the first command is sounding", engine.busy.value)
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+        assertFalse("both have finished", engine.busy.value)
     }
 }

@@ -80,6 +80,28 @@ class PlayerEngine(
     private var currentJob: Job? = null
     private var pump: Job? = null
 
+    private val _busy = MutableStateFlow(false)
+
+    /**
+     * True from the moment a command is **accepted** until the queue drains —
+     * not from the moment audio starts.
+     *
+     * This, never [Status.playing], is what the amplifier relay must sample.
+     * `SchedulerEngine.tick` dispatches and then calls the relay hook in the
+     * same pass, so at that instant [submit] has only queued the burst: the
+     * pump has not run, `playing` is still false, and a relay reading it
+     * concludes the occurrence was missed and cuts power just as the gong
+     * begins. Maintained under [lock] alongside [queue] and [current] so the
+     * flag can never disagree with them, or be read half-written from the
+     * scheduler's thread.
+     */
+    val busy: StateFlow<Boolean> = _busy.asStateFlow()
+
+    /** Call only while holding [lock]. */
+    private fun refreshBusy() {
+        _busy.value = current != null || queue.isNotEmpty()
+    }
+
     // ------------------------------------------------------------ API
 
     /**
@@ -99,6 +121,7 @@ class PlayerEngine(
                 return false
             }
             queue.addLast(command)
+            refreshBusy()
         }
         ensurePump()
         return true
@@ -111,6 +134,9 @@ class PlayerEngine(
             dropped = queue.toList()
             queue.clear()
             currentJob?.cancel(BurstStopped())
+            // Still busy while `current` unwinds: the relay must not clip the
+            // tail of a burst that is only now being torn down.
+            refreshBusy()
         }
         for (c in dropped) {
             repo.log(PlayLogEntry(c.kind, "-", c.repeats, PlayResult.STOPPED, c.label))
@@ -122,8 +148,6 @@ class PlayerEngine(
         scope.launch { runCatching { sink.warmUp() } }
     }
 
-    val busy: Boolean get() = current != null || queue.isNotEmpty()
-
     /**
      * Service-teardown path: abort everything WITHOUT logging (the process is
      * dying; Room writes here risk blocking the main thread) and free the
@@ -134,6 +158,10 @@ class PlayerEngine(
             queue.clear()
             currentJob?.cancel(BurstStopped())
             pump?.cancel()
+            // The pump is gone, so nothing will ever clear `current` for us.
+            current = null
+            currentJob = null
+            refreshBusy()
         }
         sink.release()
     }
@@ -169,6 +197,10 @@ class PlayerEngine(
                 } else {
                     current = n
                 }
+                // Under the same lock that moved the command out of the queue,
+                // so there is never an instant where a queued burst has left
+                // the queue but not yet become `current`.
+                refreshBusy()
                 n
             } ?: return
 
@@ -178,6 +210,7 @@ class PlayerEngine(
             lock.withLock {
                 current = null
                 currentJob = null
+                refreshBusy()
             }
         }
     }
