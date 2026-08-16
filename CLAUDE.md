@@ -25,11 +25,15 @@ Copy these; do not “simplify” them away:
 - Clock untrusted (large backwards jump) → suppress automatic plays.
 - Doha: `legacy_modular` when `0 < day ≤ total_days`.
 - Queue: gong preempts gong; doha waits; stop clears all.
-- Timezone: settings key `timezone` (default `Asia/Kolkata`), not raw device TZ alone.
+- Timezone: settings key `timezone` may pin an IANA id and a pin always wins;
+  **blank (the default) means follow the device**. No hardcoded IST fallback.
+- Gong `repeats` counts audible **hits**, not file plays (`GongTracks`):
+  sikkim carries 3 hits per play, so a 6-repeat row plays it twice.
 
 ## Stack
 
-- Kotlin, minSdk **29**, target/compile **35**
+- Kotlin, minSdk **27** (TEMP for the Pixel C bench tablet — design floor is
+  29 for SAF/hotspot; raise back before centre / Play builds), target/compile **35**
 - Compose + Material 3 (Nocturne theme), landscape-oriented
 - Room (WAL `gong.db`), Media3, coroutines/Flow
 - Gradle 8.9 / AGP 8.7.x / Kotlin 2.0.x (see version catalog)

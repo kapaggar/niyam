@@ -21,6 +21,7 @@ Lockfile: [`skills-lock.json`](../skills-lock.json) (reproducible installs via `
 |------|--------|
 | `skills/` | Canonical copy in this repo (commit this) |
 | `.grok/skills/` | Grok Build (project) |
+| `.claude/skills/` (repo) | Claude Code project mirror |
 | `.agents/skills/` (repo) | Generic project mirror |
 | **`$HOME/.claude-personal/skills/`** | **Claude Code personal config** (`CLAUDE_CONFIG_DIR`) — symlinks → `$HOME/.agents/skills/` |
 | `$HOME/.agents/skills/` | Shared user skill store (personal Claude pattern) |
@@ -42,6 +43,9 @@ npx skills add new-silvermoon/awesome-android-agent-skills -s android-data-layer
 npx skills add thebushidocollective/han -s android-jetpack-compose \
   -a grok -y --copy
 rsync -a --delete .grok/skills/ skills/
+# keep the other project mirrors in step (they are not touched by the lines above)
+rsync -a --delete skills/ .claude/skills/
+rsync -a --delete skills/ .agents/skills/
 
 # Claude personal (~/.claude-personal) — copy then symlink like other personal skills
 for skill in android-cli adaptive testing-setup android-data-layer android-jetpack-compose; do

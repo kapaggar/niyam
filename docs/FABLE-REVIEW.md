@@ -6,6 +6,12 @@
 **APK:** `android/app/build/outputs/apk/debug/app-debug.apk` (v`0.1.0-mvp`, minSdk 29)  
 **Emulator for manual review:** AVD **`cca34`** (API 34), wiped + reinstalled this session  
 
+> **⚠️ Historical snapshot — frozen at 2026-08-08 (`0.1.0-mvp`, 110 tests).**
+> Nearly everything in the status tables and "next work" queue below has since
+> shipped or changed (M5–M7 largely done, PIN gate enforced, Network screen
+> deleted, 420 tests, minSdk TEMP 27, `0.2.0-beta15`). Read `PROGRESS.md` for
+> live status; keep this file for the review findings and their rationale.
+
 This document is the single restart surface for **Fable** (or any follow-on agent) to understand **design → plan → implementation**, what works, what is wrong, and what to build next.
 
 ---

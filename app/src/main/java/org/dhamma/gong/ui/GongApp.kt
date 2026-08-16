@@ -77,9 +77,7 @@ enum class Tab(
 
     // Design doc §08. Every screen has now shipped; `enabled` stays on the
     // enum because the nav rail is the only routing there is, and a future
-    // half-built screen must be lockable without a special case. Sounds
-    // currently holds the doha slot mapping and downloads — volumes, burst gap
-    // and doha time are still to come.
+    // half-built screen must be lockable without a special case.
     SOUNDS("Sounds", "♪", requiresPin = true),
     AUDIO_OUT("Audio out", "⊳", requiresPin = true),
     // Mains switching is not "where sound goes", so it gets its own entry

@@ -33,7 +33,9 @@ Historical parent: Gong-NG / GongDohaServer Raspberry Pi daemon (behavioural ref
 | `android-data-layer` | Room, repository, offline data |
 | `android-jetpack-compose` | Compose UI patterns |
 
-Paths: repo `skills/`, project `.grok/skills/`, and for Claude on this machine **`$HOME/.claude-personal/skills/`** (not `~/.claude`). See `docs/SKILLS.md`.
+Paths: repo `skills/` (mirrored at `.grok/skills/`, `.claude/skills/`,
+`.agents/skills/`), and for Claude on this machine
+**`$HOME/.claude-personal/skills/`** (not `~/.claude`). See `docs/SKILLS.md`.
 
 **Do not invent schedule semantics.** If Gong-NG and a design note conflict on fire rules, prefer domain tests + `SchedulerCore` / `FireRules` / `ActiveCourse` / `DohaSlots`. Add a failing unit test before changing behaviour.
 
@@ -50,7 +52,9 @@ Paths: repo `skills/`, project `.grok/skills/`, and for Claude on this machine *
 7. Do not add analytics, ads, or a required cloud backend for core operation.
 8. Deshna jukebox server is **out of scope** until gong/doha field MVP is stable.
 9. Prefer small milestones; update `PROGRESS.md` when you finish a milestone slice.
-10. Run `./gradlew :app:testDebugUnitTest` before claiming done.
+10. Run `./gradlew :app:testDebugUnitTest` before claiming done. (If you count
+    tests with grep, use `grep -a` — five test files contain non-UTF-8 bytes
+    and plain grep silently skips them as binary.)
 11. **Bump the APK version whenever a substantive change lands.** `versionCode`
     +1 and a new `versionName` in `app/build.gradle.kts`, in the same commit as
     the change. See "Versioning the test APK" below.
@@ -59,11 +63,19 @@ Paths: repo `skills/`, project `.grok/skills/`, and for Claude on this machine *
 
 ```
 app/src/main/java/org/dhamma/gong/
-  domain/     SchedulerCore, FireRules, ClockTrust, ActiveCourse, DohaSlots, PinCode, …
-  data/       Room, GongRepository, SeedLoader
-  player/     PlayerEngine, Media3 sink, routing
+  domain/     SchedulerCore, FireRules, ClockTrust, ActiveCourse, DohaSlots,
+              PinCode, RelayPlan, RoutePlan, NetworkFacts, AssetResolve,
+              GongTracks, BackupFile, Liveness, Readiness, UiMode, ThemeMode, …
+  data/       Room (GongDatabase/Daos), GongRepository, SeedLoader, BackupManager
+  player/     PlayerEngine, Media3 sink (AudioSink), MediaResolver, routing
   schedule/   SchedulerEngine, AlarmScheduler
-  service/    GongService (≈ gongd), boot/time receivers
+  service/    GongService (≈ gongd), BootReceiver/KickstartReceiver/
+              TimeChangeReceiver, LivenessWorker, AppliancePermissions
+  relay/      ShellyClient, RelayController (amp power)
+  assets/     CDN doha pipeline — AssetCatalog, AssetStore, CdnDownloader,
+              OpenSslSaltedAes, Integrity, StorageLocator, AudioAssetManager,
+              DownloadedSlotRegistrar
+  net/        NetworkProbe (facts parsing is domain/NetworkFacts)
   ui/         Compose client of the service — must not own the schedule
 ```
 
@@ -110,10 +122,14 @@ confirm what they are holding without a cable.
 
 ## Current product gaps (do not pretend they are done)
 
-- M5+: full Sounds / Audio out / Time / Network / Setup screens (some may be partial)
-- M6: backup/restore, doha SAF pack, first-run wizard
-- M7: Play hardening
+- M6: first-run wizard (backup/restore and the doha SAF pack shipped;
+  Network was folded into a Setup card and its screen deleted)
+- M7: remaining Play hardening (R8 + resource shrinking shipped in beta12)
 - Real overnight tablet / OEM battery validation
+- No instrumented tests (`app/src/androidTest` does not exist; the declared
+  Espresso dependencies are unused) — verification is the JVM suite + manual QA
+- minSdk is TEMP-lowered to 27 for the Pixel C bench tablet; design floor is
+  29 — raise it back before centre / Play builds
 
 See `PROGRESS.md` for the live checklist.
 
