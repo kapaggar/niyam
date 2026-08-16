@@ -11,6 +11,7 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -50,7 +51,18 @@ import org.dhamma.gong.ui.MainActivity
  */
 class GongService : Service() {
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    // The handler is the last line of the "never crash, only log" rule: an
+    // exception that escapes a launched child otherwise reaches the thread's
+    // uncaught handler and kills the whole appliance process — which is how a
+    // single bad play cancellation once took the scheduler, the queued gong
+    // and the play_log down with it (2026-08-15). SupervisorJob only stops
+    // sibling cancellation; it catches nothing.
+    private val scope = CoroutineScope(
+        SupervisorJob() + Dispatchers.Default +
+            CoroutineExceptionHandler { _, e ->
+                Log.e(TAG, "unhandled in service scope — logged, not fatal", e)
+            },
+    )
 
     private lateinit var repo: GongRepository
     private lateinit var playerEngine: PlayerEngine

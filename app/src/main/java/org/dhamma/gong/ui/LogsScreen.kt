@@ -45,8 +45,8 @@ import kotlinx.coroutines.delay
 import org.dhamma.gong.domain.PlayKind
 import org.dhamma.gong.domain.PlayResult
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
-import java.time.ZoneOffset
 
 private val COL_GAP = 8.dp
 // One timestamp column, in the appliance's own zone. The UTC `ts_utc` value is
@@ -87,6 +87,9 @@ private val FIXED_W = LOCAL_W + KIND_W + FILE_W + STRIKES_W + RESULT_W + COL_GAP
 fun LogsScreen(vm: AppViewModel) {
     val rows by vm.logs.collectAsStateWithLifecycle()
     val zone by vm.applianceZone.collectAsStateWithLifecycle()
+    // Re-polled so the day markers roll over at the appliance zone's midnight
+    // even when no new row arrives to trigger a refresh.
+    val today = rememberNow(60_000).withZoneSameInstant(zone).toLocalDate()
     var filter by rememberSaveable { mutableStateOf(Filter.ALL) }
 
     val visible = remember(rows, filter) {
@@ -174,7 +177,7 @@ fun LogsScreen(vm: AppViewModel) {
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(COL_GAP),
                                 ) {
-                                    Mono(localStamp(row.tsUtc, zone), LOCAL_W, Nocturne.Neutral300)
+                                    Mono(localStamp(row.tsUtc, zone, today), LOCAL_W, Nocturne.Neutral300)
                                     Mono(row.kind, KIND_W, Nocturne.Neutral300)
                                     Mono(row.file, FILE_W, Nocturne.Neutral400)
                                     Mono(row.repeats.toString(), STRIKES_W, Nocturne.Neutral400)
@@ -200,15 +203,22 @@ private enum class Filter(val label: String) {
 }
 
 /**
- * The stored instant in the appliance zone. `ts_utc` is untouched; when the
- * local calendar date differs from the UTC one the shift is spelled out, so a
- * 19:00Z row cannot read as "today 00:30" by accident.
+ * The stored instant in the appliance zone, with a day marker relative to
+ * **today in that zone**. `ts_utc` is untouched.
+ *
+ * The marker used to spell out the local-vs-UTC calendar shift of the same
+ * instant — which stamped "-1d" on every evening row in any zone behind UTC
+ * (in PDT, everything after 17:00), so an amp switch logged seconds ago read
+ * as yesterday's and a night could not be reconstructed from the screen.
+ * Staff ask "how many days back was this row", so that is what the marker
+ * answers: nothing for today, `-1d` for yesterday, `+1d` for a row stamped
+ * ahead of today (a clock moved backwards after logging — visibly odd on
+ * purpose).
  */
-private fun localStamp(tsUtc: String, zone: ZoneId): String {
+internal fun localStamp(tsUtc: String, zone: ZoneId, today: LocalDate): String {
     val instant = runCatching { Instant.parse(tsUtc) }.getOrNull() ?: return "—"
     val local = instant.atZone(zone)
-    val shift = local.toLocalDate().toEpochDay() -
-        instant.atZone(ZoneOffset.UTC).toLocalDate().toEpochDay()
+    val shift = local.toLocalDate().toEpochDay() - today.toEpochDay()
     val marker = when {
         shift > 0L -> " +${shift}d"
         shift < 0L -> " ${shift}d"

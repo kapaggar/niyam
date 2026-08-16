@@ -59,8 +59,8 @@ android {
         // LocalOnlyHotspot). Raise back to 29 before centre / Play builds.
         minSdk = 27
         targetSdk = 35
-        versionCode = 16
-        versionName = "0.2.0-beta15"
+        versionCode = 17
+        versionName = "0.2.0-beta16"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField(

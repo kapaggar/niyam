@@ -4,6 +4,8 @@ import android.content.Context
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -13,7 +15,6 @@ import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.resume
 
 /**
@@ -43,6 +44,7 @@ interface AudioSink {
 class ExoAudioSink(private val context: Context) : AudioSink {
 
     private var player: ExoPlayer? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     override suspend fun warmUp() {
         ensurePlayer()
@@ -59,12 +61,9 @@ class ExoAudioSink(private val context: Context) : AudioSink {
             p.play()
         }
         try {
-            // A wedged decode must not block the queue for the rest of the day.
-            val finished = withTimeoutOrNull(PLAY_TIMEOUT_MS) { awaitEnded(p) }
-            if (finished == null) {
-                withContext(Dispatchers.Main.immediate) { p.stop() }
-                error("playback did not finish within ${PLAY_TIMEOUT_MS}ms")
-            }
+            // The wedge timeout lives in PlayerEngine, which knows whether it
+            // is capping a strike or a 45-minute chant; this layer only waits.
+            awaitEnded(p)
         } catch (e: Throwable) {
             withContext(Dispatchers.Main.immediate + kotlinx.coroutines.NonCancellable) { p.stop() }
             throw e
@@ -133,11 +132,16 @@ class ExoAudioSink(private val context: Context) : AudioSink {
                 }
             }
             p.addListener(listener)
-            cont.invokeOnCancellation { p.removeListener(listener) }
+            cont.invokeOnCancellation {
+                // Cancellation is delivered on whichever thread cancelled —
+                // the engine's wedge timer or a preempting submit — and
+                // ExoPlayer asserts its own thread. A throw inside this
+                // handler is fatal by kotlinx contract: exactly the crash
+                // that took the whole service down mid-doha and swallowed the
+                // queued 21:00 gong (dropbox 2026-08-15 21:03:17). The player
+                // may only be touched from main, so post the removal.
+                mainHandler.post { p.removeListener(listener) }
+            }
         }
-    }
-
-    private companion object {
-        const val PLAY_TIMEOUT_MS = 10 * 60_000L
     }
 }

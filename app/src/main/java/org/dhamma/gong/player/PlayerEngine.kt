@@ -17,6 +17,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.dhamma.gong.data.GongRepository
 import org.dhamma.gong.domain.GongTracks
 import org.dhamma.gong.domain.PlayCommand
@@ -54,6 +55,8 @@ class PlayerEngine(
 
     data class Status(
         val playing: Boolean = false,
+        /** [PlayKind] of the running command; "" when idle. */
+        val kind: String = "",
         val label: String = "",
         /** 1-based strike index while a burst runs; 0 otherwise. */
         val strike: Int = 0,
@@ -112,9 +115,14 @@ class PlayerEngine(
     suspend fun submit(command: PlayCommand): Boolean {
         lock.withLock {
             if (command.isGong) {
-                // A new gong replaces any pending gong and kills a running one.
+                // A new gong replaces any pending gong and kills whatever is
+                // playing — another gong (bursts never stack) or a doha: the
+                // schedule outranks the chant, so a gong due mid-doha rings
+                // now rather than after it (ruling 2026-08-15; before this a
+                // 21:00 gong sat behind a 45-minute doha). Queued dohas keep
+                // their turn behind the new gong.
                 queue.removeAll { it.isGong }
-                if (current?.isGong == true) currentJob?.cancel(BurstPreempted())
+                if (current != null) currentJob?.cancel(BurstPreempted())
             }
             if (queue.size >= MAX_QUEUE) {
                 Log.e(TAG, "queue full, dropping ${command.label.ifBlank { command.kind }}")
@@ -191,7 +199,7 @@ class PlayerEngine(
                     // is still active but has already decided to exit, and
                     // its command sits queued until the next submit.
                     _status.value = _status.value.copy(
-                        playing = false, strike = 0, ofStrikes = 0, label = "",
+                        playing = false, kind = "", strike = 0, ofStrikes = 0, label = "",
                     )
                     pump = null
                 } else {
@@ -249,6 +257,7 @@ class PlayerEngine(
 
         _status.value = Status(
             playing = true,
+            kind = command.kind,
             label = command.label.ifBlank { command.kind },
             strike = 0,
             ofStrikes = command.repeats,
@@ -263,13 +272,21 @@ class PlayerEngine(
             // per file). GongTracks does the division; strike/played numbers
             // stay in hits so "n of repeats" in the log keeps meaning it.
             val plays = GongTracks.playsFor(command.repeats, command.trackStem)
+            // A wedged decode must not block the queue for the rest of the
+            // day, but the ceiling has to know what it is capping: gongs are
+            // seconds long, dohas run ~45 minutes. The old flat 10-minute cap
+            // in the sink killed every real doha mid-chant (P1 2026-08-15).
+            val wedgeMs = if (command.isGong) GONG_WEDGE_TIMEOUT_MS else DOHA_WEDGE_TIMEOUT_MS
             for (i in 0 until plays) {
                 if (i > 0 && gapMs > 0) delay(gapMs)
                 _status.value = _status.value.copy(
                     strike = GongTracks.hitsAfterPlays(i, command.repeats, command.trackStem) + 1,
                 )
                 _strikes.tryEmit(i + 1)
-                sink.play(ok.uri, command.volume, route.route.deviceId)
+                val finished = withTimeoutOrNull(wedgeMs) {
+                    sink.play(ok.uri, command.volume, route.route.deviceId)
+                }
+                if (finished == null) error("playback did not finish within ${wedgeMs}ms")
                 played = GongTracks.hitsAfterPlays(i + 1, command.repeats, command.trackStem)
             }
         } catch (e: CancellationException) {
@@ -305,7 +322,7 @@ class PlayerEngine(
             repo.statePut(AudioRoute.LAST_OK_AT_KEY, java.time.Instant.now().toString())
         }
         _status.value = _status.value.copy(
-            playing = false, strike = 0, ofStrikes = 0, label = "",
+            playing = false, kind = "", strike = 0, ofStrikes = 0, label = "",
             lastResult = result, lastFile = media.displayName,
         )
         // Relay lag-out starts here, not at the scheduled time. Never allowed
@@ -320,6 +337,17 @@ class PlayerEngine(
     companion object {
         private const val TAG = "PlayerEngine"
         const val MAX_QUEUE = 8
+
+        /** Wedge ceiling for a single gong strike — seconds of audio, minutes of slack. */
+        const val GONG_WEDGE_TIMEOUT_MS = 10 * 60_000L
+
+        /**
+         * Wedge ceiling for a doha. The longest master recording runs ~45
+         * minutes; an hour means a healthy chant is never cut, and with gongs
+         * preempting dohas a wedged one can no longer silence the schedule
+         * while it runs out its clock.
+         */
+        const val DOHA_WEDGE_TIMEOUT_MS = 60 * 60_000L
     }
 }
 

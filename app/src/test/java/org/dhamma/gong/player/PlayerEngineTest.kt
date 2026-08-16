@@ -9,6 +9,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.currentTime
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.dhamma.gong.data.GongDatabase
 import org.dhamma.gong.data.GongRepository
@@ -196,7 +197,8 @@ class PlayerEngineTest {
         val engine = engine(sink)
 
         engine.submit(gong(repeats = 16, gap = 0))
-        advanceUntilIdle() // first strike is now blocked in the sink
+        runCurrent() // first strike is now blocked in the sink (no clock advance
+        // — the wedge timeout is virtual-time-visible now and must not fire)
 
         sink.block = null
         engine.submit(gong(repeats = 2, gap = 0))
@@ -232,6 +234,102 @@ class PlayerEngineTest {
     }
 
     @Test
+    fun aGongStopsARunningDoha() = runTest {
+        // The schedule outranks the chant: a gong due while a doha plays rings
+        // now, not after it. Before this rule the 21:00 gong queued behind a
+        // 45-minute doha (found live on the Pixel C, 2026-08-15) — and a gong
+        // that waits minutes might as well be missed.
+        val sink = FakeSink()
+        val gate = CompletableDeferred<Unit>()
+        sink.block = gate
+        val engine = engine(sink)
+        mapSlot(3)
+
+        engine.submit(
+            PlayCommand(kind = PlayKind.DOHA, dohaSlot = 3, repeats = 1, volume = 75, label = "doha"),
+        )
+        runCurrent() // the doha is now blocked mid-render in the sink
+
+        sink.block = null
+        engine.submit(gong(repeats = 3, gap = 0))
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        val log = db.playLog().recent().sortedBy { it.id }
+        assertEquals(2, log.size)
+        assertEquals(PlayKind.DOHA, log[0].kind)
+        assertEquals("the doha must log its abort", PlayResult.STOPPED, log[0].result)
+        assertEquals(PlayKind.GONG, log[1].kind)
+        assertEquals(PlayResult.OK, log[1].result)
+        assertEquals("the gong must ring in full", 3, log[1].repeats)
+    }
+
+    // ------------------------------------------------------------ wedge timeout
+
+    @Test
+    fun aWedgedGongIsKilledAtTenMinutesAndLogsError() = runTest {
+        // A decode that never finishes must not hold the queue all day. The
+        // ceiling lives in the engine (which knows the kind), not the sink.
+        val sink = FakeSink()
+        sink.block = CompletableDeferred() // never completed: truly wedged
+        val engine = engine(sink)
+
+        val t0 = currentTime
+        engine.submit(gong(repeats = 1, gap = 0))
+        advanceUntilIdle()
+
+        assertEquals(PlayerEngine.GONG_WEDGE_TIMEOUT_MS, currentTime - t0)
+        val row = db.playLog().recent().single()
+        assertEquals(PlayResult.ERROR, row.result)
+        assertTrue(row.detail.contains("did not finish"))
+    }
+
+    @Test
+    fun aWedgedDohaGetsTheFullHourAndTheQueueSurvivesIt() = runTest {
+        // Dohas run ~45 minutes, so their wedge ceiling is an hour — the old
+        // flat 10-minute cap killed every real doha mid-chant (P1 2026-08-15,
+        // and the crash it triggered took the queued gong down with it).
+        val sink = FakeSink()
+        sink.block = CompletableDeferred()
+        val engine = engine(sink)
+        mapSlot(4)
+
+        val t0 = currentTime
+        engine.submit(
+            PlayCommand(kind = PlayKind.DOHA, dohaSlot = 4, repeats = 1, volume = 75, label = "doha"),
+        )
+        advanceUntilIdle()
+
+        assertEquals(PlayerEngine.DOHA_WEDGE_TIMEOUT_MS, currentTime - t0)
+        val row = db.playLog().recent().single()
+        assertEquals(PlayKind.DOHA, row.kind)
+        assertEquals(PlayResult.ERROR, row.result)
+
+        // The pump must outlive the kill: the next burst still plays.
+        sink.block = null
+        engine.submit(gong(repeats = 2, gap = 0))
+        advanceUntilIdle()
+        val gongRow = db.playLog().recent().first { it.kind == PlayKind.GONG }
+        assertEquals(PlayResult.OK, gongRow.result)
+    }
+
+    @Test
+    fun aHealthyLongDohaIsNotKilled() = runTest {
+        // 45 minutes of chant is normal operation, not a wedge.
+        val sink = FakeSink(durationMs = 45 * 60_000L)
+        val engine = engine(sink)
+        mapSlot(2)
+
+        engine.submit(
+            PlayCommand(kind = PlayKind.DOHA, dohaSlot = 2, repeats = 1, volume = 75, label = "doha"),
+        )
+        advanceUntilIdle()
+
+        val row = db.playLog().recent().single()
+        assertEquals(PlayResult.OK, row.result)
+    }
+
+    @Test
     fun aSecondGongReplacesAQueuedGongRatherThanStacking() = runTest {
         val sink = FakeSink()
         val gate = CompletableDeferred<Unit>()
@@ -242,7 +340,8 @@ class PlayerEngineTest {
         engine.submit(gong(repeats = 1, gap = 0, kind = PlayKind.DOHA).copy(dohaSlot = 1))
         advanceUntilIdle()
 
-        // Two gongs queued behind the blocked doha: only the newest survives.
+        // Two gongs submitted while the doha is aborting: only the newest
+        // survives to play — gongs replace queued gongs, never stack.
         sink.block = null
         engine.submit(gong(repeats = 2, gap = 0))
         engine.submit(gong(repeats = 7, gap = 0))
@@ -264,7 +363,7 @@ class PlayerEngineTest {
         val engine = engine(sink)
 
         engine.submit(gong(repeats = 16, gap = 0))
-        advanceUntilIdle()
+        runCurrent() // blocked in the sink; do not advance into the wedge timeout
         engine.stop()
         gate.complete(Unit)
         advanceUntilIdle()
@@ -284,7 +383,7 @@ class PlayerEngineTest {
         mapSlot(3)
 
         engine.submit(gong(repeats = 4, gap = 0))
-        advanceUntilIdle()
+        runCurrent() // blocked in the sink; do not advance into the wedge timeout
         engine.submit(PlayCommand(kind = PlayKind.DOHA, dohaSlot = 3, repeats = 1, label = "doha"))
         engine.stop()
         gate.complete(Unit)
@@ -484,7 +583,7 @@ class PlayerEngineTest {
         engine.submit(
             PlayCommand(kind = PlayKind.DOHA, dohaSlot = 8, repeats = 1, volume = 90, label = "doha"),
         )
-        advanceUntilIdle()
+        runCurrent() // blocked in the sink; advancing would fire the wedge timeout
         assertTrue("the first command is sounding", engine.busy.value)
 
         gate.complete(Unit)

@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.dhamma.gong.data.GongDatabase
 import org.dhamma.gong.data.GongRepository
@@ -176,8 +177,11 @@ class AmpHoldsAcrossThePlayTest {
         )
         assertEquals("the arm must survive its own gong", at(2, 4, 0), armedForDeadline)
 
-        // 3. A heartbeat mid-burst, with strikes still going out.
-        advanceUntilIdle()
+        // 3. A heartbeat mid-burst, with strikes still going out. runCurrent,
+        //    not advanceUntilIdle: the sink is gate-blocked, and advancing the
+        //    virtual clock would fire the engine's wedge timeout and end the
+        //    burst before the heartbeat probes it.
+        runCurrent()
         assertTrue("the burst should be sounding by now", sink.played.isNotEmpty())
         testNow = at(2, 4, 0, 30)
         engine.tick(testNow)

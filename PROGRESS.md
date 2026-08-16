@@ -2,7 +2,37 @@
 
 Standalone repo **`kapaggar/niyam`** (branch `main`), extracted with history from the gongserver monorepo's `android/` tree.
 
-Last updated: 2026-08-14, **beta15: the amp no longer switches off on the
+Last updated: 2026-08-15, **beta16: a doha no longer kills the appliance at
+the 10-minute mark, and a gong due mid-doha rings now** (`0.2.0-beta16`,
+`versionCode` 17) — a P1 caught **live** on the Pixel C bench: a test doha was
+started at 20:53, and at exactly 21:03:17 the process died (dropbox has the
+stack), taking the queued 21:00 gong with it — no sound, no log row, and the
+Dashboard calmly showing tomorrow's gong. Three faults stacked: **1.** the
+sink's flat `PLAY_TIMEOUT_MS` of 10 minutes — written for wedged decoders,
+tested only against fakes and synthetic tones — fired on every real doha
+(43–46 MB masters, ~45 min). **2.** The kill path itself was the fatal part:
+`cont.invokeOnCancellation { p.removeListener(listener) }` runs on whichever
+thread cancels (the timeout timer, a preempting submit, Stop), ExoPlayer
+asserts its own thread, and a throw inside `invokeOnCancellation` is fatal by
+kotlinx contract. The listener removal is now posted to main, and the wedge
+timeout moved into `PlayerEngine`, which knows what it is capping: strikes
+keep 10 minutes, dohas get an hour — and being engine-level it finally runs on
+the test scheduler's virtual clock, so both ceilings are pinned by JVM tests.
+`RelayPlan.DOHA_CEILING_SECONDS` rode up 1800 → 3600 to match, or the Shelly's
+device-side watchdog would cut the amp under a 45-minute chant the player is
+still rendering. **3.** A gong arriving while a doha played used to queue
+behind it — up to 45 minutes late, which is worse than missed. Ruling: the
+schedule outranks the chant; `submit` now aborts a running doha for any gong
+(the doha logs `stopped`), while a queued doha still waits its turn. Also in
+this build: `GongService`'s scope gained a logging `CoroutineExceptionHandler`
+(SupervisorJob contains nothing — one escaped exception in any launched child
+was killing the whole appliance, which is exactly how fault 2 became fault 3),
+and the Logs day marker now means "days before today in the appliance zone" —
+it used to spell the local-vs-UTC calendar shift, which stamped `-1d` on every
+evening row west of Greenwich and made a fresh amp_on read as yesterday's.
+430 JVM tests green (+10: gong-stops-doha, both wedge ceilings, a healthy
+45-minute doha surviving, six on the day marker).
+Prior: **beta15: the amp no longer switches off on the
 first strike** (`0.2.0-beta15`, `versionCode` 16) — a P1 found in the beta14
 amp log. The tablet recorded `amp_on` at 10:59:30, `amp_off` at 11:00:00 and
 then a 16-strike gong finishing at 11:02:37: the amp was dead for the entire
@@ -140,15 +170,19 @@ cd /Users/wizops/DIPI/niyam
 ```
 
 `local.properties` (gitignored) must contain `sdk.dir=/Users/wizops/Android/Sdk`.
-Environment used: JDK 20, AGP 8.7.2, Kotlin 2.0.21, Gradle 8.9, compileSdk 35
-(auto-downloaded on first build), minSdk 29.
+Environment used: JDK 20 (build targets 17), AGP 8.7.2, Kotlin 2.0.21,
+Gradle 8.9, compileSdk 35 (auto-downloaded on first build), minSdk **27** —
+TEMP-lowered from the design floor of 29 so the API-27 Pixel C bench tablet
+can sideload; raise back to 29 before centre / Play builds.
 
-**Next milestone: human tablet beta.** Hand `app-debug.apk` (`0.2.0-beta9`,
-built **with** `media.properties` filled in so downloads work — check
-Setup shows `Media key: present`) to a tester with `docs/BETA-QA-CHECKLIST.md`. Every screen in design doc
-§08 now exists. The two checks that most need real hardware are the Shelly
-relay and an audio route — no Bluetooth amp or USB DAC has been on the bench,
-so Bluetooth burst latency is still an unmeasured number.
+**Next milestone: human tablet beta.** Hand the R8 release APK
+(`app/build/outputs/apk/release/app-release.apk`, `0.2.0-beta16`, debug-key
+signed for sideload, built **with** `media.properties` filled in so downloads
+work — check Setup shows `Media key: present`) to a tester with
+`docs/BETA-QA-CHECKLIST.md`. Every screen in design doc §08 now exists or was
+deliberately folded into Setup. The two checks that most need real hardware are
+the Shelly relay and an audio route — no Bluetooth amp or USB DAC has been on
+the bench, so Bluetooth burst latency is still an unmeasured number.
 
 ---
 
@@ -164,7 +198,9 @@ so Bluetooth burst latency is still an unmeasured number.
 
 Conflicts resolved so far:
 - **minSdk 29**, not the prompt's 26 — design doc §03 (uniform SAF, dependable
-  LocalOnlyHotspot). Recorded in `app/build.gradle.kts`.
+  LocalOnlyHotspot). Currently TEMP-lowered to **27** in `app/build.gradle.kts`
+  for the Pixel C bench tablet; 29 stays the design floor for centre / Play
+  builds.
 - **`setAlarmClock`**, not `setExactAndAllowWhileIdle` — design doc §03.
 - Course types are **12** in the seed; the handoff's "13" counts the UI's
   "No course" row, which is `course_type_id IS NULL`, not a DB row.
@@ -232,31 +268,59 @@ log-trim on day rollover. Route warm-up 15 s ahead.
 | Stop aborts + logs `stopped` | yes | **yes** | `PlayerEngineTest` |
 | Untrusted clock silences auto plays | yes | **yes** | `ClockTrustTest`, `SchedulerEngineTest` |
 | Toggle silences without retro-firing | yes | **yes** | `SchedulerEngineTest` |
-| Backup DB | yes | **no** | M6 |
+| Backup DB (as config export/restore, not a DB copy) | yes | **yes** | `BackupFileTest`, `BackupManagerTest` |
 | Schedule editor | yes (web UI) | **yes** | M4 grid + inspector |
 | Nullable gap/track = inherit | yes | **yes** | `SeedAndRepositoryTest`, inspector |
 | Appliance TZ from config, not host | yes (`config.timezone`) | **yes** (`timezone` setting) | `ApplianceZoneTest` |
 
 ---
 
-## Test inventory (130)
+## Test inventory (420, 39 classes)
+
+Count with `grep -a` — five test files carry non-UTF-8 bytes and plain grep
+skips them as binary, under-counting by 12.
 
 | Class | N | What it guards |
 |---|---|---|
-| `SchedulerCoreTest` | 19 | tick semantics, grace edges, toggles, doha resolution |
+| `AssetResolveTest` | 42 | CDN asset repair/promote decisions (pure) |
+| `RelayPlanTest` | 27 | amp pre-arm/off rules, ampLog rows, host redaction |
+| `PlayerEngineTest` | 23 | burst timing (gap after strike), preemption, stop, missing media, route fallback |
 | `SchedulerEngineTest` | 21 | power cut, process death, reboot, clock jumps, pruning, active_course_id pin |
-| `PlayerEngineTest` | 18 | burst timing (gap after strike), preemption, stop, missing media, route fallback |
-| `ApplyOutcomeTransactionTest` | 2 | marks+logs land atomically; orphaned guards roll back |
+| `AssetStoreTest` | 20 | download/decrypt/verify store IO |
+| `SchedulerCoreTest` | 19 | tick semantics, grace edges, toggles, doha resolution |
+| `NetworkFactsTest` | 19 | mode/address/metered parsing, hotspot heuristic |
 | `SeedAndRepositoryTest` | 19 | seed idempotence, Pi column parity, guard atomicity, corrupt rows |
-| `ClockTrustTest` | 7 | backwards jump, NTP recovery, confirm |
-| `DstAndDayMathTest` | 6 | spring-forward gap, fall-back ambiguity, `/86400` regression |
-| `ActiveCourseTest` | 5 | window, overlap, pin |
-| `ScheduleMaterializerTest` | 5 | day precedence, doha injection |
-| `FireRulesTest` | 6 | the window, in isolation |
-| `DohaSlotsTest` | 4 | golden slot tables per course type |
-| `ApplianceZoneTest` | 7 | timezone-setting resolution, IST fallback, dynamic-zone clock |
+| `DohaPackMapperTest` | 16 | SAF folder auto-map, conflicts, precedence |
+| `RoutePlanTest` | 12 | route fallback rule, chosen vs effective |
+| `BackupFileTest` | 12 | backup format: what travels, what must not |
+| `IntegrityTest` | 12 | checksum/magic verification |
+| `ShellyClientTest` | 11 | Gen2+ RPC, auth, timeouts |
+| `DohaSlotsTest` | 11 | golden slot tables per course type |
+| `CourseSeedTest` | 11 | calendar seeding guards |
+| `CdnDownloaderTest` | 10 | resume, truncation, HTML soft-fail |
+| `TabRailTest` | 9 | Simple/Advanced rail, deep-link tab requests |
+| `ApplianceZoneTest` | 9 | timezone-setting resolution, follow-device, pin |
+| `BackupManagerTest` | 9 | one-transaction restore, counts |
+| `StorageLocatorTest` | 9 | depth-2 scan |
+| `LivenessTest` | 8 | stale/unknown/future tick states |
+| `GongTracksTest` | 8 | repeats = audible hits (sikkim ×3) |
 | `PinCodeTest` | 7 | PBKDF2 hash/verify, salting, stored format, 4–8 digit shape |
+| `ClockTrustTest` | 7 | backwards jump, NTP recovery, confirm |
+| `OpenSslSaltedAesTest` | 7 | `Salted__` envelope decrypt |
+| `ReadinessTest` | 6 | READY banner aggregation |
+| `FireRulesTest` | 6 | the window, in isolation |
+| `DstAndDayMathTest` | 6 | spring-forward gap, fall-back ambiguity, `/86400` regression |
+| `AudioAssetManagerTest` | 6 | single-flight orchestration |
+| `AssetCatalogTest` | 6 | manifest parsing |
+| `ThemeModeTest` | 5 | dark/light/follow resolution |
+| `ScheduleMaterializerTest` | 5 | day precedence, doha injection |
+| `ActiveCourseTest` | 5 | window, overlap, pin |
 | `VirtualClockLedgerTest` | 4 | 400-day ledger over every course type (1.9 s) |
+| `UiModeTest` | 4 | simple/advanced resolution |
+| `MissedDoesNotBlockLaterFireTest` | 4 | `missed:` marks never consume `fired:` |
+| `ApplyOutcomeTransactionTest` | 2 | marks+logs land atomically; orphaned guards roll back |
+| `DownloadedSlotRegistrarTest` | 2 | downloaded-source precedence |
+| `AmpHoldsAcrossThePlayTest` | 1 | relay holds through fire tick → mid-burst → lag-out |
 
 Two test-harness facts worth keeping:
 1. Room's own executor is invisible to `runTest`'s scheduler. Any test that
@@ -288,18 +352,18 @@ Nocturne tokens are already transcribed in `ui/Theme.kt`.
 - **Logs** (no PIN): UTC timestamps, filter chips, result colouring.
 - Toasts on every immediate save; no save buttons anywhere.
 
-Not yet designed (draw as locked nav entries at 42 % opacity with a 🔒):
-Sounds, Audio out, Time, Network, Setup checklist, PIN lock.
+(Historical: Sounds, Audio out, Time, Network, Setup and the PIN lock began as
+locked nav entries; all have since shipped — Network as a Setup card, its
+screen deleted — and no locked entries remain.)
 
 ### M5 — the five undesigned screens + PIN
 **Time** and **Setup** shipped 2026-08-09 in the beta screen review
 (`ui/TimeScreen.kt`, `ui/SetupScreen.kt`): Time shows the appliance zone against
 the device zone, sets `timezone` from a common list or a validated IANA id, and
 confirms an untrusted clock; Setup binds a permission checklist to the real
-`AppliancePermissions.status` and shows live scheduler state. Sounds, Audio out
-and Network are still nav entries only and need visual design first (design doc
-§08 says what each must answer); their locked cards now state what the screen
-will do and that the schedule runs without it.
+`AppliancePermissions.status` and shows live scheduler state. Sounds and Audio
+out shipped later (beta2–beta5); Network shipped and was then folded into a
+Setup `NetworkCard` when its screen was deleted in beta12.
 
 The PIN gate shipped 2026-08-08 as an **app-open** gate (stricter than the
 per-tab design): `domain/PinCode.kt` (salted PBKDF2 into `admin_pin_hash`),
@@ -529,7 +593,8 @@ that worked. About 200 lines of now-dead table code went with it.
 
 **PIN** is no longer a nav entry; it is a card on Setup. It is an install-day
 decision made once by the same person working through the OS grants, not
-somewhere staff visit. The nav rail is down to nine entries.
+somewhere staff visit. The nav rail is down to nine entries (since beta12:
+nine in Advanced, five in Simple — the default).
 
 **Schedule** gained the explanatory subtitle it was missing (days across, times
 down, what DEF means, what a blank gap/track means). The grid, the DEF column
@@ -702,7 +767,8 @@ labelled a guess). Parsing lives in pure `domain/NetworkFacts.kt`;
 throws is a blank row, never a missed gong.
 
 Suite 334 green (+33). New: `domain/RoutePlan.kt`, `domain/NetworkFacts.kt`,
-`net/NetworkProbe.kt`, `ui/AudioOutScreen.kt`, `ui/NetworkScreen.kt`.
+`net/NetworkProbe.kt`, `ui/AudioOutScreen.kt`, `ui/NetworkScreen.kt` (the
+screen was later deleted in beta12; its facts live on in Setup's `NetworkCard`).
 `ACCESS_WIFI_STATE` added; `ACCESS_FINE_LOCATION` deliberately not.
 
 ### Doha download pipeline (2026-08-09, `0.2.0-beta2`)
@@ -735,21 +801,20 @@ A keyless build still plays already-verified files. Live-CDN "download all"
 remains a manual QA item (`docs/BETA-QA-CHECKLIST.md`).
 
 ### M7 — hardening before any Play upload
-Battery-optimisation guidance, R8 rules, privacy stub, permission rationale
-strings, media-pack install docs.
+R8 + resource shrinking shipped in beta12 (`proguard-rules.pro`); `PRIVACY.md`
+exists at the repo root. Still open: battery-optimisation guidance, permission
+rationale strings, media-pack install docs, and raising minSdk back to 29.
 
 ---
 
 ## Known gaps / decisions still open
 
-- **Ran on an emulator, never on real hardware.** The end-to-end fire was
-  verified on the `cca34` AVD (API 34): seed loaded, a 10 Day course starting
-  today showed Day 0, an event ~75 s ahead was picked up by the heartbeat,
-  `setAlarmClock` woke the service at `19:13:00.006`, the burst fired, and
-  `play_log` recorded `gong|ting.mp3|3|ok`. Earlier events that day logged
-  `missed` rather than blasting late.
-  The overnight-on-a-tablet run from design doc M1 has **not** happened, and
-  OEM battery behaviour (risk #1) is untested by definition.
+- **Real-hardware time is still thin.** The end-to-end fire was first verified
+  on the `cca34` AVD (API 34); since then beta9 was diagnosed against a real
+  Pixel C at a centre and beta12 was smoke-tested on the Pixel C bench tablet
+  (minSdk TEMP-lowered to 27 for it). A deliberate multi-day
+  overnight-on-a-tablet soak from design doc M1 has still **not** happened,
+  and OEM battery behaviour (risk #1) remains unproven.
 - Emulator note: the `Android31`, `dhamma` and `dhammaplay` AVDs have broken
   `image.sysdir` paths — only `cca34` boots, because android-34 is the one
   system image installed.
@@ -758,7 +823,9 @@ strings, media-pack install docs.
   been seen at their intended size.
 - Release builds ship **no doha audio at all** — `media_slots` is empty until
   staff sideload a pack, and the dashboard is expected to show `GONGS ONLY`.
-- `relay_enabled` is retained in settings for Pi parity and is inert.
+- `relay_enabled` (Pi parity key) is live since the Shelly relay shipped: read
+  by `RelayController`, toggled from the Dashboard (Advanced) and the Setup
+  amp card.
 - Design doc §14 open questions are all still open; #1 (which tablet model)
   blocks M1-field-testing in the design doc's own numbering.
 
@@ -777,9 +844,9 @@ Contains design/plan/implementation overview, P1–P3 findings, reinstall steps,
 - **B1 (2026-08-08, Fable): appliance timezone.** The scheduler clock no longer
   uses `ZoneId.systemDefault()`. `domain/ApplianceZone.kt` resolves the
   `timezone` setting (Pi parity: the daemon's config defaulted
-  `Asia/Kolkata`); blank or unparseable values fall back to IST — important
-  because devices seeded before this fix carry a persisted `timezone=""` row
-  that `SeedLoader.insertMissing` will never overwrite. `SystemGongClock` now
+  `Asia/Kolkata`); blank or unparseable values fell back to IST at the time.
+  (Superseded by beta7: blank now means **follow the device** and there is no
+  IST fallback — see "Screen simplification" above.) `SystemGongClock` now
   takes a zone *provider*, and `GongService` re-reads the setting on every
   poke/time-change, so a future Time-screen edit takes effect without a service
   restart. The dashboard hero clock, course "today" resolution, and the

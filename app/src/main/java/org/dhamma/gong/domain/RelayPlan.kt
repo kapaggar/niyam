@@ -43,8 +43,15 @@ object RelayPlan {
     /** Conservative per-strike allowance; bundled tracks are a few seconds. */
     const val PER_STRIKE_SECONDS: Long = 10
 
-    /** Doha length is unknown before playback and a chant can run long. */
-    const val DOHA_CEILING_SECONDS: Long = 1800
+    /**
+     * Doha length is unknown before playback and a chant can run long. Must
+     * ride at or above the player's `DOHA_WEDGE_TIMEOUT_MS`: the master
+     * recordings run ~45 minutes, and a watchdog shorter than the play cuts
+     * the amp mid-chant — the tablet keeps rendering into a dead amplifier
+     * and nothing logs it. Erring long is safe; the explicit lag-out OFF
+     * still fires 5 s after the play ends.
+     */
+    const val DOHA_CEILING_SECONDS: Long = 3600
 
     /** Watchdog slack on top of lead + play + lag. */
     const val MARGIN_SECONDS: Long = 60

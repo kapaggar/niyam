@@ -56,6 +56,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.dhamma.gong.domain.Liveness
 import org.dhamma.gong.domain.Occurrence
+import org.dhamma.gong.domain.PlayKind
 import org.dhamma.gong.domain.PlayResult
 import org.dhamma.gong.domain.UiMode
 import org.dhamma.gong.service.AppliancePermissions
@@ -580,13 +581,17 @@ private fun TestPanel(
 
     Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            // Re-entry guard: a second tap while a burst is ringing would
-            // preempt it and log a `stopped`. The button stays visually
-            // enabled — only the action is inert. Stop remains the way out.
-            BellButton(rings.lastOrNull(), player.playing) { if (!player.playing) vm.testGong() }
+            // Re-entry guard, gongs only: a second tap while a GONG is ringing
+            // would preempt it and restart the burst, so that tap is inert
+            // (Stop remains the way out). A tap while a DOHA plays goes
+            // through — the gong outranks the chant everywhere, same as the
+            // scheduled path (ruling 2026-08-15).
+            val gongRinging = player.playing &&
+                (player.kind == PlayKind.GONG || player.kind == PlayKind.TEST_GONG)
+            BellButton(rings.lastOrNull(), player.playing) { if (!gongRinging) vm.testGong() }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
-                    onClick = { if (!player.playing) vm.testGong() },
+                    onClick = { if (!gongRinging) vm.testGong() },
                     modifier = Modifier.fillMaxWidth().height(50.dp),
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.buttonColors(

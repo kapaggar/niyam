@@ -1,19 +1,21 @@
-# Niyam 0.2.0-beta15 — human QA
+# Niyam 0.2.0-beta16 — human QA
 
-Device: ________  Android: ________  Build: release APK, R8-shrunk (`versionCode` 14)
+Device: ________  Android: ________  Build: release APK, R8-shrunk (`versionCode` 17)
 
 Check **Setup → Appliance state** on the tablet before you start:
 
-- **Build** must read `0.2.0-beta15 (16)`. If it does not, the install did not
+- **Build** must read `0.2.0-beta16 (17)`. If it does not, the install did not
   take — reinstall before reporting anything.
 - **Media key** tells you which doha-download section applies. `present` means
   downloads should work; `absent — doha downloads off` is a deliberate build
   state, not a fault on the tablet.
 
-APK: `app/build/outputs/apk/debug/app-debug.apk`
+APK: `app/build/outputs/apk/release/app-release.apk` (R8-shrunk, debug-key
+signed for sideload; `app/build/outputs/apk/debug/app-debug.apk` also installs
+over it in place).
 
-This build is the first pass of the beta screen review. Every item below was
-changed or is a known gap — please try to break them in that order.
+Every item below was changed recently or is a known gap — please try to break
+them in that order.
 
 ---
 
@@ -156,7 +158,31 @@ the Simple / Advanced section below.
       no Save button; a bad value like `25:00` toasts and does not save
 - [ ] Untrusted clock: Dashboard banner and Setup clock row both offer Confirm,
       and neither mentions a Time screen while in Simple
-- [ ] Setup → Appliance state → Build reads `0.2.0-beta15 (16)`
+- [ ] Setup → Appliance state → Build reads `0.2.0-beta16 (17)`
+
+## Long plays and preemption (fixed in this build)
+
+Until beta16 every real doha died at exactly 10 minutes and took the whole
+service process down with it: the play was killed by a flat timeout meant for
+wedged decoders, the kill path crashed off the main thread, nothing was
+logged, and any gong queued or due during the doha was silently consumed (its
+never-ring-twice guard is written before dispatch, so it never rang at all).
+
+- [ ] Play a real doha (30+ min) end to end — it must finish, and Logs must
+      show one `doha … ok` row with the correct file
+- [ ] Start a doha, then let a **scheduled gong** fire mid-chant → the doha
+      stops, the gong rings **on time**, and Logs shows `doha … stopped`
+      then `gong … ok`
+- [ ] Start a doha, press **Stop** mid-chant → chant stops, `doha … stopped`
+      row appears, and the appliance stays up (Scheduler still `alive` on the
+      Dashboard — in beta15 this path could kill the process)
+- [ ] Start a doha, press **Test gong** → same as the scheduled gong: doha
+      stops, gong rings
+- [ ] After any of the above, Logs rows written this evening carry **no day
+      marker** — until beta16 every row after 17:00 (in a UTC-negative zone)
+      read `-1d` as if it were yesterday's
+- [ ] With the amp relay enabled, a doha longer than 30 minutes keeps the amp
+      powered to the end (the device-side watchdog now allows a full hour)
 
 ## Sounds — doha pack folder
 
@@ -518,9 +544,10 @@ These are understood and deliberately not fixed here.
    CIDR, and the relay host is typed at setup, so the narrowing lives in code —
    `ShellyClient` is the app's only networking. Worth tightening if the relay
    ever gets a fixed address.
-9. **Sounds is partial.** It holds the doha slot mapping and CDN downloads;
-   track choice, volumes, burst gap, doha time and no-course mode are still
-   unbuilt.
+9. **Sounds is feature-complete but bench-light.** Doha slot mapping, CDN
+   downloads, gong track choice, volumes, burst gap, doha time and no-course
+   mode are all wired to the settings the scheduler and player read; what it
+   lacks is time on real hardware, not features.
 10. **The download pipeline has not met the live CDN from a device.** Every
     layer is unit-tested against fixtures and a local fake server with the
     real catalog hashes, but "Download all dohas" against
